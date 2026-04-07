@@ -43,6 +43,129 @@ const herdData = {
   }
 }
 
+const animalListData = {
+  '12/345/6789': [
+    { officialId: 'UK34123000624', earTagNumber: 'UK34123000624', breed: 'JEX', sex: 'F', dob: '21/11/2022', age: '29 months', vaccinationStatus: 'Not vaccinated', notes: '' },
+    { officialId: 'UK34123000815', earTagNumber: 'UK34123000815', breed: 'HO', sex: 'F', dob: '27/07/2023', age: '21 months', vaccinationStatus: 'Vaccinated', notes: '' },
+    { officialId: 'UK34123000880', earTagNumber: 'UK34123000880', breed: 'HF', sex: 'F', dob: '20/01/2023', age: '27 months', vaccinationStatus: 'Not vaccinated', notes: '' },
+    { officialId: 'UK34123000883', earTagNumber: 'UK34123000883', breed: 'HF', sex: 'F', dob: '23/03/2017', age: '8 years', vaccinationStatus: 'Vaccinated', notes: '' },
+    { officialId: 'UK34123001493', earTagNumber: 'UK34123001493', breed: 'HF', sex: 'F', dob: '10/12/2025', age: '4 months', vaccinationStatus: 'Not vaccinated', notes: 'NO Gamma' },
+    { officialId: 'UK34123001538', earTagNumber: 'UK34123001538', breed: 'AAX', sex: 'M', dob: '25/12/2025', age: '4 months', vaccinationStatus: 'Not vaccinated', notes: 'NO Gamma' },
+    { officialId: 'UK34123412177', earTagNumber: 'UK34123412177', breed: 'HF', sex: 'F', dob: '06/12/2022', age: '28 months', vaccinationStatus: 'Vaccinated', notes: 'Duplicate' },
+    { officialId: 'UK34112302177', earTagNumber: 'UK34112302177', breed: 'BF', sex: 'F', dob: '06/12/2024', age: '4 months', vaccinationStatus: 'Not vaccinated', notes: 'Duplicate' },
+    { officialId: 'UK34160350818', earTagNumber: 'UK34160350818', breed: 'HF', sex: 'F', dob: '06/12/2021', age: '3 years', vaccinationStatus: 'Vaccinated', notes: 'Duplicate' },
+    { officialId: 'UK34168750818', earTagNumber: 'UK34168750818', breed: 'HF', sex: 'F', dob: '06/12/2023', age: '16 months', vaccinationStatus: 'Vaccinated', notes: 'Duplicate' }
+  ],
+  '12/345/6789-UK123456001': [
+    { officialId: 'UK123456001', earTagNumber: 'UK123456001', breed: 'HF', sex: 'F', dob: '21/11/2022', age: '29 months', vaccinationStatus: 'Not vaccinated', notes: '' }
+  ],
+  '98/765/4321': [
+    { officialId: 'UK98765001101', earTagNumber: 'UK98765001101', breed: 'AA', sex: 'F', dob: '04/01/2024', age: '15 months', vaccinationStatus: 'Vaccinated', notes: '' },
+    { officialId: 'UK98765001102', earTagNumber: 'UK98765001102', breed: 'AA', sex: 'M', dob: '14/02/2024', age: '14 months', vaccinationStatus: 'Not vaccinated', notes: '' },
+    { officialId: 'UK98765001103', earTagNumber: 'UK98765001103', breed: 'LM', sex: 'F', dob: '23/08/2023', age: '20 months', vaccinationStatus: 'Vaccinated', notes: '' }
+  ]
+}
+
+const sortKeyMap = {
+  'Age': 'age',
+  'Vaccination status': 'vaccinationStatus',
+  'Ear-tag number': 'earTagNumber',
+  'Sex': 'sex',
+  'Breed': 'breed'
+}
+
+const pdfColumnLabelMap = {
+  'Age': 'Age',
+  'Vaccination status': 'Vaccination status',
+  'Ear-tag number': 'Ear-tag number',
+  'Sex': 'Sex',
+  'Breed': 'Breed'
+}
+
+function normaliseArray(value) {
+  if (!value) return []
+  return Array.isArray(value) ? value : [value]
+}
+
+function getSelectedAnimals(req) {
+  const selected = req.session.data.selectedCattle
+  if (selected && animalListData[selected]) {
+    return animalListData[selected]
+  }
+
+  return animalListData['12/345/6789']
+}
+
+function buildRenderedList(req) {
+  const selectedFields = normaliseArray(req.session.data.fields)
+  const sortBy = req.session.data.sortBy || 'Ear-tag number'
+  const sortDirection = req.session.data.sortDirection || 'ascending'
+  const format = req.session.data.downloadFormat || 'pdf'
+  const herd = req.session.data.herd || herdData['12/345/6789']
+
+  const animals = getSelectedAnimals(req).map(item => ({ ...item }))
+  const sortKey = sortKeyMap[sortBy] || 'earTagNumber'
+
+  animals.sort((a, b) => {
+    const first = String(a[sortKey] || '').toLowerCase()
+    const second = String(b[sortKey] || '').toLowerCase()
+    const result = first.localeCompare(second, undefined, { numeric: true })
+    return sortDirection === 'descending' ? result * -1 : result
+  })
+
+  if (format === 'csv') {
+    const columns = ['Official animal identifier']
+
+    selectedFields.forEach(field => {
+      if (!columns.includes(field)) {
+        columns.push(field)
+      }
+    })
+
+    const rows = animals.map(animal => ({
+      'Official animal identifier': animal.officialId,
+      'Age': animal.age,
+      'Vaccination status': animal.vaccinationStatus,
+      'Ear-tag number': animal.earTagNumber,
+      'Sex': animal.sex,
+      'Breed': animal.breed
+    }))
+
+    return {
+      format,
+      columns,
+      rows,
+      farmName: herd.farm,
+      cph: herd.cph
+    }
+  }
+
+  const pdfColumns = selectedFields.length ? selectedFields : ['Breed', 'Sex']
+  const rows = animals.map(animal => ({
+    officialId: animal.officialId,
+    'Age': animal.age,
+    'Vaccination status': animal.vaccinationStatus,
+    'Ear-tag number': animal.earTagNumber,
+    'Sex': animal.sex,
+    'Breed': animal.breed,
+    'Vaccinator barcode / Notes': animal.notes || ''
+  }))
+
+  return {
+    format,
+    columns: pdfColumns.map(field => pdfColumnLabelMap[field] || field),
+    rows,
+    farmName: herd.farm,
+    cph: herd.cph
+  }
+}
+
+// GET /v1-0/start
+// Show the start page for the service
+router.get('/v1-0/start', function (req, res) {
+  res.render('v1-0/start')
+})
+
 //
 // ============================================================================
 // Sign in
@@ -163,6 +286,7 @@ router.get('/v1-0/schedule-vaccination-confirmation', function (req, res) {
 // GET /v1-0/prepare-list-for
 // Show first page of the prepare list journey
 router.get('/v1-0/prepare-list-for', function (req, res) {
+  req.session.data.prepareListBackLink = req.query.from === 'workorder' ? 'workorder' : 'dashboard'
   res.render('v1-0/prepare-list-for')
 })
 
@@ -255,12 +379,11 @@ router.get('/v1-0/herd-details', function (req, res) {
 // Purpose:
 // - Let user choose format and fields for their list
 // - Confirm selected options before download
-// Notes:
-// - Download is currently a prototype stub
+// - Render an HTML preview in the selected output style
 //
 
 // GET /v1-0/prepare-list-download
-// Show page where user chooses whether to continue to download options
+// Show page where user chooses download format
 router.get('/v1-0/prepare-list-download', function (req, res) {
   res.render('v1-0/prepare-list-download')
 })
@@ -283,21 +406,15 @@ router.get('/v1-0/customise-list', function (req, res) {
 })
 
 // POST /v1-0/check-list
-// Save field selections and sort order, then continue to check answers
+// Save field selections, sort field and sort direction
 // Session:
 // - req.session.data.fields
 // - req.session.data.sortBy
-// Notes:
-// - fields may be submitted as a string or array, so normalise to array
+// - req.session.data.sortDirection
 router.post('/v1-0/check-list', function (req, res) {
-  let fields = req.body.fields || []
-
-  if (!Array.isArray(fields)) {
-    fields = [fields]
-  }
-
-  req.session.data.fields = fields
+  req.session.data.fields = normaliseArray(req.body.fields)
   req.session.data.sortBy = req.body.sortBy
+  req.session.data.sortDirection = req.body.sortDirection
 
   res.redirect('/v1-0/check-list')
 })
@@ -309,18 +426,17 @@ router.get('/v1-0/check-list', function (req, res) {
 })
 
 // POST /v1-0/download-list
-// Prototype submit step for download action
-// Redirects to the download page
+// Confirm list settings and redirect to rendered preview page
 router.post('/v1-0/download-list', function (req, res) {
   res.redirect('/v1-0/download-list')
 })
 
 // GET /v1-0/download-list
-// Show final download page
-// Notes:
-// - Download functionality is currently a fake / stubbed action
+// Show rendered list using selected format, fields and ordering
 router.get('/v1-0/download-list', function (req, res) {
-  res.render('v1-0/download-list')
+  res.render('v1-0/download-list', {
+    renderedList: buildRenderedList(req)
+  })
 })
 
 module.exports = router

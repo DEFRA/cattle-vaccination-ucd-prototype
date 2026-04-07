@@ -1,5 +1,13 @@
 {% extends "layouts/main.html" %}
 {% block pageTitle %}Customise list – GOV.UK{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/prepare-list-download"
+}) }}
+{% endblock %}
+
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
@@ -18,7 +26,7 @@
         },
         values: data['fields'],
         items: [
-          { value: "Age", text: "Age (youngest to oldest)" },
+          { value: "Age", text: "Age" },
           { value: "Vaccination status", text: "Vaccination status" },
           { value: "Ear-tag number", text: "Ear-tag number" },
           { value: "Sex", text: "Sex" },
@@ -36,11 +44,26 @@
         },
         value: data['sortBy'],
         items: [
-          { value: "Age (youngest to oldest)", text: "Age (youngest to oldest)" },
+          { value: "Age", text: "Age" },
           { value: "Vaccination status", text: "Vaccination status" },
           { value: "Ear-tag number", text: "Ear-tag number" },
           { value: "Sex", text: "Sex" },
           { value: "Breed", text: "Breed" }
+        ]
+      }) }}
+
+      {{ govukRadios({
+        name: "sortDirection",
+        fieldset: {
+          legend: {
+            text: "Order",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        value: data['sortDirection'] or 'ascending',
+        items: [
+          { value: "ascending", text: "Ascending" },
+          { value: "descending", text: "Descending" }
         ]
       }) }}
 

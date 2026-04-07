@@ -4,6 +4,13 @@
   When is the vaccination scheduled? – GOV.UK
 {% endblock %}
 
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/workorder-tasks"
+}) }}
+{% endblock %}
+
 {% block content %}
 
 <div class="govuk-grid-row">
@@ -26,6 +33,11 @@
       {{ govukDateInput({
         id: "vaccinationDate",
         namePrefix: "vaccinationDate",
+        values: {
+          day: data['vaccinationDateDay'],
+          month: data['vaccinationDateMonth'],
+          year: data['vaccinationDateYear']
+        },
         fieldset: {
           legend: {
             text: "Date",

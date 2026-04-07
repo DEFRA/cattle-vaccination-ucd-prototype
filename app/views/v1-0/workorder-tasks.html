@@ -4,6 +4,13 @@
   Work order details – GOV.UK
 {% endblock %}
 
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/workorder-list"
+}) }}
+{% endblock %}
+
 {% block content %}
 
 <div class="govuk-grid-row">
@@ -45,7 +52,7 @@
         </a>
       </li>
       <li>
-        <a href="/v1-0/prepare-list-for" class="govuk-link govuk-link--no-visited-state">
+        <a href="/v1-0/prepare-list-for?from=workorder" class="govuk-link govuk-link--no-visited-state">
           Prepare a list to take to a farm
         </a>
       </li>
@@ -60,10 +67,6 @@
         </a>
       </li>
     </ul>
-
-    <p class="govuk-body">
-      <a href="/v1-0/workorder-list" class="govuk-link">Back to open work orders</a>
-    </p>
 
   </div>
 </div>

@@ -4,6 +4,17 @@
   Prepare a list – GOV.UK
 {% endblock %}
 
+{% block beforeContent %}
+{% set backHref = "/v1-0/dashboard" %}
+{% if data['prepareListBackLink'] == 'workorder' %}
+  {% set backHref = "/v1-0/workorder-tasks" %}
+{% endif %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref
+}) }}
+{% endblock %}
+
 {% block content %}
 
 <div class="govuk-grid-row">
@@ -20,6 +31,7 @@
             classes: "govuk-fieldset__legend--l"
           }
         },
+        value: data['listType'],
         items: [
           {
             value: "vaccination",

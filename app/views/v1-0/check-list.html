@@ -4,6 +4,13 @@
   Check list – GOV.UK
 {% endblock %}
 
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/customise-list"
+}) }}
+{% endblock %}
+
 {% block content %}
 
 {% set selectedHerdOrCattle = data['selectedCattleLabel'] or data['selectedCattle'] or "Selected herd" %}
@@ -68,7 +75,20 @@
               {
                 href: "/v1-0/customise-list",
                 text: "Change",
-                visuallyHiddenText: "sort order"
+                visuallyHiddenText: "sort by"
+              }
+            ]
+          }
+        },
+        {
+          key: { text: "Order" },
+          value: { text: data['sortDirection'] or "Not selected" },
+          actions: {
+            items: [
+              {
+                href: "/v1-0/customise-list",
+                text: "Change",
+                visuallyHiddenText: "order"
               }
             ]
           }

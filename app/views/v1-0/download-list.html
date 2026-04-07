@@ -9,29 +9,182 @@
 {% set selectedHerdOrCattle = data['selectedCattleLabel'] or data['selectedCattle'] or "Selected herd" %}
 {% set selectedFormat = "file" %}
 {% if data['downloadFormat'] == "pdf" %}
-  {% set selectedFormat = "printable list (PDF)" %}
+  {% set selectedFormat = "Printable list (PDF)" %}
 {% elif data['downloadFormat'] == "csv" %}
   {% set selectedFormat = "CSV" %}
 {% endif %}
 
+<style>
+  .render-preview {
+    margin-top: 30px;
+  }
+
+  .render-preview__caption {
+    color: #505a5f;
+    margin-bottom: 8px;
+  }
+
+  .sheet-frame {
+    border: 2px solid #0b0c0c;
+    background: #fff;
+    padding: 12px;
+    overflow-x: auto;
+  }
+
+  .sheet-meta {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr auto;
+    gap: 12px;
+    font-size: 14px;
+    margin-bottom: 10px;
+    align-items: end;
+  }
+
+  .sheet-meta__item strong {
+    display: inline-block;
+    min-width: 46px;
+  }
+
+  .sheet-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 12px;
+  }
+
+  .sheet-table th,
+  .sheet-table td {
+    border: 1px solid #0b0c0c;
+    padding: 4px 5px;
+    vertical-align: top;
+    word-wrap: break-word;
+  }
+
+  .sheet-table th {
+    font-weight: 700;
+    background: #f3f2f1;
+  }
+
+  .sheet-table .col-animal { width: 28%; }
+  .sheet-table .col-record { width: 5%; text-align: center; }
+  .sheet-table .col-notes { width: 18%; }
+
+  .sheet-table__animal-id strong {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  .sheet-table__animal-id .farm-ref {
+    display: block;
+    color: #505a5f;
+    margin-bottom: 4px;
+  }
+
+  .barcode-strip {
+    display: inline-block;
+    font-family: monospace;
+    font-size: 15px;
+    line-height: 1;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    border-top: 1px solid #0b0c0c;
+    border-bottom: 1px solid #0b0c0c;
+    padding: 2px 0;
+  }
+
+  .record-cell {
+    text-align: center;
+    font-weight: 700;
+  }
+
+  .empty-cell {
+    min-height: 24px;
+  }
+
+  .notes-cell {
+    color: #0b0c0c;
+  }
+
+  .csv-frame {
+    border: 1px solid #b1b4b6;
+    background: #fff;
+    overflow-x: auto;
+  }
+
+  .csv-toolbar {
+    border-bottom: 1px solid #b1b4b6;
+    background: #f3f2f1;
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .csv-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+  }
+
+  .csv-table th,
+  .csv-table td {
+    border: 1px solid #d8d8d8;
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .csv-table th {
+    background: #f8f8f8;
+    font-weight: 700;
+  }
+
+  .csv-table__index {
+    width: 1%;
+    white-space: nowrap;
+    color: #505a5f;
+    background: #f8f8f8;
+  }
+
+  @media print {
+    .govuk-header,
+    .govuk-footer,
+    .govuk-phase-banner,
+    .govuk-breadcrumbs,
+    .govuk-back-link,
+    .govuk-button,
+    .govuk-summary-list,
+    .govuk-panel,
+    .govuk-link,
+    .govuk-service-navigation,
+    .govuk-cookie-banner {
+      display: none !important;
+    }
+
+    .govuk-width-container,
+    .govuk-main-wrapper {
+      max-width: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .sheet-frame,
+    .csv-frame {
+      border: 0;
+      padding: 0;
+    }
+  }
+</style>
+
 <div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
+  <div class="govuk-grid-column-full">
 
     {{ govukPanel({
       titleText: "Your list is ready"
     }) }}
 
     <p class="govuk-body">
-      Download your file using the link below.
+      This page shows how your {{ selectedFormat | lower }} will be rendered for {{ selectedHerdOrCattle }}.
     </p>
-
-    <p class="govuk-body">
-      <a href="#" class="govuk-link govuk-link--no-visited-state">
-        Download {{ selectedFormat }}
-      </a>
-    </p>
-
-    <h2 class="govuk-heading-m">List details</h2>
 
     {{ govukSummaryList({
       rows: [
@@ -50,9 +203,91 @@
         {
           key: { text: "Sort by" },
           value: { text: data['sortBy'] or "Not selected" }
+        },
+        {
+          key: { text: "Order" },
+          value: { text: data['sortDirection'] or "Not selected" }
         }
       ]
     }) }}
+
+    <div class="render-preview">
+      <p class="govuk-body render-preview__caption">
+        Preview of the rendered {{ selectedFormat | lower }}
+      </p>
+
+      {% if renderedList and renderedList.format == 'pdf' %}
+        <div class="sheet-frame">
+          <div class="sheet-meta">
+            <div class="sheet-meta__item"><strong>Name</strong> {{ renderedList.farmName }}</div>
+            <div class="sheet-meta__item"><strong>CPH</strong> {{ renderedList.cph }}</div>
+            <div class="sheet-meta__item"><strong>Page</strong> 1 of 1</div>
+          </div>
+
+          <table class="sheet-table">
+            <thead>
+              <tr>
+                <th class="col-animal">Official Animal Identifier</th>
+                {% for column in renderedList.columns %}
+                  <th>{{ column }}</th>
+                {% endfor %}
+                <th class="col-record">Record</th>
+                <th class="col-notes">Vaccinator barcode / Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in renderedList.rows %}
+                <tr>
+                  <td class="sheet-table__animal-id" rowspan="2">
+                    <strong>{{ row.officialId }}</strong>
+                    <span class="farm-ref">{{ renderedList.cph }}</span>
+                    <span class="barcode-strip">|||| ||||| || |||||| |||</span>
+                  </td>
+                  {% for column in renderedList.columns %}
+                    <td rowspan="2">{{ row[column] }}</td>
+                  {% endfor %}
+                  <td class="record-cell">A</td>
+                  <td class="notes-cell" rowspan="2">{{ row['Vaccinator barcode / Notes'] }}</td>
+                </tr>
+                <tr>
+                  <td class="record-cell">B</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="csv-frame">
+          <div class="csv-toolbar">
+            CSV preview shown as rows and columns for the selected fields.
+          </div>
+          <table class="csv-table">
+            <thead>
+              <tr>
+                <th class="csv-table__index">#</th>
+                {% for column in renderedList.columns %}
+                  <th>{{ column }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in renderedList.rows %}
+                <tr>
+                  <td class="csv-table__index">{{ loop.index }}</td>
+                  {% for column in renderedList.columns %}
+                    <td>{{ row[column] }}</td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
+
+    <p class="govuk-body govuk-!-margin-top-6">
+      <a href="/v1-0/customise-list" class="govuk-link">Change list settings</a>
+    </p>
 
     <p class="govuk-body">
       <a href="/v1-0/dashboard" class="govuk-link">Return to your animal health work</a>

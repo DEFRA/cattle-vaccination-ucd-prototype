@@ -1,5 +1,13 @@
 {% extends "layouts/main.html" %}
 {% block pageTitle %}Choose herd or cattle – GOV.UK{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/choose-cattle"
+}) }}
+{% endblock %}
+
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
@@ -10,6 +18,7 @@
 
 {{ govukRadios({
   name: "selectedCattle",
+  value: data['selectedCattle'],
   fieldset: {
     legend: {
       text: "Choose a matching herd or cattle",
@@ -31,7 +40,7 @@
 
 <h1 class="govuk-heading-l">No results found</h1>
 <p class="govuk-body">Try searching for a CPH such as 12/345/6789 or a farm name like Hill Farm.</p>
-<a href="/v1-0/choose-cattle" class="govuk-link">Search again</a>
+<p class="govuk-body"><a href="/v1-0/choose-cattle" class="govuk-link">Search again</a></p>
 
 {% endif %}
 
