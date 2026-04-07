@@ -12,9 +12,12 @@
 {% endblock %}
 
 {% block content %}
+
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
+
     <form action="/v1-0/schedule-vaccination" method="post">
+
       <span class="govuk-caption-l">ID: WS-76867</span>
       <h1 class="govuk-heading-l">Enter the vaccination date</h1>
 
@@ -43,12 +46,17 @@
         }
       }) }}
 
-      {{ govukButton({ text: "Continue" }) }}
+      {{ govukButton({
+        text: "Continue"
+      }) }}
+
     </form>
 
     <p class="govuk-body">
       <a href="/v1-0/dashboard" class="govuk-link">Save and exit</a>
     </p>
+
   </div>
 </div>
+
 {% endblock %}

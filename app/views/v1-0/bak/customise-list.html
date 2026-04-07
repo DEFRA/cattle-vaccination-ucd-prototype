@@ -1,34 +1,68 @@
 {% extends "layouts/main.html" %}
-
-{% block pageTitle %}
-  Content page template – {{ serviceName }} – GOV.UK Prototype Kit
-{% endblock %}
-
-{% block containerStart %}
-  {{ govukBackLink({
-    text: "Back",
-    href: "javascript:window.history.back()"
-  }) }}
-{% endblock %}
-
+{% block pageTitle %}Choose what to include in your list – GOV.UK{% endblock %}
 {% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
 
-  <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
+    <form action="/v1-0/check-list" method="post">
 
-      <h1 class="govuk-heading-l">
-        Heading goes here
-      </h1>
+      <h1 class="govuk-heading-l">Choose what to include in your list</h1>
 
-      <p>
-        This is a paragraph of text. It explains in more detail what has happened and wraps across several lines.
-      </p>
+      {{ govukCheckboxes({
+        name: "fields",
+        fieldset: {
+          legend: {
+            text: "Information to include",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        values: data['fields'],
+        items: [
+          { value: "Age", text: "Age (youngest to oldest)" },
+          { value: "Vaccination status", text: "Vaccination status" },
+          { value: "Ear-tag number", text: "Ear-tag number" },
+          { value: "Sex", text: "Sex" },
+          { value: "Breed", text: "Breed" }
+        ]
+      }) }}
 
-      <p>
-        Read more <a href="/path/of/page">about this topic</a>.
-      </p>
+      {{ govukRadios({
+        name: "sortBy",
+        fieldset: {
+          legend: {
+            text: "Sort by",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        value: data['sortBy'],
+        items: [
+          { value: "Age (youngest to oldest)", text: "Age (youngest to oldest)" },
+          { value: "Vaccination status", text: "Vaccination status" },
+          { value: "Ear-tag number", text: "Ear-tag number" },
+          { value: "Sex", text: "Sex" },
+          { value: "Breed", text: "Breed" }
+        ]
+      }) }}
 
-    </div>
+      {{ govukRadios({
+        name: "sortDirection",
+        fieldset: {
+          legend: {
+            text: "Order",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        value: data['sortDirection'],
+        items: [
+          { value: "asc", text: "Ascending" },
+          { value: "desc", text: "Descending" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
   </div>
-
+</div>
 {% endblock %}

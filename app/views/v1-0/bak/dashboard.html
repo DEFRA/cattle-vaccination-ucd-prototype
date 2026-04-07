@@ -1,7 +1,7 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Your animal health work – GOV.UK
+  Your work – GOV.UK
 {% endblock %}
 
 {% block content %}
@@ -9,18 +9,18 @@
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 
-    <h1 class="govuk-heading-l">Your animal health work</h1>
+    <h1 class="govuk-heading-l">Your work</h1>
 
     <p class="govuk-body">
-      Use this service to manage work orders, prepare farm visit lists and report completed activity.
+      Prepare for farm visits, manage work orders and report vaccinations or TB tests.
     </p>
 
-    <h2 class="govuk-heading-m">What you need to do</h2>
+    <h2 class="govuk-heading-m">Tasks</h2>
 
     <ul class="govuk-list govuk-list--spaced">
       <li>
-        <a href="prepare-list-for" class="govuk-link govuk-link--no-visited-state">
-          Prepare a list to take to a farm
+        <a href="/v1-0/prepare-list-for" class="govuk-link govuk-link--no-visited-state">
+          Prepare a cattle list for a farm visit
         </a>
       </li>
       <li>
@@ -29,7 +29,7 @@
         </a>
       </li>
       <li>
-        <a href="workorder-list" class="govuk-link govuk-link--no-visited-state">
+        <a href="/v1-0/workorder-list" class="govuk-link govuk-link--no-visited-state">
           View open work orders (12)
         </a>
       </li>
@@ -46,63 +46,29 @@
       ],
       rows: [
         [
-          { text: "WS-76867" },
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76867</a>' },
           { text: "2 January 2026" },
           { text: "Overdue TB Test Stage 1 (Surveillance)" },
           { text: "FOLLOWUP" }
         ],
         [
-          { text: "WS-76868" },
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76868</a>' },
           { text: "2 January 2026" },
           { text: "Overdue TB Test Stage 1 (Surveillance)" },
           { text: "FOLLOWUP" }
         ],
         [
-          { text: "WS-76912" },
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76912</a>' },
           { text: "5 January 2026" },
-          { text: "Sheep & Goat On Farm Survey" },
+          { text: "Sheep and Goat On Farm Survey" },
           { text: "SURVEILLANCE MONITORING" }
         ]
       ]
     }) }}
 
     <p class="govuk-body">
-      <a href="workorder-list" class="govuk-link">View all open work orders</a>
+      <a href="/v1-0/workorder-list" class="govuk-link">View all open work orders</a>
     </p>
-
-    <h2 class="govuk-heading-m">Your details</h2>
-
-    {{ govukSummaryList({
-      rows: [
-        {
-          key: { text: "Name" },
-          value: { text: "Jane Smith" },
-          actions: {
-            items: [
-              { href: "/change-name", text: "Change", visuallyHiddenText: "name" }
-            ]
-          }
-        },
-        {
-          key: { text: "Address" },
-          value: { text: "1 High Street, York, YO1 1AA" },
-          actions: {
-            items: [
-              { href: "/change-address", text: "Change", visuallyHiddenText: "address" }
-            ]
-          }
-        },
-        {
-          key: { text: "Contact details" },
-          value: { text: "jane.smith@example.com" },
-          actions: {
-            items: [
-              { href: "/change-contact-details", text: "Change", visuallyHiddenText: "contact details" }
-            ]
-          }
-        }
-      ]
-    }) }}
 
   </div>
 </div>

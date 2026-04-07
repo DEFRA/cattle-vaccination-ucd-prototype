@@ -1,5 +1,9 @@
-// v1-0 routes
-// Safe, coherent version for the redesigned farm visit journey
+// Fixed routes for v1-0 prototype
+// Includes:
+// - _unchecked fix
+// - HTML preview logic for CSV and PDF selections
+// - sort direction support
+// - preview data driven by user selections from customise-list
 
 const govukPrototypeKit = require('govuk-prototype-kit')
 const router = govukPrototypeKit.requests.setupRouter()
@@ -44,9 +48,11 @@ const animalData = {
       earTagNumber: 'UK341234412177',
       barcode: 'UK341234412177',
       breed: 'Holstein Friesian',
+      breedCode: 'HF',
       dob: '06/12/2022',
       age: 28,
       sex: 'Female',
+      sexCode: 'F',
       vaccinationStatus: 'Vaccinated',
       notes: 'Duplicate'
     },
@@ -55,9 +61,11 @@ const animalData = {
       earTagNumber: 'UK341123302177',
       barcode: 'UK341123302177',
       breed: 'British Friesian',
+      breedCode: 'BF',
       dob: '06/12/2024',
       age: 4,
       sex: 'Female',
+      sexCode: 'F',
       vaccinationStatus: 'Not vaccinated',
       notes: 'NO Gamma'
     },
@@ -66,9 +74,11 @@ const animalData = {
       earTagNumber: 'UK341567812199',
       barcode: 'UK341567812199',
       breed: 'Angus Cross',
+      breedCode: 'AX',
       dob: '13/03/2023',
       age: 25,
       sex: 'Male',
+      sexCode: 'M',
       vaccinationStatus: 'Vaccinated',
       notes: ''
     }
@@ -79,9 +89,11 @@ const animalData = {
       earTagNumber: 'UK123456001',
       barcode: 'UK123456001',
       breed: 'Holstein Friesian',
+      breedCode: 'HF',
       dob: '06/12/2022',
       age: 28,
       sex: 'Female',
+      sexCode: 'F',
       vaccinationStatus: 'Vaccinated',
       notes: 'Selected animal only'
     }
@@ -92,9 +104,11 @@ const animalData = {
       earTagNumber: 'UK987654321001',
       barcode: 'UK987654321001',
       breed: 'Limousin',
+      breedCode: 'LM',
       dob: '02/02/2023',
       age: 26,
       sex: 'Female',
+      sexCode: 'F',
       vaccinationStatus: 'Vaccinated',
       notes: ''
     },
@@ -103,9 +117,11 @@ const animalData = {
       earTagNumber: 'UK987654321002',
       barcode: 'UK987654321002',
       breed: 'Charolais',
+      breedCode: 'CH',
       dob: '19/08/2024',
       age: 8,
       sex: 'Male',
+      sexCode: 'M',
       vaccinationStatus: 'Not vaccinated',
       notes: ''
     }
@@ -115,6 +131,10 @@ const animalData = {
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
+function getAnimalsForSelection(selectedCattle) {
+  return animalData[selectedCattle] || animalData['12/345/6789']
+}
+
 function normaliseFields(fields) {
   let selectedFields = fields || []
 
@@ -125,10 +145,6 @@ function normaliseFields(fields) {
   return selectedFields.filter(field => field && field !== '_unchecked')
 }
 
-function getAnimalsForSelection(selectedCattle) {
-  return animalData[selectedCattle] || animalData['12/345/6789']
-}
-
 function getSortValue(animal, sortBy) {
   switch (sortBy) {
     case 'Age':
@@ -137,8 +153,6 @@ function getSortValue(animal, sortBy) {
     case 'Vaccination status':
       return animal.vaccinationStatus || ''
     case 'Ear-tag number':
-    case 'Ear tag number':
-    case 'Ear tag':
       return animal.earTagNumber || ''
     case 'Sex':
       return animal.sex || ''
@@ -172,8 +186,6 @@ function getFieldValue(animal, field) {
     case 'Vaccination status':
       return animal.vaccinationStatus
     case 'Ear-tag number':
-    case 'Ear tag number':
-    case 'Ear tag':
       return animal.earTagNumber
     case 'Sex':
       return animal.sex
@@ -197,37 +209,22 @@ function buildPreviewColumns(fields) {
 function buildPreviewRows(animals, fields) {
   const selectedFields = buildPreviewColumns(fields)
 
-  return animals.map(animal => ({
-    officialId: animal.officialId,
-    barcode: animal.barcode,
-    notes: animal.notes,
-    cells: selectedFields.map(field => ({
-      key: field,
-      value: getFieldValue(animal, field)
-    }))
-  }))
-}
-
-function searchResultsForTerm(search) {
-  const allResults = [
-    { value: '12/345/6789', text: '12/345/6789 — Hill Farm' },
-    { value: '12/345/6789-UK123456001', text: '12/345/6789 — Hill Farm — UK123456/001' },
-    { value: '98/765/4321', text: '98/765/4321 — Moor Farm' }
-  ]
-
-  return allResults.filter(item =>
-    item.text.toLowerCase().includes(search) ||
-    item.value.toLowerCase().includes(search)
-  )
+  return animals.map(animal => {
+    return {
+      officialId: animal.officialId,
+      barcode: animal.barcode,
+      notes: animal.notes,
+      cells: selectedFields.map(field => ({
+        key: field,
+        value: getFieldValue(animal, field)
+      }))
+    }
+  })
 }
 
 // -----------------------------------------------------------------------------
-// Start and sign in
+// Sign in
 // -----------------------------------------------------------------------------
-router.get('/v1-0/start', function (req, res) {
-  res.render('v1-0/start')
-})
-
 router.get('/v1-0/sign-in', function (req, res) {
   res.render('v1-0/sign-in')
 })
@@ -238,7 +235,7 @@ router.post('/v1-0/sign-in', function (req, res) {
 
   if (!email || !password) {
     return res.render('v1-0/sign-in', {
-      error: 'Enter your email address and password'
+      error: 'Enter your email and password'
     })
   }
 
@@ -281,37 +278,38 @@ router.get('/v1-0/schedule-vaccination-confirmation', function (req, res) {
 })
 
 // -----------------------------------------------------------------------------
-// Farm visit / prepare list journey
+// Prepare list journey
 // -----------------------------------------------------------------------------
 router.get('/v1-0/prepare-list-for', function (req, res) {
-  if (req.query.from === 'workorder') {
-    req.session.data.prepareListBackLink = 'workorder'
-  } else if (!req.session.data.prepareListBackLink) {
-    req.session.data.prepareListBackLink = 'dashboard'
-  }
-
   res.render('v1-0/prepare-list-for')
 })
 
-router.post('/v1-0/prepare-list-for', function (req, res) {
-  const search = (req.body.cattleSearch || '').toLowerCase().trim()
-
-  req.session.data.cattleSearch = req.body.cattleSearch
-  req.session.data.searchResults = searchResultsForTerm(search)
-
-  res.redirect('/v1-0/choose-cattle-results')
+router.post('/v1-0/choose-cattle', function (req, res) {
+  req.session.data.listType = req.body.listType
+  res.redirect('/v1-0/choose-cattle')
 })
 
-// Legacy search route kept working
 router.get('/v1-0/choose-cattle', function (req, res) {
   res.render('v1-0/choose-cattle')
 })
 
+// Search
 router.post('/v1-0/herd-results', function (req, res) {
   const search = (req.body.cattleSearch || '').toLowerCase().trim()
 
+  const allResults = [
+    { value: '12/345/6789', text: '12/345/6789 — Hill Farm' },
+    { value: '12/345/6789-UK123456001', text: '12/345/6789 — Hill Farm — UK123456/001' },
+    { value: '98/765/4321', text: '98/765/4321 — Moor Farm' }
+  ]
+
+  const results = allResults.filter(item =>
+    item.text.toLowerCase().includes(search) ||
+    item.value.toLowerCase().includes(search)
+  )
+
   req.session.data.cattleSearch = req.body.cattleSearch
-  req.session.data.searchResults = searchResultsForTerm(search)
+  req.session.data.searchResults = results
 
   res.redirect('/v1-0/choose-cattle-results')
 })
@@ -328,19 +326,22 @@ router.post('/v1-0/herd-details', function (req, res) {
   req.session.data.herd = selectedHerd
   req.session.data.selectedCattleLabel = selectedHerd ? selectedHerd.label : selected
 
-  res.redirect('/v1-0/herd-details')
+  res.render('v1-0/herd-details')
 })
 
 router.get('/v1-0/herd-details', function (req, res) {
   res.render('v1-0/herd-details')
 })
 
-// POST from herd-details: save visit purpose then show customise-list
-router.post('/v1-0/customise-list', function (req, res) {
-  if (req.body.listType) {
-    req.session.data.listType = req.body.listType
-  }
+// -----------------------------------------------------------------------------
+// Download and customise list
+// -----------------------------------------------------------------------------
+router.get('/v1-0/prepare-list-download', function (req, res) {
+  res.render('v1-0/prepare-list-download')
+})
 
+router.post('/v1-0/customise-list', function (req, res) {
+  req.session.data.downloadFormat = req.body.downloadFormat
   res.redirect('/v1-0/customise-list')
 })
 
@@ -348,22 +349,18 @@ router.get('/v1-0/customise-list', function (req, res) {
   res.render('v1-0/customise-list')
 })
 
-// POST from customise-list: save what to include and ordering
-router.post('/v1-0/prepare-list-download', function (req, res) {
-  req.session.data.fields = normaliseFields(req.body.fields)
+router.post('/v1-0/check-list', function (req, res) {
+  let fields = req.body.fields || []
+
+  if (!Array.isArray(fields)) {
+    fields = [fields]
+  }
+
+  fields = fields.filter(field => field && field !== '_unchecked')
+
+  req.session.data.fields = fields
   req.session.data.sortBy = req.body.sortBy
   req.session.data.sortDirection = req.body.sortDirection || 'asc'
-
-  res.redirect('/v1-0/prepare-list-download')
-})
-
-router.get('/v1-0/prepare-list-download', function (req, res) {
-  res.render('v1-0/prepare-list-download')
-})
-
-// POST from download format step
-router.post('/v1-0/check-list', function (req, res) {
-  req.session.data.downloadFormat = req.body.downloadFormat
 
   res.redirect('/v1-0/check-list')
 })
@@ -392,20 +389,18 @@ router.get('/v1-0/download-list', function (req, res) {
   const previewColumns = buildPreviewColumns(fields)
   const previewRows = buildPreviewRows(animals, fields)
 
+  const downloadFormatLabel =
+    downloadFormat === 'pdf' ? 'Printable list (PDF)' : 'CSV'
+
   res.render('v1-0/download-list', {
     previewRows: previewRows,
     previewColumns: previewColumns,
     previewAnimals: animals,
-    downloadFormatLabel: downloadFormat === 'pdf' ? 'Printable list (PDF)' : 'CSV',
+    downloadFormatLabel: downloadFormatLabel,
     isPdf: downloadFormat === 'pdf',
     isCsv: downloadFormat === 'csv',
     sortDirectionLabel: sortDirection === 'desc' ? 'Descending' : 'Ascending'
   })
-})
-
-// Optional legacy page
-router.get('/v1-0/list-ready', function (req, res) {
-  res.render('v1-0/list-ready')
 })
 
 module.exports = router

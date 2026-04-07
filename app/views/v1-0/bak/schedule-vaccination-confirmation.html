@@ -5,10 +5,12 @@
 {% endblock %}
 
 {% block content %}
+
 {% set scheduledDate = (data['vaccinationDateDay'] or '') + '/' + (data['vaccinationDateMonth'] or '') + '/' + (data['vaccinationDateYear'] or '') %}
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
+
     {{ govukPanel({
       titleText: "Vaccination scheduled",
       html: "ID: WS-76867"
@@ -18,14 +20,22 @@
 
     {{ govukSummaryList({
       rows: [
-        { key: { text: "Livestock owner" }, value: { text: "Hill Farm" } },
-        { key: { text: "Scheduled date" }, value: { text: scheduledDate } }
+        {
+          key: { text: "Livestock owner" },
+          value: { text: "Hill Farm" }
+        },
+        {
+          key: { text: "Scheduled date" },
+          value: { text: scheduledDate }
+        }
       ]
     }) }}
 
     <p class="govuk-body">
       <a href="/v1-0/workorder-tasks" class="govuk-link">Return to work order details</a>
     </p>
+
   </div>
 </div>
+
 {% endblock %}

@@ -4,6 +4,13 @@
   Herd details – GOV.UK
 {% endblock %}
 
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/choose-cattle-results"
+}) }}
+{% endblock %}
+
 {% block content %}
 
 <div class="govuk-grid-row">
@@ -14,11 +21,10 @@
     </h1>
 
     <p class="govuk-body">
-      Check the herd or cattle details before continuing.
+      Check this information before you prepare your list.
     </p>
 
     {% if data['herd'] %}
-
       {{ govukSummaryList({
         rows: [
           {
@@ -46,19 +52,14 @@
 
       {{ govukButton({
         text: "Continue",
-        href: "/v1-0/dashboard"
+        href: "/v1-0/prepare-list-download"
       }) }}
-
     {% else %}
-
       <p class="govuk-body">No herd details were found.</p>
 
       <p class="govuk-body">
-        <a href="/v1-0/choose-cattle-results" class="govuk-link">
-          Go back and choose a herd or cattle
-        </a>
+        <a href="/v1-0/choose-cattle-results" class="govuk-link">Go back and choose a herd or cattle</a>
       </p>
-
     {% endif %}
 
   </div>

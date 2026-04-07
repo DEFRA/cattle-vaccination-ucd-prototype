@@ -1,5 +1,5 @@
 {% extends "layouts/main.html" %}
-{% block pageTitle %}Which herd or cattle are you going to vaccinate? – GOV.UK{% endblock %}
+{% block pageTitle %}Which herd or cattle are you preparing a list for? – GOV.UK{% endblock %}
 
 {% block beforeContent %}
 {{ govukBackLink({
@@ -14,7 +14,7 @@
     <form action="/v1-0/herd-results" method="post">
       {{ govukInput({
         label: {
-          text: "Which herd or cattle are you going to vaccinate?",
+          text: "Which herd or cattle are you preparing a list for?",
           classes: "govuk-label--l",
           isPageHeading: true
         },

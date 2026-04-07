@@ -4,53 +4,148 @@
   Download list – GOV.UK
 {% endblock %}
 
-{% block beforeContent %}
-{{ govukBackLink({
-  text: "Back",
-  href: "/v1-0/check-list"
-}) }}
-{% endblock %}
-
 {% block content %}
+
 {% set selectedHerdOrCattle = data['selectedCattleLabel'] or data['selectedCattle'] or "Selected herd" %}
 {% set selectedFormat = downloadFormatLabel or "File" %}
 
 <style>
-  .app-preview-shell { margin-top: 30px; }
-  .app-preview-note { color: #505a5f; margin-bottom: 20px; }
-  .app-sheet { background: #ffffff; border: 2px solid #0b0c0c; padding: 20px; margin-top: 25px; }
-  .app-sheet__meta { display: flex; justify-content: space-between; gap: 20px; border-bottom: 2px solid #0b0c0c; padding-bottom: 12px; margin-bottom: 18px; flex-wrap: wrap; }
-  .app-sheet__meta p { margin: 0; }
-  .app-sheet__title { font-weight: 700; margin-bottom: 4px; }
-  .app-preview-table { width: 100%; border-collapse: collapse; font-size: 16px; }
-  .app-preview-table th, .app-preview-table td { border: 1px solid #0b0c0c; padding: 8px; vertical-align: top; text-align: left; }
-  .app-preview-table th { background: #f3f2f1; font-weight: 700; }
-  .app-animal-block { min-width: 170px; }
-  .app-animal-block__id { font-weight: 700; margin-bottom: 6px; }
-  .app-barcode { font-family: monospace; letter-spacing: 1px; font-size: 14px; margin-bottom: 6px; word-break: break-all; }
-  .app-mutedsmall { color: #505a5f; font-size: 14px; }
-  .app-record-row { min-height: 42px; }
-  .app-csv-wrap { border: 1px solid #b1b4b6; margin-top: 25px; }
-  .app-csv-head { background: #f3f2f1; border-bottom: 1px solid #b1b4b6; padding: 10px 15px; font-weight: 700; }
-  .app-tag-note { display: inline-block; margin-top: 4px; padding: 2px 6px; background: #f3f2f1; font-size: 14px; }
+  .app-preview-shell {
+    margin-top: 30px;
+  }
+
+  .app-preview-note {
+    color: #505a5f;
+    margin-bottom: 20px;
+  }
+
+  .app-sheet {
+    background: #ffffff;
+    border: 2px solid #0b0c0c;
+    padding: 20px;
+    margin-top: 25px;
+  }
+
+  .app-sheet__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    border-bottom: 2px solid #0b0c0c;
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+
+  .app-sheet__meta p {
+    margin: 0;
+  }
+
+  .app-sheet__title {
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .app-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 16px;
+  }
+
+  .app-preview-table th,
+  .app-preview-table td {
+    border: 1px solid #0b0c0c;
+    padding: 8px;
+    vertical-align: top;
+    text-align: left;
+  }
+
+  .app-preview-table th {
+    background: #f3f2f1;
+    font-weight: 700;
+  }
+
+  .app-animal-block {
+    min-width: 170px;
+  }
+
+  .app-animal-block__id {
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .app-barcode {
+    font-family: monospace;
+    letter-spacing: 1px;
+    font-size: 14px;
+    margin-bottom: 6px;
+    word-break: break-all;
+  }
+
+  .app-mutedsmall {
+    color: #505a5f;
+    font-size: 14px;
+  }
+
+  .app-record-row {
+    min-height: 42px;
+  }
+
+  .app-csv-wrap {
+    border: 1px solid #b1b4b6;
+    margin-top: 25px;
+  }
+
+  .app-csv-head {
+    background: #f3f2f1;
+    border-bottom: 1px solid #b1b4b6;
+    padding: 10px 15px;
+    font-weight: 700;
+  }
+
+  .app-tag-note {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 6px;
+    background: #f3f2f1;
+    font-size: 14px;
+  }
 </style>
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
+
     {{ govukPanel({
       titleText: "Your list is ready"
     }) }}
 
+    <p class="govuk-body">
+      This preview shows how your list will look when downloaded.
+    </p>
 
     <h2 class="govuk-heading-m">List details</h2>
 
     {{ govukSummaryList({
       rows: [
-        { key: { text: "Herd or cattle" }, value: { text: selectedHerdOrCattle } },
-        { key: { text: "Download format" }, value: { text: selectedFormat } },
-        { key: { text: "Information to include" }, value: { html: (data['fields'] | join("<br>")) if data['fields'] else "Not selected" } },
-        { key: { text: "Sort by" }, value: { text: data['sortBy'] or "Not selected" } },
-        { key: { text: "Order" }, value: { text: sortDirectionLabel or "Ascending" } }
+        {
+          key: { text: "Herd or cattle" },
+          value: { text: selectedHerdOrCattle }
+        },
+        {
+          key: { text: "Download format" },
+          value: { text: selectedFormat }
+        },
+        {
+          key: { text: "Data shown" },
+          value: { html: (data['fields'] | join("<br>")) if data['fields'] else "Not selected" }
+        },
+        {
+          key: { text: "Sort by" },
+          value: { text: data['sortBy'] or "Not selected" }
+        },
+        {
+          key: { text: "Order" },
+          value: { text: sortDirectionLabel or "Ascending" }
+        }
       ]
     }) }}
 
@@ -101,7 +196,11 @@
 
                   <td class="app-record-row"></td>
                   <td class="app-record-row"></td>
-                  <td>{% if row.notes %}<span class="app-tag-note">{{ row.notes }}</span>{% endif %}</td>
+                  <td>
+                    {% if row.notes %}
+                      <span class="app-tag-note">{{ row.notes }}</span>
+                    {% endif %}
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -151,6 +250,8 @@
     <p class="govuk-body">
       <a href="/v1-0/dashboard" class="govuk-link">Return to your work</a>
     </p>
+
   </div>
 </div>
+
 {% endblock %}

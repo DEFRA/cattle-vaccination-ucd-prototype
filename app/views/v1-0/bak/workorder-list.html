@@ -1,195 +1,93 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Content page template – {{ serviceName }} – GOV.UK Prototype Kit
+  Open work orders – GOV.UK
 {% endblock %}
 
-{% block containerStart %}
-  {{ govukBackLink({
-    text: "Back",
-    href: "javascript:window.history.back()"
-  }) }}
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/dashboard"
+}) }}
 {% endblock %}
 
 {% block content %}
 
-  <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
 
-      <h1 class="govuk-heading-l">
-        Work order list
-      </h1>
+    <h1 class="govuk-heading-l">Open work orders</h1>
 
-      <p>
-        This is a paragraph of text. It explains in more detail what has happened and wraps across several lines.
-      </p>
+    <p class="govuk-body">
+      View and manage your open work orders.
+    </p>
 
-{{ govukTable({
-  head: [
-    {
-      text: "ID"
-    },
-    {
-      text: "Activation date"
-    },
-    {
-      text: "Business area"
-    },
-    {
-      text: "Work area"
-    },
-    {
-      text: "Purpose"
-    },
-    {
-      text: "Species"
-    },
-    {
-      text: "Phase"
-    },
-    {
-      text: "Country"
-    }
-  ],
-  rows: [
-    [
-      {
-        text: "WS-76867"
-      },
-      {
-        text: "2026-01-02"
-      },
-      {
-        text: "Endemic Notifiable Disease"
-      },
-      {
-        text: "Tuberculosis"
-      },
-      {
-        text: "Overdue TB Test Stage 1 (Surveillance)"
-      },
-      {
-        text: "Cattle"
-      },
-      {
-        text: "FOLLOWUP"
-      },
-      {
-        text: "ENGLAND"
-      }
-    ],
-    [
-      {
-        text: "WS-76868"
-      },
-      {
-        text: "2026-01-02"
-      },
-      {
-        text: "Endemic Notifiable Disease"
-      },
-      {
-        text: "Tuberculosis"
-      },
-      {
-        text: "Overdue TB Test Stage 1 (Surveillance)"
-      },
-      {
-        text: "Cattle"
-      },
-      {
-        text: "FOLLOWUP"
-      },
-      {
-        text: "ENGLAND"
-      }
-    ],
-    [
-      {
-        text: "WS-76912"
-      },
-      {
-        text: "2026-01-05"
-      },
-      {
-        text: "Exotic Notifiable Disease"
-      },
-      {
-        text: "Sheep & Goat Survey"
-      },
-      {
-        text: "Sheep & Goat On Farm Survey"
-      },
-      {
-        text: "Not Required"
-      },
-      {
-        text: "SURVILLANCEMONITORING"
-      },
-      {
-        text: "ENGLAND"
-      }
-    ],
-    [
-      {
-        text: "WS-76916"
-      },
-      {
-        text: "2026-01-05"
-      },
-      {
-        text: "Exotic Notifiable Disease"
-      },
-      {
-        text: "Sheep & Goat Survey"
-      },
-      {
-        text: "Sheep & Goat On Farm Survey"
-      },
-      {
-        text: "Not Required"
-      },
-      {
-        text: "SURVILLANCEMONITORING"
-      },
-      {
-        text: "ENGLAND"
-      }
-    ],
-    [
-      {
-        text: "WS-76917"
-      },
-      {
-        text: "2026-01-05"
-      },
-      {
-        text: "Exotic Notifiable Disease"
-      },
-      {
-        text: "Sheep & Goat Survey"
-      },
-      {
-        text: "Sheep & Goat On Farm Survey"
-      },
-      {
-        text: "Not Required"
-      },
-      {
-        text: "SURVILLANCEMONITORING"
-      },
-      {
-        text: "ENGLAND"
-      }
-    ]
-  ]
-}) }}
+    {{ govukTable({
+      head: [
+        { text: "ID" },
+        { text: "Activation date" },
+        { text: "Business area" },
+        { text: "Work area" },
+        { text: "Purpose" },
+        { text: "Species" },
+        { text: "Phase" },
+        { text: "Country" }
+      ],
+      rows: [
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76867</a>' },
+          { text: "2026-01-02" },
+          { text: "Endemic Notifiable Disease" },
+          { text: "Tuberculosis" },
+          { text: "Overdue TB Test Stage 1 (Surveillance)" },
+          { text: "Cattle" },
+          { text: "FOLLOWUP" },
+          { text: "ENGLAND" }
+        ],
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76868</a>' },
+          { text: "2026-01-02" },
+          { text: "Endemic Notifiable Disease" },
+          { text: "Tuberculosis" },
+          { text: "Overdue TB Test Stage 1 (Surveillance)" },
+          { text: "Cattle" },
+          { text: "FOLLOWUP" },
+          { text: "ENGLAND" }
+        ],
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76912</a>' },
+          { text: "2026-01-05" },
+          { text: "Exotic Notifiable Disease" },
+          { text: "Sheep and Goat Survey" },
+          { text: "Sheep and Goat On Farm Survey" },
+          { text: "Not required" },
+          { text: "SURVEILLANCE MONITORING" },
+          { text: "ENGLAND" }
+        ],
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76916</a>' },
+          { text: "2026-01-05" },
+          { text: "Exotic Notifiable Disease" },
+          { text: "Sheep and Goat Survey" },
+          { text: "Sheep and Goat On Farm Survey" },
+          { text: "Not required" },
+          { text: "SURVEILLANCE MONITORING" },
+          { text: "ENGLAND" }
+        ],
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76917</a>' },
+          { text: "2026-01-05" },
+          { text: "Exotic Notifiable Disease" },
+          { text: "Sheep and Goat Survey" },
+          { text: "Sheep and Goat On Farm Survey" },
+          { text: "Not required" },
+          { text: "SURVEILLANCE MONITORING" },
+          { text: "ENGLAND" }
+        ]
+      ]
+    }) }}
 
-      <p>
-        Read more <a href="/path/of/page">about this topic</a>.
-      </p>
-
-    </div>
   </div>
+</div>
 
 {% endblock %}

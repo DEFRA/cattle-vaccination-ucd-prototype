@@ -1,37 +1,32 @@
 {% extends "layouts/main.html" %}
+{% block pageTitle %}Which herd or cattle are you preparing a list for? – GOV.UK{% endblock %}
 
-{% block pageTitle %}
-  Which herd or cattle are you going to vaccinate? – GOV.UK
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/prepare-list-for"
+}) }}
 {% endblock %}
 
 {% block content %}
-
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
-
     <form action="/v1-0/herd-results" method="post">
-
       {{ govukInput({
         label: {
-          text: "Which herd or cattle are you going to vaccinate?",
+          text: "Which herd or cattle are you preparing a list for?",
           classes: "govuk-label--l",
           isPageHeading: true
         },
         hint: {
-          text: "Search by ear tag or county parish holding number (CPH). We will show matching herds or cattle for you to choose from."
+          text: "Search by ear tag or county parish holding number (CPH), for example 12/345/6789."
         },
         id: "cattleSearch",
         name: "cattleSearch",
-        classes: "govuk-!-width-two-thirds"
+        value: data['cattleSearch']
       }) }}
-
-      {{ govukButton({
-        text: "Search"
-      }) }}
-
+      {{ govukButton({ text: "Search" }) }}
     </form>
-
   </div>
 </div>
-
 {% endblock %}

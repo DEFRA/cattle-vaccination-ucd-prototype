@@ -1,28 +1,37 @@
 {% extends "layouts/main.html" %}
-{% block pageTitle %}Customise list – GOV.UK{% endblock %}
+
+{% block pageTitle %}
+  Choose what to include in your list – GOV.UK
+{% endblock %}
 
 {% block beforeContent %}
 {{ govukBackLink({
   text: "Back",
-  href: "/v1-0/prepare-list-download"
+  href: "/v1-0/herd-details"
 }) }}
 {% endblock %}
 
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
+    <form action="/v1-0/prepare-list-download" method="post">
+      <h1 class="govuk-heading-l">Choose what to include in your list</h1>
 
-    <form action="/v1-0/check-list" method="post">
 
-      <h1 class="govuk-heading-l">Customise your list</h1>
+      <p class="govuk-body">
+        Choose the information people need for the farm visit. You can also choose how the list is ordered.
+      </p>
 
       {{ govukCheckboxes({
         name: "fields",
         fieldset: {
           legend: {
-            text: "Data shown",
+            text: "Information to include",
             classes: "govuk-fieldset__legend--m"
           }
+        },
+        hint: {
+          text: "Select all that apply."
         },
         values: data['fields'],
         items: [
@@ -42,6 +51,9 @@
             classes: "govuk-fieldset__legend--m"
           }
         },
+        hint: {
+          text: "This changes the order animals appear in the list."
+        },
         value: data['sortBy'],
         items: [
           { value: "Age", text: "Age" },
@@ -60,17 +72,15 @@
             classes: "govuk-fieldset__legend--m"
           }
         },
-        value: data['sortDirection'] or 'ascending',
+        value: data['sortDirection'],
         items: [
-          { value: "ascending", text: "Ascending" },
-          { value: "descending", text: "Descending" }
+          { value: "asc", text: "Ascending" },
+          { value: "desc", text: "Descending" }
         ]
       }) }}
 
       {{ govukButton({ text: "Continue" }) }}
-
     </form>
-
   </div>
 </div>
 {% endblock %}

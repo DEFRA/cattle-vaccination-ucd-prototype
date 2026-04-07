@@ -4,6 +4,17 @@
   Prepare a list – GOV.UK
 {% endblock %}
 
+{% block beforeContent %}
+{% set backHref = "/v1-0/dashboard" %}
+{% if data['prepareListBackLink'] == 'workorder' %}
+  {% set backHref = "/v1-0/workorder-tasks" %}
+{% endif %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref
+}) }}
+{% endblock %}
+
 {% block content %}
 
 <div class="govuk-grid-row">
@@ -15,23 +26,24 @@
         name: "listType",
         fieldset: {
           legend: {
-            text: "What do you want to prepare a list for?",
+            text: "What is this list for?",
             isPageHeading: true,
             classes: "govuk-fieldset__legend--l"
           }
         },
+        value: data['listType'],
         items: [
           {
             value: "vaccination",
-            text: "Prepare list for vaccination only"
+            text: "Vaccination"
           },
           {
             value: "tb-testing",
-            text: "Prepare list for TB testing"
+            text: "TB testing"
           },
           {
             value: "both",
-            text: "Prepare list for vaccination and TB testing"
+            text: "Vaccination and TB testing"
           }
         ]
       }) }}

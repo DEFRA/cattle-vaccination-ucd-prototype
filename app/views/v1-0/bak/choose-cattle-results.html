@@ -1,45 +1,49 @@
 {% extends "layouts/main.html" %}
+{% block pageTitle %}Select a herd or animal – GOV.UK{% endblock %}
 
-{% block pageTitle %}
-  Herd details – GOV.UK
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/choose-cattle"
+}) }}
 {% endblock %}
 
 {% block content %}
-
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 
-<h1 class="govuk-heading-l">
-  {{ data['selectedCattle'] }}
-</h1>
+{% if data['searchResults'] and data['searchResults'].length > 0 %}
 
-{{ govukSummaryList({
-  rows: [
-    {
-      key: { text: "Farm name" },
-      value: { text: data['herd'].farm }
-    },
-    {
-      key: { text: "Address" },
-      value: { text: data['herd'].address }
-    },
-    {
-      key: { text: "Number of cattle" },
-      value: { text: data['herd'].cattle }
-    },
-    {
-      key: { text: "Last TB test" },
-      value: { text: data['herd'].tb }
+<form action="/v1-0/herd-details" method="post">
+
+{{ govukRadios({
+  name: "selectedCattle",
+  value: data['selectedCattle'],
+  fieldset: {
+    legend: {
+      text: "Select a herd or animal",
+      classes: "govuk-fieldset__legend--l",
+      isPageHeading: true
     }
-  ]
+  },
+  hint: {
+    text: "Search results for " + (data['cattleSearch'] or "your search")
+  },
+  items: data['searchResults']
 }) }}
 
-    {{ govukButton({
-      text: "Continue",
-      href: "/v1-0/dashboard"
-    }) }}
+{{ govukButton({ text: "Continue" }) }}
+
+</form>
+
+{% else %}
+
+<h1 class="govuk-heading-l">No results found</h1>
+<p class="govuk-body">Try searching for a CPH such as 12/345/6789 or a farm name like Hill Farm.</p>
+<p class="govuk-body"><a href="/v1-0/choose-cattle" class="govuk-link">Search again</a></p>
+
+{% endif %}
 
   </div>
 </div>
-
 {% endblock %}
