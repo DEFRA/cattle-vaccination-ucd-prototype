@@ -1,0 +1,48 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Prepare a list – GOV.UK
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <form action="/v1-0/choose-cattle" method="post">
+
+      {{ govukRadios({
+        name: "listType",
+        fieldset: {
+          legend: {
+            text: "What do you want to prepare a list for?",
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        items: [
+          {
+            value: "vaccination",
+            text: "Prepare list for vaccination only"
+          },
+          {
+            value: "tb-testing",
+            text: "Prepare list for TB testing"
+          },
+          {
+            value: "both",
+            text: "Prepare list for vaccination and TB testing"
+          }
+        ]
+      }) }}
+
+      {{ govukButton({
+        text: "Continue"
+      }) }}
+
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}

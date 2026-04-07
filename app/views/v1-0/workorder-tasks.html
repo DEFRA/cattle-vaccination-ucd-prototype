@@ -1,0 +1,71 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Work order details – GOV.UK
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">Work order WS-76867</h1>
+
+    <p class="govuk-body">
+      Use this page to manage this work order.
+    </p>
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Activation date" },
+          value: { text: "2 January 2026" }
+        },
+        {
+          key: { text: "Purpose" },
+          value: { text: "Overdue TB Test Stage 1 (Surveillance)" }
+        },
+        {
+          key: { text: "Livestock owner" },
+          value: { text: "Hill Farm" }
+        },
+        {
+          key: { text: "Species" },
+          value: { text: "Cattle" }
+        }
+      ]
+    }) }}
+
+    <h2 class="govuk-heading-m">What you can do</h2>
+
+    <ul class="govuk-list govuk-list--spaced">
+      <li>
+        <a href="/v1-0/schedule-vaccination" class="govuk-link govuk-link--no-visited-state">
+          Schedule vaccination
+        </a>
+      </li>
+      <li>
+        <a href="/v1-0/prepare-list-for" class="govuk-link govuk-link--no-visited-state">
+          Prepare a list to take to a farm
+        </a>
+      </li>
+      <li>
+        <a href="#" class="govuk-link govuk-link--no-visited-state">
+          Report a vaccination or TB test
+        </a>
+      </li>
+      <li>
+        <a href="#" class="govuk-link govuk-link--no-visited-state">
+          Report cattle not vaccinated
+        </a>
+      </li>
+    </ul>
+
+    <p class="govuk-body">
+      <a href="/v1-0/workorder-list" class="govuk-link">Back to open work orders</a>
+    </p>
+
+  </div>
+</div>
+
+{% endblock %}

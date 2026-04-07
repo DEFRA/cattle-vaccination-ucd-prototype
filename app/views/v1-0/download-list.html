@@ -1,0 +1,64 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Download list – GOV.UK
+{% endblock %}
+
+{% block content %}
+
+{% set selectedHerdOrCattle = data['selectedCattleLabel'] or data['selectedCattle'] or "Selected herd" %}
+{% set selectedFormat = "file" %}
+{% if data['downloadFormat'] == "pdf" %}
+  {% set selectedFormat = "printable list (PDF)" %}
+{% elif data['downloadFormat'] == "csv" %}
+  {% set selectedFormat = "CSV" %}
+{% endif %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {{ govukPanel({
+      titleText: "Your list is ready"
+    }) }}
+
+    <p class="govuk-body">
+      Download your file using the link below.
+    </p>
+
+    <p class="govuk-body">
+      <a href="#" class="govuk-link govuk-link--no-visited-state">
+        Download {{ selectedFormat }}
+      </a>
+    </p>
+
+    <h2 class="govuk-heading-m">List details</h2>
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Herd or cattle" },
+          value: { text: selectedHerdOrCattle }
+        },
+        {
+          key: { text: "Download format" },
+          value: { text: selectedFormat }
+        },
+        {
+          key: { text: "Data shown" },
+          value: { html: (data['fields'] | join("<br>")) if data['fields'] else "Not selected" }
+        },
+        {
+          key: { text: "Sort by" },
+          value: { text: data['sortBy'] or "Not selected" }
+        }
+      ]
+    }) }}
+
+    <p class="govuk-body">
+      <a href="/v1-0/dashboard" class="govuk-link">Return to your animal health work</a>
+    </p>
+
+  </div>
+</div>
+
+{% endblock %}

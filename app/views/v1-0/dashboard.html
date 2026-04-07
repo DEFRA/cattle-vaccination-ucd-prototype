@@ -1,0 +1,76 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Your animal health work – GOV.UK
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">Your animal health work</h1>
+
+    <p class="govuk-body">
+      Use this service to manage work orders, prepare farm visit lists and report completed activity.
+    </p>
+
+    <h2 class="govuk-heading-m">What you need to do</h2>
+
+    <ul class="govuk-list govuk-list--spaced">
+      <li>
+        <a href="/v1-0/prepare-list-for" class="govuk-link govuk-link--no-visited-state">
+          Prepare a list to take to a farm
+        </a>
+      </li>
+      <li>
+        <a href="#" class="govuk-link govuk-link--no-visited-state">
+          Report a vaccination or TB test
+        </a>
+      </li>
+      <li>
+        <a href="/v1-0/workorder-list" class="govuk-link govuk-link--no-visited-state">
+          View open work orders (12)
+        </a>
+      </li>
+    </ul>
+
+    <h2 class="govuk-heading-m">Open work orders</h2>
+
+    {{ govukTable({
+      head: [
+        { text: "ID" },
+        { text: "Activation date" },
+        { text: "Purpose" },
+        { text: "Phase" }
+      ],
+      rows: [
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76867</a>' },
+          { text: "2 January 2026" },
+          { text: "Overdue TB Test Stage 1 (Surveillance)" },
+          { text: "FOLLOWUP" }
+        ],
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76868</a>' },
+          { text: "2 January 2026" },
+          { text: "Overdue TB Test Stage 1 (Surveillance)" },
+          { text: "FOLLOWUP" }
+        ],
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76912</a>' },
+          { text: "5 January 2026" },
+          { text: "Sheep and Goat On Farm Survey" },
+          { text: "SURVEILLANCE MONITORING" }
+        ]
+      ]
+    }) }}
+
+    <p class="govuk-body">
+      <a href="/v1-0/workorder-list" class="govuk-link">View all open work orders</a>
+    </p>
+
+  </div>
+</div>
+
+{% endblock %}

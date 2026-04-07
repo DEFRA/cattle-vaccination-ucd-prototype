@@ -1,0 +1,37 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Which herd or cattle are you going to vaccinate? – GOV.UK
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <form action="/v1-0/herd-results" method="post">
+
+      {{ govukInput({
+        label: {
+          text: "Which herd or cattle are you going to vaccinate?",
+          classes: "govuk-label--l",
+          isPageHeading: true
+        },
+        hint: {
+          text: "Search by ear tag or county parish holding number (CPH). We will show matching herds or cattle for you to choose from."
+        },
+        id: "cattleSearch",
+        name: "cattleSearch",
+        classes: "govuk-!-width-two-thirds"
+      }) }}
+
+      {{ govukButton({
+        text: "Search"
+      }) }}
+
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Herd details – GOV.UK
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+<h1 class="govuk-heading-l">
+  {{ data['selectedCattle'] }}
+</h1>
+
+{{ govukSummaryList({
+  rows: [
+    {
+      key: { text: "Farm name" },
+      value: { text: data['herd'].farm }
+    },
+    {
+      key: { text: "Address" },
+      value: { text: data['herd'].address }
+    },
+    {
+      key: { text: "Number of cattle" },
+      value: { text: data['herd'].cattle }
+    },
+    {
+      key: { text: "Last TB test" },
+      value: { text: data['herd'].tb }
+    }
+  ]
+}) }}
+
+    {{ govukButton({
+      text: "Continue",
+      href: "/v1-0/dashboard"
+    }) }}
+
+  </div>
+</div>
+
+{% endblock %}

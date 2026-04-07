@@ -1,0 +1,61 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Sign in – Your service – GOV.UK
+{% endblock %}
+
+{% block content %}
+
+<a href="javascript:history.back()" class="govuk-back-link">Back</a>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if error %}
+      {{ govukErrorSummary({
+        titleText: "There is a problem",
+        errorList: [
+          {
+            text: error,
+            href: "#email"
+          }
+        ]
+      }) }}
+    {% endif %}
+
+    <h1 class="govuk-heading-l">Sign in</h1>
+
+    <form action="/v1-0/sign-in" method="post">
+
+      {{ govukInput({
+        label: {
+          text: "Email address"
+        },
+        id: "email",
+        name: "email",
+        autocomplete: "email",
+        errorMessage: {
+          text: error
+        } if error
+      }) }}
+
+      {{ govukInput({
+        label: {
+          text: "Password"
+        },
+        id: "password",
+        name: "password",
+        type: "password",
+        autocomplete: "current-password"
+      }) }}
+
+      {{ govukButton({
+        text: "Sign in"
+      }) }}
+
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}

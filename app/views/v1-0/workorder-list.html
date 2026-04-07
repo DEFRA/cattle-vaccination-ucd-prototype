@@ -1,0 +1,86 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Open work orders – GOV.UK
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+
+    <h1 class="govuk-heading-l">Open work orders</h1>
+
+    <p class="govuk-body">
+      View and manage open work orders.
+    </p>
+
+    {{ govukTable({
+      head: [
+        { text: "ID" },
+        { text: "Activation date" },
+        { text: "Business area" },
+        { text: "Work area" },
+        { text: "Purpose" },
+        { text: "Species" },
+        { text: "Phase" },
+        { text: "Country" }
+      ],
+      rows: [
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76867</a>' },
+          { text: "2026-01-02" },
+          { text: "Endemic Notifiable Disease" },
+          { text: "Tuberculosis" },
+          { text: "Overdue TB Test Stage 1 (Surveillance)" },
+          { text: "Cattle" },
+          { text: "FOLLOWUP" },
+          { text: "ENGLAND" }
+        ],
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76868</a>' },
+          { text: "2026-01-02" },
+          { text: "Endemic Notifiable Disease" },
+          { text: "Tuberculosis" },
+          { text: "Overdue TB Test Stage 1 (Surveillance)" },
+          { text: "Cattle" },
+          { text: "FOLLOWUP" },
+          { text: "ENGLAND" }
+        ],
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76912</a>' },
+          { text: "2026-01-05" },
+          { text: "Exotic Notifiable Disease" },
+          { text: "Sheep and Goat Survey" },
+          { text: "Sheep and Goat On Farm Survey" },
+          { text: "Not required" },
+          { text: "SURVEILLANCE MONITORING" },
+          { text: "ENGLAND" }
+        ],
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76916</a>' },
+          { text: "2026-01-05" },
+          { text: "Exotic Notifiable Disease" },
+          { text: "Sheep and Goat Survey" },
+          { text: "Sheep and Goat On Farm Survey" },
+          { text: "Not required" },
+          { text: "SURVEILLANCE MONITORING" },
+          { text: "ENGLAND" }
+        ],
+        [
+          { html: '<a href="/v1-0/workorder-tasks" class="govuk-link">WS-76917</a>' },
+          { text: "2026-01-05" },
+          { text: "Exotic Notifiable Disease" },
+          { text: "Sheep and Goat Survey" },
+          { text: "Sheep and Goat On Farm Survey" },
+          { text: "Not required" },
+          { text: "SURVEILLANCE MONITORING" },
+          { text: "ENGLAND" }
+        ]
+      ]
+    }) }}
+
+  </div>
+</div>
+
+{% endblock %}

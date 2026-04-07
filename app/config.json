@@ -1,5 +1,5 @@
 {
-  "serviceName": "Service name goes here",
+  "serviceName": "Bovine TB: get your cattle tested",
   "useServiceNavigation": true,
   "plugins": {
     "govuk-frontend": {

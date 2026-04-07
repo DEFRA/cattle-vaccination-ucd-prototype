@@ -1,0 +1,67 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Herd details – GOV.UK
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">
+      {{ data['selectedCattleLabel'] or data['selectedCattle'] or "Herd details" }}
+    </h1>
+
+    <p class="govuk-body">
+      Check the herd or cattle details before continuing.
+    </p>
+
+    {% if data['herd'] %}
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "CPH" },
+            value: { text: data['herd'].cph }
+          },
+          {
+            key: { text: "Farm name" },
+            value: { text: data['herd'].farm }
+          },
+          {
+            key: { text: "Address" },
+            value: { text: data['herd'].address }
+          },
+          {
+            key: { text: "Number of cattle" },
+            value: { text: data['herd'].cattle }
+          },
+          {
+            key: { text: "Last TB test" },
+            value: { text: data['herd'].tb }
+          }
+        ]
+      }) }}
+
+      {{ govukButton({
+        text: "Continue",
+        href: "/v1-0/dashboard"
+      }) }}
+
+    {% else %}
+
+      <p class="govuk-body">No herd details were found.</p>
+
+      <p class="govuk-body">
+        <a href="/v1-0/choose-cattle-results" class="govuk-link">
+          Go back and choose a herd or cattle
+        </a>
+      </p>
+
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}

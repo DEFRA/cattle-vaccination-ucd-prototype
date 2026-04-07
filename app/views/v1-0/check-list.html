@@ -1,0 +1,88 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check list – GOV.UK
+{% endblock %}
+
+{% block content %}
+
+{% set selectedHerdOrCattle = data['selectedCattleLabel'] or data['selectedCattle'] or "Selected herd" %}
+{% set selectedFormat = "Not selected" %}
+{% if data['downloadFormat'] == "pdf" %}
+  {% set selectedFormat = "Printable list (PDF)" %}
+{% elif data['downloadFormat'] == "csv" %}
+  {% set selectedFormat = "CSV" %}
+{% endif %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">Check your list before downloading</h1>
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Herd or cattle" },
+          value: { text: selectedHerdOrCattle },
+          actions: {
+            items: [
+              {
+                href: "/v1-0/choose-cattle-results",
+                text: "Change",
+                visuallyHiddenText: "herd or cattle"
+              }
+            ]
+          }
+        },
+        {
+          key: { text: "Download format" },
+          value: { text: selectedFormat },
+          actions: {
+            items: [
+              {
+                href: "/v1-0/prepare-list-download",
+                text: "Change",
+                visuallyHiddenText: "download format"
+              }
+            ]
+          }
+        },
+        {
+          key: { text: "Data shown" },
+          value: { html: (data['fields'] | join("<br>")) if data['fields'] else "Not selected" },
+          actions: {
+            items: [
+              {
+                href: "/v1-0/customise-list",
+                text: "Change",
+                visuallyHiddenText: "data shown"
+              }
+            ]
+          }
+        },
+        {
+          key: { text: "Sort by" },
+          value: { text: data['sortBy'] or "Not selected" },
+          actions: {
+            items: [
+              {
+                href: "/v1-0/customise-list",
+                text: "Change",
+                visuallyHiddenText: "sort order"
+              }
+            ]
+          }
+        }
+      ]
+    }) }}
+
+    <form action="/v1-0/download-list" method="post">
+      {{ govukButton({
+        text: "Confirm and continue"
+      }) }}
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}

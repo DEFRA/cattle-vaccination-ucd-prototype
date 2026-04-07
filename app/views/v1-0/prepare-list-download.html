@@ -1,0 +1,30 @@
+{% extends "layouts/main.html" %}
+{% block pageTitle %}Prepare list – GOV.UK{% endblock %}
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <form action="/v1-0/customise-list" method="post">
+
+      {{ govukRadios({
+        name: "downloadFormat",
+        fieldset: {
+          legend: {
+            text: "Prepare list for " + (data['selectedCattleLabel'] or "selected herd"),
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        items: [
+          { value: "pdf", text: "Download a printable list (PDF)" },
+          { value: "csv", text: "Download CSV" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}
