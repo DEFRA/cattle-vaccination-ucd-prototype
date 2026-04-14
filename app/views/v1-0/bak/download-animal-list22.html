@@ -1,0 +1,79 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Download animal list
+{% endblock %}
+
+{% block content %}
+<style>
+  .app-sheet, .app-sheet * { font-family: Arial, Helvetica, sans-serif; }
+  .app-meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 2px solid #0b0c0c; margin-bottom: 16px; }
+  .app-meta-grid__item { border-right: 1px solid #0b0c0c; border-bottom: 1px solid #0b0c0c; padding: 0.6em 0.8em; }
+  .app-record-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .app-record-table th, .app-record-table td { border: 1px solid #0b0c0c; padding: 0.6em 0.8em; }
+  .app-col-ear-tag { width: 22ch; white-space: nowrap; }
+  .app-ear-tag__scanline { display: inline-flex; gap: 0.3em; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .app-ear-tag__individual { border: 2px solid #0b0c0c; padding: 1px 6px; border-radius: 2px; }
+</style>
+
+<h1 class="govuk-heading-l">Cattle bTB vaccination record</h1>
+
+<div class="app-meta-grid">
+  <div class="app-meta-grid__item">
+    <span class="govuk-caption-m">Farm</span>
+    <strong>Hill Farm, York, YO1 1AA</strong>
+  </div>
+  <div class="app-meta-grid__item">
+    <span class="govuk-caption-m">CPH</span>
+    <strong>12/345/6789</strong>
+  </div>
+  <div class="app-meta-grid__item">
+    <span class="govuk-caption-m">Total cattle</span>
+    <strong>244</strong>
+  </div>
+  <div class="app-meta-grid__item">
+    <span class="govuk-caption-m">Date printed</span>
+    <strong id="date-printed"></strong>
+  </div>
+</div>
+
+<div class="app-sheet">
+  <table class="app-record-table">
+    <thead>
+      <tr>
+        <th class="app-col-ear-tag">Ear tag number</th>
+        <th>Breed</th>
+        <th>DOB</th>
+        <th>Sex</th>
+        <th>Vaccination status</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in range(1, 21) %}
+      {% set individual = ("00000" + i) | slice(-5) %}
+      <tr>
+        <td>
+          <span class="app-ear-tag__scanline">
+            <span>UK</span>
+            <span>123456</span>
+            <span>7</span>
+            <span class="app-ear-tag__individual">{{ individual }}</span>
+          </span>
+        </td>
+        <td>HF</td>
+        <td>01/01/24</td>
+        <td>F</td>
+        <td></td>
+        <td></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+  document.getElementById('date-printed').textContent =
+    new Intl.DateTimeFormat('en-GB', { day:'numeric', month:'long', year:'numeric'}).format(new Date());
+</script>
+{% endblock %}

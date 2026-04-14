@@ -1,5 +1,5 @@
 {
-  "serviceName": "Bovine TB: get your cattle tested",
+  "serviceName": "Vaccinate or test cattle for bovine TB",
   "useServiceNavigation": true,
   "plugins": {
     "govuk-frontend": {

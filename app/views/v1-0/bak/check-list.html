@@ -4,8 +4,14 @@
   Check your answers before downloading your list – GOV.UK
 {% endblock %}
 
-{% block content %}
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/prepare-list-download"
+}) }}
+{% endblock %}
 
+{% block content %}
 {% set selectedHerdOrCattle = data['selectedCattleLabel'] or data['selectedCattle'] or "Selected herd" %}
 {% set selectedFormat = "Not selected" %}
 {% if data['downloadFormat'] == "pdf" %}
@@ -16,8 +22,11 @@
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
-
     <h1 class="govuk-heading-l">Check your answers before downloading your list</h1>
+
+    <p class="govuk-body">
+      Check everything looks right before you download the list.
+    </p>
 
     {{ govukSummaryList({
       rows: [
@@ -30,6 +39,19 @@
                 href: "/v1-0/choose-cattle-results",
                 text: "Change",
                 visuallyHiddenText: "herd or cattle"
+              }
+            ]
+          }
+        },
+        {
+          key: { text: "Visit type" },
+          value: { text: data['listType'] or "Not selected" },
+          actions: {
+            items: [
+              {
+                href: "/v1-0/herd-details",
+                text: "Change",
+                visuallyHiddenText: "visit type"
               }
             ]
           }
@@ -48,14 +70,14 @@
           }
         },
         {
-          key: { text: "Data shown" },
+          key: { text: "Information to include" },
           value: { html: (data['fields'] | join("<br>")) if data['fields'] else "Not selected" },
           actions: {
             items: [
               {
-                href: "/v1-0/customise-list",
+                href: "/v1-0/download-list",
                 text: "Change",
-                visuallyHiddenText: "data shown"
+                visuallyHiddenText: "information to include"
               }
             ]
           }
@@ -66,7 +88,7 @@
           actions: {
             items: [
               {
-                href: "/v1-0/customise-list",
+                href: "/v1-0/download-list",
                 text: "Change",
                 visuallyHiddenText: "sort order"
               }
@@ -79,7 +101,7 @@
           actions: {
             items: [
               {
-                href: "/v1-0/customise-list",
+                href: "/v1-0/download-list",
                 text: "Change",
                 visuallyHiddenText: "order"
               }
@@ -94,8 +116,6 @@
         text: "Confirm and continue"
       }) }}
     </form>
-
   </div>
 </div>
-
 {% endblock %}

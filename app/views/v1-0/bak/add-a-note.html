@@ -1,0 +1,41 @@
+
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Add a note – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/select-vaccinated-animals"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <form action="/v1-0/add-a-note" method="post" novalidate>
+
+      {{ govukCharacterCount({
+        name: "vaccinationNote",
+        id: "vaccinationNote",
+        maxlength: 500,
+        value: data['vaccinationNote'],
+        label: {
+          text: "Add a note",
+          isPageHeading: true,
+          classes: "govuk-label--l"
+        }
+      }) }}
+
+      {{ govukButton({
+        text: "Continue"
+      }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

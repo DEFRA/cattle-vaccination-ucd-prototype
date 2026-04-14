@@ -1,55 +1,58 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Sign in – GOV.UK
-{% endblock %}
-
-{% block beforeContent %}
-{{ govukBackLink({
-  text: "Back",
-  href: "/v1-0/start"
-}) }}
+  How do you want to sign in?
 {% endblock %}
 
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
 
-    {% if error %}
-      {{ govukErrorSummary({
-        titleText: "There is a problem",
-        errorList: [
+    <form action="/v1-0/sign-in" method="post" novalidate>
+      {{ govukRadios({
+        idPrefix: "signInMethod",
+        name: "signInMethod",
+        value: data['signInMethod'],
+        fieldset: {
+          legend: {
+            text: "How do you want to sign in?",
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--xl"
+          }
+        },
+        errorMessage: { text: errors['signInMethod'].text } if errors and errors['signInMethod'],
+        items: [
           {
-            text: error,
-            href: "#email"
+            value: "one-login",
+            html: "<strong>Sign in with GOV.UK One Login</strong>",
+            hint: {
+              text: "Use your usual email address. If you do not have a GOV.UK One Login, you can create one."
+            }
+          },
+          {
+            value: "government-gateway",
+            html: "<strong>Sign in with Government Gateway</strong>",
+            hint: {
+              text: "You will have a user ID if you are registered for Self Assessment or have filed a tax return online before."
+            }
+          },
+          {
+            value: "local-authority",
+            html: "<strong>Sign in with a Local Authority</strong>",
+            hint: {
+              text: "Use your council’s sign-in if you are a local authority employee."
+            }
           }
         ]
       }) }}
-    {% endif %}
 
-    <h1 class="govuk-heading-l">Sign in</h1>
-
-    <form action="/v1-0/sign-in" method="post">
-      {{ govukInput({
-        label: { text: "Email address" },
-        id: "email",
-        name: "email",
-        autocomplete: "email",
-        value: data['email'],
-        errorMessage: { text: error } if error
+      {{ govukButton({
+        text: "Continue"
       }) }}
-
-      {{ govukInput({
-        label: { text: "Password" },
-        id: "password",
-        name: "password",
-        type: "password",
-        autocomplete: "current-password"
-      }) }}
-
-      {{ govukButton({ text: "Sign in" }) }}
     </form>
-
   </div>
 </div>
 {% endblock %}

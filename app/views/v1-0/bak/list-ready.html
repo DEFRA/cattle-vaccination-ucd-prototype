@@ -5,50 +5,23 @@
 {% endblock %}
 
 {% block content %}
-
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
-
     {{ govukPanel({
       titleText: "Your list is ready"
     }) }}
 
     <p class="govuk-body">
-      Download your {{ (data['downloadFormatLabel'] or 'list') | lower }} for {{ data['selectedCattleLabel'] or 'the selected herd or cattle' }}.
+      Download your list for {{ data['selectedCattleLabel'] or 'the selected herd or cattle' }}.
     </p>
 
     <p class="govuk-body">
-      <a href="#" class="govuk-link">
-        Download {{ data['downloadFormatLabel'] or "list" }}
-      </a>
-    </p>
-
-    <h2 class="govuk-heading-m">List settings</h2>
-
-    {{ govukSummaryList({
-      rows: [
-        {
-          key: { text: "Data shown" },
-          value: {
-            html: (data['dataShownLabels'] or []).join("<br>")
-          }
-        },
-        {
-          key: { text: "Sort by" },
-          value: { text: data['sortByLabel'] }
-        }
-      ]
-    }) }}
-
-    <p class="govuk-body">
-      <a href="/v1-0/customise-list" class="govuk-link">Change list settings</a>
+      <a href="#" class="govuk-link">Download list</a>
     </p>
 
     <p class="govuk-body">
-      <a href="/v1-0/dashboard" class="govuk-link">Return to your animal health work</a>
+      <a href="/v1-0/dashboard" class="govuk-link">Return to your work</a>
     </p>
-
   </div>
 </div>
-
 {% endblock %}

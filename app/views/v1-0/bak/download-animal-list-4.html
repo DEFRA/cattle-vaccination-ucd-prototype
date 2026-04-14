@@ -1,0 +1,254 @@
+
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Download list – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/check-list-details"
+}) }}
+{% endblock %}
+
+{% block content %}
+{% set selectedHerdOrCattle = data['selectedCattleLabel'] or data['selectedCattle'] or "Selected herd" %}
+{% set totalCattle = previewRows | length %}
+
+<style>
+  .app-print-controls {
+    border: 1px solid #b1b4b6;
+    background: #f3f2f1;
+    padding: 15px;
+    margin-bottom: 20px;
+  }
+
+  .app-summary {
+    border: 2px solid #0b0c0c;
+    padding: 15px;
+    margin-bottom: 20px;
+    background: #f3f2f1;
+  }
+
+  .app-summary__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .app-summary__label {
+    display: block;
+    color: #505a5f;
+    font-size: 14px;
+  }
+
+  .app-summary__value {
+    font-weight: 700;
+    font-size: 18px;
+  }
+
+  .app-sheet {
+    background: #ffffff;
+    border: 2px solid #0b0c0c;
+    padding: 18px;
+  }
+
+  .app-record-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .app-record-table th,
+  .app-record-table td {
+    border: 1px solid #0b0c0c;
+    padding: 8px;
+    height: 42px;
+    vertical-align: middle;
+  }
+
+  .app-record-table th {
+    background: #f3f2f1;
+    text-align: center;
+    font-weight: 700;
+  }
+
+  .app-col-ear-tag { width: 32%; text-align: left; }
+  .app-col-thin { width: 6%; text-align: center; }
+  .app-col-vax { width: 20%; }
+  .app-col-notes { width: 30%; }
+
+  .app-vertical-header {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    display: inline-block;
+  }
+
+  .app-ear-tag {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.05em;
+  }
+
+  @media print {
+    .govuk-back-link,
+    .govuk-button,
+    .govuk-header,
+    .govuk-footer,
+    .app-print-controls {
+      display: none !important;
+    }
+
+    @page {
+      size: A4 portrait;
+      margin: 10mm;
+    }
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    <h1 class="govuk-heading-l">Cattle bTB vaccination record</h1>
+    <p class="govuk-body">{{ selectedHerdOrCattle }}</p>
+
+    <!-- Formatting Controls -->
+    <div class="app-print-controls">
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-third">
+          {{ govukRadios({
+            name: "previewTextSize",
+            classes: "govuk-radios--small",
+            fieldset: {
+              legend: { text: "Text size", classes: "govuk-fieldset__legend--s" }
+            },
+            items: [
+              { value: "small", text: "Smaller" },
+              { value: "standard", text: "Standard", checked: true },
+              { value: "large", text: "Large" }
+            ]
+          }) }}
+        </div>
+
+        <div class="govuk-grid-column-one-third">
+          {{ govukRadios({
+            name: "previewOrientation",
+            classes: "govuk-radios--small",
+            fieldset: {
+              legend: { text: "Page orientation", classes: "govuk-fieldset__legend--s" }
+            },
+            items: [
+              { value: "portrait", text: "Portrait", checked: true },
+              { value: "landscape", text: "Landscape" }
+            ]
+          }) }}
+        </div>
+
+        <div class="govuk-grid-column-one-third">
+          {{ govukRadios({
+            name: "previewSpacing",
+            classes: "govuk-radios--small",
+            fieldset: {
+              legend: { text: "Line spacing", classes: "govuk-fieldset__legend--s" }
+            },
+            items: [
+              { value: "tight", text: "Tight layout" },
+              { value: "standard", text: "Standard spacing", checked: true },
+              { value: "spaced", text: "Spaced lines" }
+            ]
+          }) }}
+        </div>
+      </div>
+
+      <div class="govuk-grid-row govuk-!-margin-top-4">
+        <div class="govuk-grid-column-one-half">
+          {{ govukCheckboxes({
+            name: "previewOptions",
+            classes: "govuk-checkboxes--small",
+            fieldset: {
+              legend: { text: "Ear tag display", classes: "govuk-fieldset__legend--s" }
+            },
+            items: [
+              { value: "show-last-five", text: "Emphasise the last 5 digits", checked: true }
+            ]
+          }) }}
+        </div>
+
+        <div class="govuk-grid-column-one-half govuk-!-text-align-right">
+          {{ govukButton({
+            text: "Print this list",
+            classes: "govuk-button--secondary",
+            attributes: { type: "button", onclick: "window.print()" }
+          }) }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Section -->
+    <div class="app-summary">
+      <div class="app-summary__grid">
+        <div>
+          <span class="app-summary__label">CPH number</span>
+          <span class="app-summary__value">{{ data['herd']['cph'] or data['selectedCattle'] }}</span>
+        </div>
+        <div>
+          <span class="app-summary__label">Farm name</span>
+          <span class="app-summary__value">{{ data['herd']['farm'] }}</span>
+        </div>
+        <div>
+          <span class="app-summary__label">Total cattle</span>
+          <span class="app-summary__value">{{ totalCattle }}</span>
+        </div>
+        <div>
+          <span class="app-summary__label">Date printed</span>
+          <span class="app-summary__value" id="date-printed"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Printable Table -->
+    <div class="app-sheet">
+      <table class="app-record-table">
+        <thead>
+          <tr>
+            <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+            <th scope="col" class="app-col-thin"><span class="app-vertical-header">Breed</span></th>
+            <th scope="col" class="app-col-thin"><span class="app-vertical-header">DOB</span></th>
+            <th scope="col" class="app-col-thin"><span class="app-vertical-header">Sex</span></th>
+            <th scope="col" class="app-col-vax">Vaccination status</th>
+            <th scope="col" class="app-col-notes">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in previewRows %}
+          <tr>
+            <td class="app-ear-tag">{{ row.officialId }}</td>
+            <td>{{ row.breed }}</td>
+            <td>{{ row.dob }}</td>
+            <td>{{ row.sex }}</td>
+            <td></td>
+            <td></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const el = document.getElementById('date-printed');
+    if (!el) return;
+    const today = new Date();
+    const formattedDate = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    }).format(today);
+    el.textContent = 'Printed ' + formattedDate;
+  })();
+</script>
+{% endblock %}

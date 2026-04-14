@@ -1,0 +1,27 @@
+
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Vaccination report submitted – GOV.UK
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {{ govukPanel({
+      titleText: "Vaccination report submitted",
+      html: "You have submitted the vaccination report for this visit."
+    }) }}
+
+    <p class="govuk-body">
+      You can now return to your dashboard.
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-0/dashboard" class="govuk-link">Go to the dashboard</a>
+    </p>
+
+  </div>
+</div>
+{% endblock %}

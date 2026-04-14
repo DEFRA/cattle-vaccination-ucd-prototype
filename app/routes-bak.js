@@ -77,8 +77,6 @@ function handleFarmSearch(req, res, pageName) {
   res.redirect('/v1-0/search-results')
 }
 
-
-
 function handleReportSearch(req, res, pageName) {
   const searchInput = (req.body.reportSearch || '').trim()
 
@@ -180,8 +178,6 @@ router.post('/v1-0/confirm-herd-or-animal', (req, res) => {
   return res.redirect('/v1-0/confirm-herd-or-animal')
 })
 
-
-
 router.get('/v1-0/search-for-a-herd-or-animal-to-report', (req, res) => {
   res.render('v1-0/search-for-a-herd-or-animal-to-report')
 })
@@ -282,17 +278,132 @@ router.post('/v1-0/enter-vaccination-date', (req, res) => {
   return res.redirect('/v1-0/enter-vaccine-batch-details')
 })
 
+router.get('/v1-0/enter-diluent-batch-details', (req, res) => {
+  res.render('v1-0/enter-diluent-batch-details')
+})
+
 router.post('/v1-0/enter-vaccine-batch-details', (req, res) => {
   req.session.data.batchNumber = req.body.batchNumber
   req.session.data.batchExpiryDateDay = req.body['batchExpiryDate-day']
   req.session.data.batchExpiryDateMonth = req.body['batchExpiryDate-month']
   req.session.data.batchExpiryDateYear = req.body['batchExpiryDate-year']
+  return res.redirect('/v1-0/enter-diluent-batch-details')
+})
+
+router.post('/v1-0/enter-diluent-batch-details', (req, res) => {
+  req.session.data.diluentBatchNumber = req.body.diluentBatchNumber
+  req.session.data.diluentBatchExpiryDateDay = req.body['diluentBatchExpiryDate-day']
+  req.session.data.diluentBatchExpiryDateMonth = req.body['diluentBatchExpiryDate-month']
+  req.session.data.diluentBatchExpiryDateYear = req.body['diluentBatchExpiryDate-year']
   return res.redirect('/v1-0/select-vaccinated-animals')
 })
 
+router.get('/v1-0/select-vaccinated-animals', (req, res) => {
+  return renderSelectVaccinatedAnimals(req, res)
+})
+
 router.post('/v1-0/select-vaccinated-animals', (req, res) => {
-  req.session.data.vaccinatedCattle = req.body.vaccinatedCattle || []
-  return res.redirect('/v1-0/add-a-note')
+  const animals = getReportingAnimals(req)
+  const lookup = getAnimalLookup(animals)
+  const selectedIds = Array.isArray(req.body.selectedAnimals)
+    ? req.body.selectedAnimals
+    : (req.body.selectedAnimals ? [req.body.selectedAnimals] : [])
+  const markAction = req.body.markAction
+  const selectedStatus = req.body.selectedStatus
+
+  if (markAction === 'continue') {
+    const decisionMap = getDecisionMap(req.session.data)
+    const groups = getReportingGroups(animals, decisionMap)
+
+    if (groups.remaining.length) {
+      return renderSelectVaccinatedAnimals(req, res, {
+        errors: {
+          selectedAnimals: { text: 'Mark all remaining cattle before you continue' }
+        },
+        errorSummary: {
+          titleText: 'There is a problem',
+          errorList: [
+            {
+              text: 'Mark all remaining cattle before you continue',
+              href: '#selected-animals'
+            }
+          ]
+        }
+      })
+    }
+
+    req.session.data.vaccinatedCattle = groups.vaccinated.map(animal => animal.officialId)
+    req.session.data.remainingCattleUpdates = [
+      { status: 'not-found', cattle: groups['not-found'].map(animal => animal.officialId) },
+      { status: 'deceased', cattle: groups.deceased.map(animal => animal.officialId) },
+      { status: 'withdrawn', cattle: groups.withdrawn.map(animal => animal.officialId) }
+    ].filter(group => group.cattle.length)
+
+    return res.redirect('/v1-0/check-report-answers')
+  }
+
+  if (markAction === 'reset') {
+    const decisionMap = { ...getDecisionMap(req.session.data) }
+    selectedIds.forEach(id => {
+      delete decisionMap[id]
+    })
+    req.session.data.cattleDecisions = decisionMap
+    return res.redirect('/v1-0/select-vaccinated-animals')
+  }
+
+  if (!selectedIds.length) {
+    return renderSelectVaccinatedAnimals(req, res, {
+      selectedIds,
+      formValues: { selectedStatus },
+      errors: {
+        selectedAnimals: { text: 'Select at least one animal' }
+      },
+      errorSummary: {
+        titleText: 'There is a problem',
+        errorList: [
+          {
+            text: 'Select at least one animal',
+            href: '#selected-animals'
+          }
+        ]
+      }
+    })
+  }
+
+  let decision
+  if (markAction === 'vaccinated') {
+    decision = 'vaccinated'
+  } else if (markAction === 'remaining') {
+    if (!selectedStatus) {
+      return renderSelectVaccinatedAnimals(req, res, {
+        selectedIds,
+        formValues: { selectedStatus },
+        errors: {
+          selectedStatus: { text: 'Select what to mark the selected cattle as' }
+        },
+        errorSummary: {
+          titleText: 'There is a problem',
+          errorList: [
+            {
+              text: 'Select what to mark the selected cattle as',
+              href: '#selectedStatus'
+            }
+          ]
+        }
+      })
+    }
+    decision = selectedStatus
+  }
+
+  const decisionMap = { ...getDecisionMap(req.session.data) }
+  selectedIds.forEach(id => {
+    if (lookup[id]) {
+      decisionMap[id] = decision
+    }
+  })
+
+  req.session.data.cattleDecisions = decisionMap
+  return res.redirect('/v1-0/select-vaccinated-animals')
 })
 
 router.post('/v1-0/add-a-note', (req, res) => {
@@ -352,7 +463,6 @@ router.post('/v1-0/one-login-password', function (req, res) {
   req.session.data.userName = 'Alex Taylor'
   res.redirect('/v1-0/dashboard')
 })
-
 
 // -----------------------------------------------------------------------------
 // Download list preview data and helpers
@@ -425,6 +535,8 @@ const herdTagConfig = {
   '12/345/6792': { herdMark: '123456', checkDigit: '7' },
   '12/345/6808': { herdMark: '183483', checkDigit: '7' }
 }
+
+const availableListColumns = ['Age', 'DOB', 'Sex', 'Breed', 'Vaccination status']
 
 function formatDateForOffset(monthOffset, day) {
   const date = new Date(Date.UTC(2026, 3, 14))
@@ -544,8 +656,9 @@ function getFieldValue(animal, field) {
 
 function orderPreviewFields(fields) {
   const selectedFields = normaliseFields(fields).filter(field => field !== 'Ear-tag number')
-  const vaccinationField = selectedFields.find(field => field === 'Vaccination status')
-  const remainingFields = selectedFields.filter(field => field !== 'Vaccination status')
+  const ordered = availableListColumns.filter(field => selectedFields.includes(field))
+  const vaccinationField = ordered.find(field => field === 'Vaccination status')
+  const remainingFields = ordered.filter(field => field !== 'Vaccination status')
 
   return vaccinationField ? [...remainingFields, vaccinationField] : remainingFields
 }
@@ -581,7 +694,7 @@ function buildPreviewRows(animals, fields) {
 }
 
 function normalisePreviewOptions(options, fields) {
-  const allFields = buildPreviewColumns(fields)
+  const allFields = availableListColumns
   const submitted = Array.isArray(options) ? options : (options ? [options] : [])
   const filtered = submitted.filter(option => option && option !== '_unchecked')
 
@@ -593,8 +706,9 @@ function normalisePreviewOptions(options, fields) {
 }
 
 function getPreviewSettings(sessionData, fields) {
-  const allFields = buildPreviewColumns(fields)
+  const allFields = availableListColumns
   const previewOptions = normalisePreviewOptions(sessionData.previewOptions, fields)
+  const visibleColumns = allFields.filter(field => previewOptions.includes(field))
 
   return {
     previewTextSize: sessionData.previewTextSize || 'standard',
@@ -602,8 +716,161 @@ function getPreviewSettings(sessionData, fields) {
     previewSpacing: sessionData.previewSpacing || 'standard',
     previewOptions,
     emphasiseLastFive: previewOptions.includes('show-last-five'),
-    visibleColumns: allFields.filter(field => previewOptions.includes(field))
+    visibleColumns,
+    allColumns: allFields
   }
+}
+
+function getReportingAnimals(req) {
+  const selectedCattle = req.session.data.selectedCattle
+  const sortBy = req.session.data.sortBy || 'Ear-tag number'
+  const sortDirection = req.session.data.sortDirection || 'asc'
+  return sortAnimals(getAnimalsForSelection(selectedCattle), sortBy, sortDirection)
+}
+
+function getAnimalLookup(animals) {
+  return animals.reduce((lookup, animal) => {
+    lookup[animal.officialId] = animal
+    return lookup
+  }, {})
+}
+
+function getDecisionMap(sessionData) {
+  return sessionData.cattleDecisions || {}
+}
+
+function getReportingGroups(animals, decisionMap) {
+  const groups = {
+    remaining: [],
+    vaccinated: [],
+    'not-found': [],
+    deceased: [],
+    withdrawn: []
+  }
+
+  animals.forEach((animal) => {
+    const decision = decisionMap[animal.officialId]
+
+    if (decision && groups[decision]) {
+      groups[decision].push(animal)
+    } else {
+      groups.remaining.push(animal)
+    }
+  })
+
+  return groups
+}
+
+function calculateAgeFromDob(dob) {
+  if (!dob || typeof dob !== 'string') {
+    return ''
+  }
+
+  const parts = dob.split('/')
+  if (parts.length !== 3) {
+    return ''
+  }
+
+  const [day, month, year] = parts.map(Number)
+  const birthDate = new Date(year, month - 1, day)
+
+  if (Number.isNaN(birthDate.getTime())) {
+    return ''
+  }
+
+  const today = new Date()
+  let years = today.getFullYear() - birthDate.getFullYear()
+  const monthDiff = today.getMonth() - birthDate.getMonth()
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    years -= 1
+  }
+
+  if (years < 1) {
+    const months = (today.getFullYear() - birthDate.getFullYear()) * 12 + today.getMonth() - birthDate.getMonth() - (today.getDate() < birthDate.getDate() ? 1 : 0)
+    const safeMonths = Math.max(months, 0)
+    return `${safeMonths} ${safeMonths === 1 ? 'month' : 'months'}`
+  }
+
+  return `${years} ${years === 1 ? 'year' : 'years'}`
+}
+
+function buildReportingTableRows(animals) {
+  return animals.map(animal => ({
+    id: animal.officialId,
+    officialId: animal.officialId,
+    age: calculateAgeFromDob(animal.dob),
+    breed: animal.breed,
+    dob: animal.dob,
+    sex: animal.sex,
+    notes: animal.notes,
+    earTagParts: formatEarTagParts(animal.officialId)
+  }))
+}
+
+function buildSelectedAnimalSummary(animals, ids) {
+  const selectedIds = Array.isArray(ids) ? ids : (ids ? [ids] : [])
+  const idSet = new Set(selectedIds)
+
+  return animals
+    .filter(animal => idSet.has(animal.officialId))
+    .map(animal => `${animal.officialId} – ${animal.breed} – ${animal.sex} – DOB ${animal.dob}`)
+}
+
+function renderSelectVaccinatedAnimals(req, res, options = {}) {
+  const animals = getReportingAnimals(req)
+  const decisionMap = getDecisionMap(req.session.data)
+  const groups = getReportingGroups(animals, decisionMap)
+  const selectedIds = Array.isArray(options.selectedIds) ? options.selectedIds : []
+
+  return res.render('v1-0/select-vaccinated-animals', {
+    herd: req.session.data.herd || herdData[req.session.data.selectedCattle],
+    pendingRows: buildReportingTableRows(groups.remaining),
+    vaccinatedRows: buildReportingTableRows(groups.vaccinated),
+    notFoundRows: buildReportingTableRows(groups['not-found']),
+    deceasedRows: buildReportingTableRows(groups.deceased),
+    withdrawnRows: buildReportingTableRows(groups.withdrawn),
+    totalAnimals: animals.length,
+    totalRemaining: groups.remaining.length,
+    totalMarked: animals.length - groups.remaining.length,
+    selectedIds,
+    selectedAnimalSummary: buildSelectedAnimalSummary(animals, selectedIds),
+    errors: options.errors,
+    errorSummary: options.errorSummary,
+    formValues: options.formValues || {}
+  })
+}
+
+function buildActivePreviewTags(options) {
+  const tags = []
+
+  if (options.downloadFormat === 'csv') {
+    tags.push('File format: CSV')
+  } else {
+    tags.push('File format: Printable list (PDF)')
+  }
+
+  if (options.downloadFormat !== 'csv' && options.previewTextSize && options.previewTextSize !== 'standard') {
+    tags.push(`Text size: ${options.previewTextSize}`)
+  }
+
+  if (options.downloadFormat !== 'csv' && options.previewOrientation && options.previewOrientation !== 'portrait') {
+    tags.push(`Orientation: ${options.previewOrientation}`)
+  }
+
+  if (options.downloadFormat !== 'csv' && options.previewSpacing && options.previewSpacing !== 'standard') {
+    tags.push(`Line spacing: ${options.previewSpacing}`)
+  }
+
+  if (options.downloadFormat !== 'csv' && options.emphasiseLastFive) {
+    tags.push('Last 5 digits emphasised')
+  }
+
+  options.visibleColumns.forEach(column => {
+    tags.push(`Show: ${column === 'Age (youngest to oldest)' ? 'Age' : column}`)
+  })
+
+  return tags
 }
 
 router.get('/v1-0/check-list-details', function (req, res) {
@@ -629,13 +896,28 @@ router.get('/v1-0/prepare-list-download', function (req, res) {
 })
 
 router.post('/v1-0/prepare-list-download', function (req, res) {
-  if (req.body.listType) {
-    req.session.data.listType = req.body.listType
-  } else {
-    req.session.data.listType = req.session.data.listType || 'Vaccinate cattle'
+  const downloadFormat = req.body.downloadFormat
+
+  req.session.data.listType = req.session.data.listType || 'Vaccinate cattle'
+
+  if (!downloadFormat) {
+    return res.render('v1-0/prepare-list-download', {
+      errors: {
+        downloadFormat: { text: 'Select how you want to download the list' }
+      },
+      errorSummary: {
+        titleText: 'There is a problem',
+        errorList: [
+          {
+            text: 'Select how you want to download the list',
+            href: '#downloadFormat'
+          }
+        ]
+      }
+    })
   }
 
-  req.session.data.downloadFormat = req.body.downloadFormat || req.session.data.downloadFormat || 'pdf'
+  req.session.data.downloadFormat = downloadFormat
 
   if (!normaliseFields(req.session.data.fields).length) {
     req.session.data.fields = availableListColumns
@@ -648,14 +930,46 @@ router.post('/v1-0/prepare-list-download', function (req, res) {
   res.redirect('/v1-0/check-list-details')
 })
 
-router.post('/v1-0/download-list', function (req, res) {
-  const fields = normaliseFields(req.session.data.fields)
-  const previewOptions = req.body.previewOptions || []
+router.post('/v1-0/download-list/setup', function (req, res) {
+  req.session.data.listType = req.body.listType || req.session.data.listType || 'Vaccinate cattle'
 
+  if (!normaliseFields(req.session.data.fields).length) {
+    req.session.data.fields = availableListColumns
+  }
+
+  req.session.data.downloadFormat = req.session.data.downloadFormat || 'pdf'
+  req.session.data.sortBy = req.session.data.sortBy || 'Ear-tag number'
+  req.session.data.sortDirection = req.session.data.sortDirection || 'asc'
+  req.session.data.previewOptions = req.session.data.previewOptions || ['show-last-five', ...availableListColumns]
+
+  res.redirect('/v1-0/download-list')
+})
+
+router.post('/v1-0/download-list', function (req, res) {
+  const downloadFormat = req.body.downloadFormat || req.session.data.downloadFormat || 'pdf'
+  const selectedOptions = normalisePreviewOptions(req.body.previewOptions || [], req.session.data.fields)
+  const selectedFields = availableListColumns.filter(field => selectedOptions.includes(field))
+
+  req.session.data.downloadFormat = downloadFormat
   req.session.data.previewTextSize = req.body.previewTextSize || 'standard'
   req.session.data.previewOrientation = req.body.previewOrientation || 'portrait'
   req.session.data.previewSpacing = req.body.previewSpacing || 'standard'
-  req.session.data.previewOptions = normalisePreviewOptions(previewOptions, fields)
+  req.session.data.previewOptions = selectedOptions
+  req.session.data.fields = selectedFields
+  req.session.data.sortBy = req.body.sortBy || req.session.data.sortBy || 'Ear-tag number'
+  req.session.data.sortDirection = req.body.sortDirection || req.session.data.sortDirection || 'asc'
+
+  res.redirect('/v1-0/download-list')
+})
+
+router.get('/v1-0/download-list/reset', function (req, res) {
+  const fields = normaliseFields(req.session.data.fields)
+
+  req.session.data.downloadFormat = req.session.data.downloadFormat || 'pdf'
+  req.session.data.previewTextSize = 'standard'
+  req.session.data.previewOrientation = 'portrait'
+  req.session.data.previewSpacing = 'standard'
+  req.session.data.previewOptions = ['show-last-five', ...fields]
 
   res.redirect('/v1-0/download-list')
 })
@@ -665,6 +979,7 @@ router.get('/v1-0/download-list', function (req, res) {
   const fields = normaliseFields(req.session.data.fields)
   const sortBy = req.session.data.sortBy || 'Ear-tag number'
   const sortDirection = req.session.data.sortDirection || 'asc'
+  const downloadFormat = req.session.data.downloadFormat || 'pdf'
   const animals = sortAnimals(getAnimalsForSelection(selectedCattle), sortBy, sortDirection)
   const previewSettings = getPreviewSettings(req.session.data, fields)
 
@@ -676,13 +991,24 @@ router.get('/v1-0/download-list', function (req, res) {
     previewOrientation: previewSettings.previewOrientation,
     previewSpacing: previewSettings.previewSpacing,
     previewOptions: previewSettings.previewOptions,
+    previewAllColumns: previewSettings.allColumns,
     emphasiseLastFive: previewSettings.emphasiseLastFive,
+    downloadFormat,
+    downloadFormatLabel: downloadFormat === 'csv' ? 'CSV' : 'Printable list (PDF)',
     sortDirectionLabel: sortDirection === 'desc' ? 'Descending' : 'Ascending',
     printedDate: new Intl.DateTimeFormat('en-GB', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
-    }).format(new Date())
+    }).format(new Date()),
+    activePreviewTags: buildActivePreviewTags({
+      downloadFormat,
+      previewTextSize: previewSettings.previewTextSize,
+      previewOrientation: previewSettings.previewOrientation,
+      previewSpacing: previewSettings.previewSpacing,
+      emphasiseLastFive: previewSettings.emphasiseLastFive,
+      visibleColumns: previewSettings.visibleColumns
+    })
   })
 })
 

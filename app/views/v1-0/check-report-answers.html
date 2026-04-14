@@ -1,0 +1,100 @@
+
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check your answers – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/do-you-need-to-update-more-animals"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">Check your answers</h1>
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: {
+            text: "Vaccinated cattle"
+          },
+          value: {
+            text: (data['vaccinatedCattle'] | length) + " cattle marked as vaccinated"
+          }
+        },
+        {
+          key: {
+            text: "Vaccination date"
+          },
+          value: {
+            text: (data['vaccinationDateDay'] or "01") + "/" + (data['vaccinationDateMonth'] or "04") + "/" + (data['vaccinationDateYear'] or "2026")
+          }
+        },
+        {
+          key: {
+            text: "Batch number"
+          },
+          value: {
+            text: data['batchNumber'] or "AB12345"
+          }
+        },
+        {
+          key: {
+            text: "Expiry date"
+          },
+          value: {
+            text: (data['batchExpiryDateDay'] or "30") + "/" + (data['batchExpiryDateMonth'] or "09") + "/" + (data['batchExpiryDateYear'] or "2026")
+          }
+        },
+        {
+          key: {
+            text: "Vaccination note"
+          },
+          value: {
+            text: data['vaccinationNote'] or "No note added"
+          }
+        }
+      ]
+    }) }}
+
+    {% if data['remainingCattleUpdates'] %}
+      <h2 class="govuk-heading-m">Other cattle outcomes</h2>
+      <ul class="govuk-list govuk-list--bullet">
+        {% for update in data['remainingCattleUpdates'] %}
+          <li>
+            {{ update.cattle | length }} cattle –
+            {% if update.status == "not-found" %}
+              Cattle not found
+            {% elseif update.status == "deceased" %}
+              Cattle deceased
+            {% elseif update.status == "withdrawn-export" %}
+              Cattle withdrawn for export purposes
+            {% elseif update.status == "withdrawn-slaughter" %}
+              Cattle withdrawn for slaughter
+            {% elseif update.status == "withdrawn-owner" %}
+              Cattle withdrawn by the livestock owner
+            {% elseif update.status == "other" %}
+              Other reason recorded
+            {% else %}
+              Status recorded
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <form action="/v1-0/submit-vaccination-report" method="post">
+      {{ govukButton({
+        text: "Submit vaccination report"
+      }) }}
+    </form>
+
+  </div>
+</div>
+{% endblock %}

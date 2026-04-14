@@ -1,3 +1,4 @@
+
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
@@ -14,7 +15,6 @@
 {% block content %}
 {% set selectedHerdOrCattle = data['selectedCattleLabel'] or data['selectedCattle'] or "Selected herd" %}
 {% set totalCattle = previewRows | length %}
-{% set fieldColumns = previewColumns or [] %}
 
 <style>
   .app-preview-shell { margin-top: 30px; }
@@ -31,15 +31,46 @@
     margin-bottom: 0;
   }
 
+  .app-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    border: 1px solid #0b0c0c;
+    margin-bottom: 16px;
+  }
+
+  .app-meta-grid__item {
+    border-right: 1px solid #0b0c0c;
+    border-bottom: 1px solid #0b0c0c;
+    padding: 8px;
+    min-height: 54px;
+  }
+
+  .app-meta-grid__item:nth-child(5n) {
+    border-right: 0;
+  }
+
+  .app-meta-grid__label {
+    display: block;
+    font-size: 13px;
+    color: #505a5f;
+    margin-bottom: 4px;
+  }
+
+  .app-meta-grid__value {
+    font-weight: 700;
+    word-break: break-word;
+  }
+
   .app-sheet {
     background: #ffffff;
     border: 2px solid #0b0c0c;
     padding: 18px;
   }
 
-  .app-sheet, .app-sheet * { font-family: Arial, Helvetica, sans-serif; }
-  .app-sheet--portrait { max-width: 980px; }
-  .app-sheet--landscape { max-width: 1280px; }
+  .app-sheet--portrait { max-width: 900px; }
+  .app-sheet--landscape { max-width: 1180px; }
+
   .app-sheet--text-small { font-size: 14px; }
   .app-sheet--text-standard { font-size: 16px; }
   .app-sheet--text-large { font-size: 19px; }
@@ -63,60 +94,86 @@
   .app-record-table td {
     border: 1px solid #0b0c0c;
     vertical-align: middle;
+    height: 42px;
   }
 
   .app-record-table th {
     background: #f3f2f1;
-    text-align: left;
+    text-align: center;
     font-weight: 700;
   }
 
-  .app-col-ear-tag { width: 30ch; }
-  .app-col-notes { width: 20%; }
+  .app-col-ear-tag { width: 34%; text-align: left; }
+  .app-col-thin { width: 6%; text-align: center; }
+  .app-col-vax { width: 18%; }
+  .app-col-notes { width: 24%; }
+
+  .app-vertical-header {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    display: inline-block;
+  }
 
   .app-ear-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 700;
     font-variant-numeric: tabular-nums;
     line-height: 1.2;
   }
 
-  .app-ear-tag__prefix {
-    font-size: 1.1em;
-    min-width: 2ch;
-  }
-
-  .app-ear-tag__boxes {
+  .app-ear-tag__scanline {
     display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: 0.32em;
+    flex-wrap: wrap;
+    font-family: Arial, Helvetica, sans-serif;
+    letter-spacing: 0.04em;
+    font-weight: 700;
   }
 
-  .app-ear-tag__part {
-    display: inline-block;
+  .app-ear-tag__prefix {
+    font-weight: 700;
+  }
+
+  .app-ear-tag__herd {
+    padding-right: 0.45em;
+    border-right: 1px solid #b1b4b6;
+  }
+
+  .app-ear-tag__check {
+    color: #505a5f;
+  }
+
+  .app-ear-tag__individual {
     border: 2px solid #0b0c0c;
-    padding: 6px 10px;
-    text-align: center;
+    padding: 1px 6px;
     background: #ffffff;
-    min-width: 6ch;
+    border-radius: 2px;
+    font-weight: 700;
   }
 
-  .app-ear-tag__part--check {
-    min-width: 2.5ch;
+  .app-ear-tag--no-emphasis .app-ear-tag__individual {
+    border: 0;
+    padding: 1px 0;
+    background: transparent;
   }
 
-  .app-ear-tag__part--individual {
-    min-width: 7ch;
+  .app-blank-cell {
+    min-height: 42px;
   }
 
-  .app-ear-tag--no-emphasis .app-ear-tag__part--individual {
-    border-width: 1px;
-  }
+  @media (max-width: 900px) {
+    .app-meta-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 
-  .app-cell-hidden { display: none; }
+    .app-meta-grid__item:nth-child(5n) {
+      border-right: 1px solid #0b0c0c;
+    }
+
+    .app-meta-grid__item:nth-child(2n) {
+      border-right: 0;
+    }
+  }
 
   @media print {
     .govuk-back-link,
@@ -127,7 +184,9 @@
     .govuk-footer,
     .govuk-phase-banner,
     .govuk-breadcrumbs,
-    .govuk-service-navigation { display: none !important; }
+    .govuk-service-navigation {
+      display: none !important;
+    }
 
     body,
     .govuk-width-container,
@@ -137,8 +196,14 @@
       max-width: none !important;
     }
 
-    .app-sheet { margin: 0; border: 1px solid #0b0c0c; }
-    .app-record-table thead { display: table-header-group; }
+    .app-sheet {
+      margin: 0;
+      border: 1px solid #0b0c0c;
+    }
+
+    .app-record-table thead {
+      display: table-header-group;
+    }
 
     @page {
       size: A4 portrait;
@@ -149,19 +214,10 @@
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
-    <h1 class="govuk-heading-l govuk-!-margin-bottom-4">Download your list</h1>
-
-    {{ govukSummaryList({
-      rows: [
-        { key: { text: "Herd or cattle" }, value: { text: selectedHerdOrCattle } },
-        { key: { text: "Information to include" }, value: { text: fieldColumns | join(', ') or "Not selected" } },
-        { key: { text: "Sort by" }, value: { text: data['sortBy'] or "Ear-tag number" } },
-        { key: { text: "Order" }, value: { text: sortDirectionLabel or "Ascending" } },
-        { key: { text: "Date printed" }, value: { text: printedDate or "" } }
-      ]
-    }) }}
-
     <div class="app-preview-shell">
+      <h1 class="govuk-heading-l">Cattle bTB vaccination record</h1>
+      <p class="govuk-body">{{ selectedHerdOrCattle }}</p>
+
       <div class="app-print-controls">
         <div class="govuk-grid-row">
           <div class="govuk-grid-column-one-third">
@@ -222,14 +278,14 @@
         </div>
 
         <div class="govuk-grid-row govuk-!-margin-top-4">
-          <div class="govuk-grid-column-two-thirds">
+          <div class="govuk-grid-column-one-half">
             {{ govukCheckboxes({
               idPrefix: "previewOptions",
               name: "previewOptions",
               classes: "govuk-checkboxes--small",
               fieldset: {
                 legend: {
-                  text: "Show or hide information",
+                  text: "Ear tag display",
                   classes: "govuk-fieldset__legend--s"
                 }
               },
@@ -243,7 +299,7 @@
             }) }}
           </div>
 
-          <div class="govuk-grid-column-one-third govuk-!-text-align-right">
+          <div class="govuk-grid-column-one-half govuk-!-text-align-right">
             {{ govukButton({
               text: "Print this list",
               classes: "govuk-button--secondary govuk-!-margin-top-5",
@@ -256,14 +312,38 @@
         </div>
       </div>
 
+      <div class="app-meta-grid">
+        <div class="app-meta-grid__item">
+          <span class="app-meta-grid__label">CPH number</span>
+          <span class="app-meta-grid__value">{{ data['herd']['cph'] or data['selectedCattle'] }}</span>
+        </div>
+        <div class="app-meta-grid__item">
+          <span class="app-meta-grid__label">Farm name</span>
+          <span class="app-meta-grid__value">{{ data['herd']['farm'] }}</span>
+        </div>
+        <div class="app-meta-grid__item">
+          <span class="app-meta-grid__label">Farm address</span>
+          <span class="app-meta-grid__value">{{ data['herd']['address'] }}</span>
+        </div>
+        <div class="app-meta-grid__item">
+          <span class="app-meta-grid__label">Total cattle</span>
+          <span class="app-meta-grid__value">{{ totalCattle }}</span>
+        </div>
+        <div class="app-meta-grid__item">
+          <span class="app-meta-grid__label">Date printed</span>
+          <span class="app-meta-grid__value" id="date-printed"></span>
+        </div>
+      </div>
+
       <div class="app-sheet app-sheet--portrait app-sheet--text-standard app-sheet--spacing-standard" data-preview-sheet>
         <table class="app-record-table">
           <thead>
             <tr>
               <th scope="col" class="app-col-ear-tag">Ear tag number</th>
-              {% for column in fieldColumns %}
-                <th scope="col" data-column-header="{{ loop.index0 }}">{{ column }}</th>
-              {% endfor %}
+              <th scope="col" class="app-col-thin"><span class="app-vertical-header">Breed</span></th>
+              <th scope="col" class="app-col-thin"><span class="app-vertical-header">DOB</span></th>
+              <th scope="col" class="app-col-thin"><span class="app-vertical-header">Sex</span></th>
+              <th scope="col" class="app-col-vax">Vaccination status</th>
               <th scope="col" class="app-col-notes">Notes</th>
             </tr>
           </thead>
@@ -271,64 +351,83 @@
             {% for row in previewRows %}
             <tr>
               <td>
-                <div class="app-ear-tag" data-ear-tag>
-                  <span class="app-ear-tag__prefix">{{ row.earTagParts.prefix }}</span>
-                  <span class="app-ear-tag__boxes">
-                    <span class="app-ear-tag__part">{{ row.earTagParts.herd }}</span>
-                    <span class="app-ear-tag__part app-ear-tag__part--check">{{ row.earTagParts.check }}</span>
-                    <span class="app-ear-tag__part app-ear-tag__part--individual">{{ row.earTagParts.individual }}</span>
+                <div class="app-ear-tag" data-ear-tag data-official-id="{{ row.officialId }}">
+                  <span class="app-ear-tag__scanline">
+                    <span class="app-ear-tag__prefix" data-ear-prefix>UK</span>
+                    <span class="app-ear-tag__herd" data-ear-herd></span>
+                    <span class="app-ear-tag__check" data-ear-check></span>
+                    <span class="app-ear-tag__individual" data-ear-individual></span>
                   </span>
                 </div>
               </td>
-              {% for cell in row.cells %}
-                <td data-column-cell="{{ loop.index0 }}">{{ cell.value }}</td>
-              {% endfor %}
-              <td>{{ row.notes }}</td>
+              <td>{{ row.breed }}</td>
+              <td>{{ row.dob }}</td>
+              <td>{{ row.sex }}</td>
+              <td class="app-blank-cell"></td>
+              <td class="app-blank-cell"></td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
-
-    <p class="govuk-body govuk-!-margin-top-7">
-      <a href="/v1-0/customise-list" class="govuk-link">Change list settings</a>
-    </p>
-
-    <p class="govuk-body">
-      <a href="/v1-0/dashboard" class="govuk-link">Return to your work</a>
-    </p>
   </div>
 </div>
 
 <script>
   (function () {
     const previewSheet = document.querySelector('[data-preview-sheet]')
+    const printedDate = document.getElementById('date-printed')
     const textSizeInputs = document.querySelectorAll('input[name="previewTextSize"]')
     const orientationInputs = document.querySelectorAll('input[name="previewOrientation"]')
     const spacingInputs = document.querySelectorAll('input[name="previewSpacing"]')
-    let lastFiveCheckbox = document.querySelector('input[value="show-last-five"]')
+    const lastFiveCheckbox = document.querySelector('input[value="show-last-five"]')
     const earTags = document.querySelectorAll('[data-ear-tag]')
 
-    const columnToggles = [
-      {% for column in fieldColumns %}
-      {
-        value: 'column-{{ loop.index0 }}',
-        label: {{ column | dump }}
-      }{% if not loop.last %},{% endif %}
-      {% endfor %}
-    ]
+    function formatPrintedDate(date) {
+      return new Intl.DateTimeFormat('en-GB', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }).format(date)
+    }
 
-    const controlsFieldset = document.querySelector('.govuk-checkboxes')
-    if (controlsFieldset && columnToggles.length) {
-      columnToggles.forEach(function (column) {
-        const item = document.createElement('div')
-        item.className = 'govuk-checkboxes__item'
-        item.innerHTML = `
-          <input class="govuk-checkboxes__input" id="${column.value}" name="previewOptions" type="checkbox" value="${column.value}" checked>
-          <label class="govuk-label govuk-checkboxes__label" for="${column.value}">${column.label}</label>
-        `
-        controlsFieldset.appendChild(item)
+    function formatEarTag(officialId) {
+      const cleaned = String(officialId || '').replace(/\s+/g, '')
+      const digits = cleaned.replace(/^UK/i, '')
+
+      if (digits.length < 12) {
+        return {
+          prefix: 'UK',
+          herd: digits.slice(0, 6),
+          check: digits.slice(6, 7),
+          individual: digits.slice(7)
+        }
+      }
+
+      return {
+        prefix: 'UK',
+        herd: digits.slice(0, 6),
+        check: digits.slice(6, 7),
+        individual: digits.slice(7, 12)
+      }
+    }
+
+    function populateEarTags() {
+      earTags.forEach(function (item) {
+        const officialId = item.getAttribute('data-official-id') || ''
+        const parts = formatEarTag(officialId)
+
+        const prefix = item.querySelector('[data-ear-prefix]')
+        const herd = item.querySelector('[data-ear-herd]')
+        const check = item.querySelector('[data-ear-check]')
+        const individual = item.querySelector('[data-ear-individual]')
+
+        if (prefix) prefix.textContent = parts.prefix
+        if (herd) herd.textContent = parts.herd
+        if (check) check.textContent = parts.check
+        if (individual) individual.textContent = parts.individual
       })
     }
 
@@ -338,7 +437,9 @@
         previewSheet.classList.remove(prefix + value)
       })
       const selected = document.querySelector('input[name="' + name + '"]:checked')
-      if (selected) previewSheet.classList.add(prefix + selected.value)
+      if (selected) {
+        previewSheet.classList.add(prefix + selected.value)
+      }
     }
 
     function updateLastFiveEmphasis() {
@@ -348,16 +449,8 @@
       })
     }
 
-    function updateVisibleColumns() {
-      columnToggles.forEach(function (column, index) {
-        const isVisible = !!document.querySelector('input[value="' + column.value + '"]:checked')
-        document.querySelectorAll('[data-column-header="' + index + '"]').forEach(function (cell) {
-          cell.classList.toggle('app-cell-hidden', !isVisible)
-        })
-        document.querySelectorAll('[data-column-cell="' + index + '"]').forEach(function (cell) {
-          cell.classList.toggle('app-cell-hidden', !isVisible)
-        })
-      })
+    if (printedDate) {
+      printedDate.textContent = 'Printed ' + formatPrintedDate(new Date())
     }
 
     textSizeInputs.forEach(function (input) {
@@ -378,16 +471,12 @@
       })
     })
 
-    document.addEventListener('change', function (event) {
-      if (event.target && event.target.name === 'previewOptions') {
-        lastFiveCheckbox = document.querySelector('input[value="show-last-five"]')
-        updateLastFiveEmphasis()
-        updateVisibleColumns()
-      }
-    })
+    if (lastFiveCheckbox) {
+      lastFiveCheckbox.addEventListener('change', updateLastFiveEmphasis)
+    }
 
+    populateEarTags()
     updateLastFiveEmphasis()
-    updateVisibleColumns()
   })()
 </script>
 {% endblock %}
