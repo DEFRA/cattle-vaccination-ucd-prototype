@@ -170,14 +170,14 @@
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
-    <h1 class="govuk-heading-l govuk-!-margin-bottom-4">Prepare and print your list for {{ data['herd']['farm'] or selectedHerdOrCattle }}</h1>
+    <h1 class="govuk-heading-l govuk-!-margin-bottom-4">Your vaccination list</h1>
 
 
 
     <div class="app-page-grid">
       <form method="post" action="/v1-0/download-list" class="app-filter-panel">
         <h2 class="govuk-heading-m govuk-!-margin-bottom-3">List settings</h2>
-        <p class="govuk-body govuk-!-margin-bottom-4">Choose your settings, then select Apply changes.</p>
+        <p class="govuk-body govuk-!-margin-bottom-4">You will need to apply any changes you make to these filters.</p>
 
         {{ govukRadios({
           idPrefix: "downloadFormat",
@@ -293,7 +293,7 @@
       <div>
         <div class="app-results-header">
           <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Preview</h2>
-          <p class="govuk-body govuk-!-margin-bottom-0">Review how your {{ downloadFormatLabel or 'printable list (PDF)' }} will look before you print or export it.</p>
+          <p class="govuk-body govuk-!-margin-bottom-0">You can adjust the list settings to create the list layout you want.</p>
         </div>
 <!---
         <div class="app-state-box">

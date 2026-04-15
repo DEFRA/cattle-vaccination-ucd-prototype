@@ -18,7 +18,10 @@
       {{ govukErrorSummary(errorSummary) }}
     {% endif %}
 
-    <h1 class="govuk-heading-l">Check farm details</h1>
+    <h1 class="govuk-heading-l">  Your visit to {{ data['herd']['farm'] }}</h1>
+    <p class="govuk-body">
+      You're reporting vaccinations for a visit to this farm.
+    </p>
 
     {% if data['herd'] %}
       {{ govukSummaryList({
