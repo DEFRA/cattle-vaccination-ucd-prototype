@@ -77,6 +77,8 @@ function handleFarmSearch(req, res, pageName) {
   res.redirect('/v1-0/search-results')
 }
 
+
+
 function handleReportSearch(req, res, pageName) {
   const searchInput = (req.body.reportSearch || '').trim()
 
@@ -178,6 +180,8 @@ router.post('/v1-0/confirm-herd-or-animal', (req, res) => {
   return res.redirect('/v1-0/confirm-herd-or-animal')
 })
 
+
+
 router.get('/v1-0/search-for-a-herd-or-animal-to-report', (req, res) => {
   res.render('v1-0/search-for-a-herd-or-animal-to-report')
 })
@@ -268,7 +272,7 @@ router.post('/v1-0/who-gave-the-vaccine', (req, res) => {
     })
   }
 
-  return res.redirect('/v1-0/enter-vaccination-date')
+  return res.redirect('/v1-0/enter-vaccine-batch-details')
 })
 
 router.post('/v1-0/enter-vaccination-date', (req, res) => {
@@ -278,16 +282,16 @@ router.post('/v1-0/enter-vaccination-date', (req, res) => {
   return res.redirect('/v1-0/enter-vaccine-batch-details')
 })
 
-router.get('/v1-0/enter-diluent-batch-details', (req, res) => {
-  res.render('v1-0/enter-diluent-batch-details')
-})
-
 router.post('/v1-0/enter-vaccine-batch-details', (req, res) => {
   req.session.data.batchNumber = req.body.batchNumber
   req.session.data.batchExpiryDateDay = req.body['batchExpiryDate-day']
   req.session.data.batchExpiryDateMonth = req.body['batchExpiryDate-month']
   req.session.data.batchExpiryDateYear = req.body['batchExpiryDate-year']
   return res.redirect('/v1-0/enter-diluent-batch-details')
+})
+
+router.get('/v1-0/enter-diluent-batch-details', (req, res) => {
+  res.render('v1-0/enter-diluent-batch-details')
 })
 
 router.post('/v1-0/enter-diluent-batch-details', (req, res) => {
@@ -310,6 +314,7 @@ router.post('/v1-0/select-vaccinated-animals', (req, res) => {
     : (req.body.selectedAnimals ? [req.body.selectedAnimals] : [])
   const markAction = req.body.markAction
   const selectedStatus = req.body.selectedStatus
+  const otherReason = (req.body.otherReason || '').trim()
 
   if (markAction === 'continue') {
     const decisionMap = getDecisionMap(req.session.data)
@@ -333,10 +338,23 @@ router.post('/v1-0/select-vaccinated-animals', (req, res) => {
     }
 
     req.session.data.vaccinatedCattle = groups.vaccinated.map(animal => animal.officialId)
+    const otherReasons = req.session.data.otherReasons || {}
     req.session.data.remainingCattleUpdates = [
       { status: 'not-found', cattle: groups['not-found'].map(animal => animal.officialId) },
       { status: 'deceased', cattle: groups.deceased.map(animal => animal.officialId) },
-      { status: 'withdrawn', cattle: groups.withdrawn.map(animal => animal.officialId) }
+      { status: 'withdrawn-export', cattle: groups['withdrawn-export'].map(animal => animal.officialId) },
+      { status: 'withdrawn-slaughter', cattle: groups['withdrawn-slaughter'].map(animal => animal.officialId) },
+      { status: 'withdrawn-owner', cattle: groups['withdrawn-owner'].map(animal => animal.officialId) },
+      {
+        status: 'other',
+        cattle: groups.other.map(animal => animal.officialId),
+        reasons: groups.other.reduce((acc, animal) => {
+          if (otherReasons[animal.officialId]) {
+            acc[animal.officialId] = otherReasons[animal.officialId]
+          }
+          return acc
+        }, {})
+      }
     ].filter(group => group.cattle.length)
 
     return res.redirect('/v1-0/check-report-answers')
@@ -344,17 +362,20 @@ router.post('/v1-0/select-vaccinated-animals', (req, res) => {
 
   if (markAction === 'reset') {
     const decisionMap = { ...getDecisionMap(req.session.data) }
+    const otherReasons = { ...(req.session.data.otherReasons || {}) }
     selectedIds.forEach(id => {
       delete decisionMap[id]
+      delete otherReasons[id]
     })
     req.session.data.cattleDecisions = decisionMap
+    req.session.data.otherReasons = otherReasons
     return res.redirect('/v1-0/select-vaccinated-animals')
   }
 
   if (!selectedIds.length) {
     return renderSelectVaccinatedAnimals(req, res, {
       selectedIds,
-      formValues: { selectedStatus },
+      formValues: { selectedStatus, otherReason },
       errors: {
         selectedAnimals: { text: 'Select at least one animal' }
       },
@@ -370,40 +391,69 @@ router.post('/v1-0/select-vaccinated-animals', (req, res) => {
     })
   }
 
-  let decision
-  if (markAction === 'vaccinated') {
-    decision = 'vaccinated'
-  } else if (markAction === 'remaining') {
-    if (!selectedStatus) {
-      return renderSelectVaccinatedAnimals(req, res, {
-        selectedIds,
-        formValues: { selectedStatus },
-        errors: {
-          selectedStatus: { text: 'Select what to mark the selected cattle as' }
-        },
-        errorSummary: {
-          titleText: 'There is a problem',
-          errorList: [
-            {
-              text: 'Select what to mark the selected cattle as',
-              href: '#selectedStatus'
-            }
-          ]
-        }
-      })
-    }
-    decision = selectedStatus
+  
+  if (markAction !== 'mark') {
+    return res.redirect('/v1-0/select-vaccinated-animals')
+  }
+
+  if (!selectedStatus) {
+    return renderSelectVaccinatedAnimals(req, res, {
+      selectedIds,
+      formValues: { selectedStatus, otherReason },
+      errors: {
+        selectedStatus: { text: 'Select what to mark the selected cattle as' }
+      },
+      errorSummary: {
+        titleText: 'There is a problem',
+        errorList: [
+          {
+            text: 'Select what to mark the selected cattle as',
+            href: '#selectedStatus'
+          }
+        ]
+      }
+    })
+  }
+
+  if (selectedStatus === 'other' && !otherReason) {
+    return renderSelectVaccinatedAnimals(req, res, {
+      selectedIds,
+      formValues: { selectedStatus, otherReason },
+      errors: {
+        otherReason: { text: 'Enter the other reason' }
+      },
+      errorSummary: {
+        titleText: 'There is a problem',
+        errorList: [
+          {
+            text: 'Enter the other reason',
+            href: '#otherReason'
+          }
+        ]
+      }
+    })
   }
 
   const decisionMap = { ...getDecisionMap(req.session.data) }
+  const otherReasons = { ...(req.session.data.otherReasons || {}) }
+
   selectedIds.forEach(id => {
     if (lookup[id]) {
-      decisionMap[id] = decision
+      decisionMap[id] = selectedStatus
+
+      if (selectedStatus === 'other') {
+        otherReasons[id] = otherReason
+      } else {
+        delete otherReasons[id]
+      }
     }
   })
 
   req.session.data.cattleDecisions = decisionMap
+  req.session.data.otherReasons = otherReasons
   return res.redirect('/v1-0/select-vaccinated-animals')
+
+  
 })
 
 router.post('/v1-0/add-a-note', (req, res) => {
@@ -463,6 +513,7 @@ router.post('/v1-0/one-login-password', function (req, res) {
   req.session.data.userName = 'Alex Taylor'
   res.redirect('/v1-0/dashboard')
 })
+
 
 // -----------------------------------------------------------------------------
 // Download list preview data and helpers
@@ -721,6 +772,8 @@ function getPreviewSettings(sessionData, fields) {
   }
 }
 
+
+
 function getReportingAnimals(req) {
   const selectedCattle = req.session.data.selectedCattle
   const sortBy = req.session.data.sortBy || 'Ear-tag number'
@@ -745,7 +798,10 @@ function getReportingGroups(animals, decisionMap) {
     vaccinated: [],
     'not-found': [],
     deceased: [],
-    withdrawn: []
+    'withdrawn-export': [],
+    'withdrawn-slaughter': [],
+    'withdrawn-owner': [],
+    other: []
   }
 
   animals.forEach((animal) => {
@@ -795,7 +851,7 @@ function calculateAgeFromDob(dob) {
   return `${years} ${years === 1 ? 'year' : 'years'}`
 }
 
-function buildReportingTableRows(animals) {
+function buildReportingTableRows(animals, otherReasons = {}) {
   return animals.map(animal => ({
     id: animal.officialId,
     officialId: animal.officialId,
@@ -804,6 +860,7 @@ function buildReportingTableRows(animals) {
     dob: animal.dob,
     sex: animal.sex,
     notes: animal.notes,
+    otherReason: otherReasons[animal.officialId] || '',
     earTagParts: formatEarTagParts(animal.officialId)
   }))
 }
@@ -820,16 +877,20 @@ function buildSelectedAnimalSummary(animals, ids) {
 function renderSelectVaccinatedAnimals(req, res, options = {}) {
   const animals = getReportingAnimals(req)
   const decisionMap = getDecisionMap(req.session.data)
+  const otherReasons = req.session.data.otherReasons || {}
   const groups = getReportingGroups(animals, decisionMap)
   const selectedIds = Array.isArray(options.selectedIds) ? options.selectedIds : []
 
   return res.render('v1-0/select-vaccinated-animals', {
     herd: req.session.data.herd || herdData[req.session.data.selectedCattle],
-    pendingRows: buildReportingTableRows(groups.remaining),
-    vaccinatedRows: buildReportingTableRows(groups.vaccinated),
-    notFoundRows: buildReportingTableRows(groups['not-found']),
-    deceasedRows: buildReportingTableRows(groups.deceased),
-    withdrawnRows: buildReportingTableRows(groups.withdrawn),
+    pendingRows: buildReportingTableRows(groups.remaining, otherReasons),
+    vaccinatedRows: buildReportingTableRows(groups.vaccinated, otherReasons),
+    notFoundRows: buildReportingTableRows(groups['not-found'], otherReasons),
+    deceasedRows: buildReportingTableRows(groups.deceased, otherReasons),
+    withdrawnExportRows: buildReportingTableRows(groups['withdrawn-export'], otherReasons),
+    withdrawnSlaughterRows: buildReportingTableRows(groups['withdrawn-slaughter'], otherReasons),
+    withdrawnOwnerRows: buildReportingTableRows(groups['withdrawn-owner'], otherReasons),
+    otherRows: buildReportingTableRows(groups.other, otherReasons),
     totalAnimals: animals.length,
     totalRemaining: groups.remaining.length,
     totalMarked: animals.length - groups.remaining.length,
@@ -890,6 +951,7 @@ router.post('/v1-0/check-list-details', function (req, res) {
 
   res.redirect('/v1-0/download-list')
 })
+
 
 router.get('/v1-0/prepare-list-download', function (req, res) {
   res.render('v1-0/prepare-list-download')

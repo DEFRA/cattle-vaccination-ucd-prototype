@@ -272,7 +272,7 @@ router.post('/v1-0/who-gave-the-vaccine', (req, res) => {
     })
   }
 
-  return res.redirect('/v1-0/enter-vaccination-date')
+  return res.redirect('/v1-0/enter-vaccine-batch-details')
 })
 
 router.post('/v1-0/enter-vaccination-date', (req, res) => {
@@ -303,6 +303,8 @@ router.post('/v1-0/enter-diluent-batch-details', (req, res) => {
 })
 
 router.get('/v1-0/select-vaccinated-animals', (req, res) => {
+  req.session.data.markingPhase = req.session.data.markingPhase || 'vaccinated'
+  req.session.data.activeReviewGroup = req.session.data.activeReviewGroup || 'remaining'
   return renderSelectVaccinatedAnimals(req, res)
 })
 
@@ -315,6 +317,20 @@ router.post('/v1-0/select-vaccinated-animals', (req, res) => {
   const markAction = req.body.markAction
   const selectedStatus = req.body.selectedStatus
   const otherReason = (req.body.otherReason || '').trim()
+
+  req.session.data.markingPhase = req.session.data.markingPhase || 'vaccinated'
+  req.session.data.activeReviewGroup = req.session.data.activeReviewGroup || 'remaining'
+
+  if (markAction === 'view-group') {
+    req.session.data.activeReviewGroup = req.body.reviewGroup || 'remaining'
+    return res.redirect('/v1-0/select-vaccinated-animals')
+  }
+
+  if (markAction === 'continue-to-reasons') {
+    req.session.data.markingPhase = 'reasons'
+    req.session.data.activeReviewGroup = 'remaining'
+    return res.redirect('/v1-0/select-vaccinated-animals')
+  }
 
   if (markAction === 'continue') {
     const decisionMap = getDecisionMap(req.session.data)
@@ -369,6 +385,7 @@ router.post('/v1-0/select-vaccinated-animals', (req, res) => {
     })
     req.session.data.cattleDecisions = decisionMap
     req.session.data.otherReasons = otherReasons
+    req.session.data.activeReviewGroup = 'remaining'
     return res.redirect('/v1-0/select-vaccinated-animals')
   }
 
@@ -391,12 +408,15 @@ router.post('/v1-0/select-vaccinated-animals', (req, res) => {
     })
   }
 
-  
   if (markAction !== 'mark') {
     return res.redirect('/v1-0/select-vaccinated-animals')
   }
 
-  if (!selectedStatus) {
+  const finalStatus = req.session.data.markingPhase === 'vaccinated'
+    ? 'vaccinated'
+    : selectedStatus
+
+  if (req.session.data.markingPhase === 'reasons' && !selectedStatus) {
     return renderSelectVaccinatedAnimals(req, res, {
       selectedIds,
       formValues: { selectedStatus, otherReason },
@@ -415,7 +435,7 @@ router.post('/v1-0/select-vaccinated-animals', (req, res) => {
     })
   }
 
-  if (selectedStatus === 'other' && !otherReason) {
+  if (finalStatus === 'other' && !otherReason) {
     return renderSelectVaccinatedAnimals(req, res, {
       selectedIds,
       formValues: { selectedStatus, otherReason },
@@ -439,9 +459,9 @@ router.post('/v1-0/select-vaccinated-animals', (req, res) => {
 
   selectedIds.forEach(id => {
     if (lookup[id]) {
-      decisionMap[id] = selectedStatus
+      decisionMap[id] = finalStatus
 
-      if (selectedStatus === 'other') {
+      if (finalStatus === 'other') {
         otherReasons[id] = otherReason
       } else {
         delete otherReasons[id]
@@ -451,9 +471,8 @@ router.post('/v1-0/select-vaccinated-animals', (req, res) => {
 
   req.session.data.cattleDecisions = decisionMap
   req.session.data.otherReasons = otherReasons
+  req.session.data.activeReviewGroup = 'remaining'
   return res.redirect('/v1-0/select-vaccinated-animals')
-
-  
 })
 
 router.post('/v1-0/add-a-note', (req, res) => {
@@ -817,6 +836,56 @@ function getReportingGroups(animals, decisionMap) {
   return groups
 }
 
+
+
+function getSummaryBuckets(groups) {
+  return [
+    { key: 'vaccinated', label: 'Vaccinated', count: groups.vaccinated.length },
+    { key: 'not-found', label: 'Cattle not found', count: groups['not-found'].length },
+    { key: 'deceased', label: 'Deceased', count: groups.deceased.length },
+    { key: 'withdrawn-export', label: 'Withdrawn for export', count: groups['withdrawn-export'].length },
+    { key: 'withdrawn-slaughter', label: 'Withdrawn for slaughter', count: groups['withdrawn-slaughter'].length },
+    { key: 'withdrawn-owner', label: 'Withdrawn by owner', count: groups['withdrawn-owner'].length },
+    { key: 'other', label: 'Other', count: groups.other.length }
+  ].filter(bucket => bucket.count > 0)
+}
+
+function getGroupLabel(groupKey) {
+  const labels = {
+    remaining: 'Remaining cattle',
+    vaccinated: 'Vaccinated',
+    'not-found': 'Cattle not found',
+    deceased: 'Deceased',
+    'withdrawn-export': 'Withdrawn for export',
+    'withdrawn-slaughter': 'Withdrawn for slaughter',
+    'withdrawn-owner': 'Withdrawn by owner',
+    other: 'Other'
+  }
+
+  return labels[groupKey] || 'Remaining cattle'
+}
+
+function getRowsForReviewGroup(groups, groupKey, otherReasons) {
+  switch (groupKey) {
+    case 'vaccinated':
+      return buildReportingTableRows(groups.vaccinated, otherReasons)
+    case 'not-found':
+      return buildReportingTableRows(groups['not-found'], otherReasons)
+    case 'deceased':
+      return buildReportingTableRows(groups.deceased, otherReasons)
+    case 'withdrawn-export':
+      return buildReportingTableRows(groups['withdrawn-export'], otherReasons)
+    case 'withdrawn-slaughter':
+      return buildReportingTableRows(groups['withdrawn-slaughter'], otherReasons)
+    case 'withdrawn-owner':
+      return buildReportingTableRows(groups['withdrawn-owner'], otherReasons)
+    case 'other':
+      return buildReportingTableRows(groups.other, otherReasons)
+    default:
+      return buildReportingTableRows(groups.remaining, otherReasons)
+  }
+}
+
 function calculateAgeFromDob(dob) {
   if (!dob || typeof dob !== 'string') {
     return ''
@@ -880,20 +949,21 @@ function renderSelectVaccinatedAnimals(req, res, options = {}) {
   const otherReasons = req.session.data.otherReasons || {}
   const groups = getReportingGroups(animals, decisionMap)
   const selectedIds = Array.isArray(options.selectedIds) ? options.selectedIds : []
+  const activeReviewGroup = req.session.data.activeReviewGroup || 'remaining'
+  const markingPhase = req.session.data.markingPhase || 'vaccinated'
+  const activeRows = getRowsForReviewGroup(groups, activeReviewGroup, otherReasons)
 
   return res.render('v1-0/select-vaccinated-animals', {
     herd: req.session.data.herd || herdData[req.session.data.selectedCattle],
-    pendingRows: buildReportingTableRows(groups.remaining, otherReasons),
-    vaccinatedRows: buildReportingTableRows(groups.vaccinated, otherReasons),
-    notFoundRows: buildReportingTableRows(groups['not-found'], otherReasons),
-    deceasedRows: buildReportingTableRows(groups.deceased, otherReasons),
-    withdrawnExportRows: buildReportingTableRows(groups['withdrawn-export'], otherReasons),
-    withdrawnSlaughterRows: buildReportingTableRows(groups['withdrawn-slaughter'], otherReasons),
-    withdrawnOwnerRows: buildReportingTableRows(groups['withdrawn-owner'], otherReasons),
-    otherRows: buildReportingTableRows(groups.other, otherReasons),
+    activeRows,
+    activeReviewGroup,
+    activeReviewGroupLabel: getGroupLabel(activeReviewGroup),
+    summaryBuckets: getSummaryBuckets(groups),
     totalAnimals: animals.length,
     totalRemaining: groups.remaining.length,
     totalMarked: animals.length - groups.remaining.length,
+    allComplete: groups.remaining.length === 0,
+    markingPhase,
     selectedIds,
     selectedAnimalSummary: buildSelectedAnimalSummary(animals, selectedIds),
     errors: options.errors,
