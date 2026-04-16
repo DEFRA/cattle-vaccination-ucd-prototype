@@ -77,8 +77,6 @@ function handleFarmSearch(req, res, pageName) {
   res.redirect('/v1-0/search-results')
 }
 
-
-
 function handleReportSearch(req, res, pageName) {
   const searchInput = (req.body.reportSearch || '').trim()
 
@@ -179,8 +177,6 @@ router.post('/v1-0/confirm-herd-or-animal', (req, res) => {
   req.session.data.selectedCattleLabel = herdData[selected] ? `${herdData[selected].cph} — ${herdData[selected].farm}` : selected
   return res.redirect('/v1-0/confirm-herd-or-animal')
 })
-
-
 
 router.get('/v1-0/search-for-a-herd-or-animal-to-report', (req, res) => {
   res.render('v1-0/search-for-a-herd-or-animal-to-report')
@@ -533,7 +529,6 @@ router.post('/v1-0/one-login-password', function (req, res) {
   res.redirect('/v1-0/dashboard')
 })
 
-
 // -----------------------------------------------------------------------------
 // Download list preview data and helpers
 // -----------------------------------------------------------------------------
@@ -543,10 +538,10 @@ const baseAnimalData = {
       officialId: 'UK341234412177',
       earTagNumber: 'UK341234412177',
       barcode: 'UK341234412177',
-      breed: 'Holstein Friesian',
+      breed: 'HF',
       dob: '06/12/2022',
       age: 28,
-      sex: 'Female',
+      sex: 'F',
       vaccinationStatus: 'Vaccinated',
       notes: 'Duplicate'
     },
@@ -554,10 +549,10 @@ const baseAnimalData = {
       officialId: 'UK341123302177',
       earTagNumber: 'UK341123302177',
       barcode: 'UK341123302177',
-      breed: 'British Friesian',
+      breed: 'BF',
       dob: '06/12/2024',
       age: 4,
-      sex: 'Female',
+      sex: 'F',
       vaccinationStatus: 'Not vaccinated',
       notes: 'NO Gamma'
     },
@@ -565,10 +560,10 @@ const baseAnimalData = {
       officialId: 'UK341567812199',
       earTagNumber: 'UK341567812199',
       barcode: 'UK341567812199',
-      breed: 'Angus Cross',
+      breed: 'AAX',
       dob: '13/03/2023',
       age: 25,
-      sex: 'Male',
+      sex: 'M',
       vaccinationStatus: 'Vaccinated',
       notes: ''
     }
@@ -578,10 +573,10 @@ const baseAnimalData = {
       officialId: 'UK120900112301',
       earTagNumber: 'UK120900112301',
       barcode: 'UK120900112301',
-      breed: 'Limousin',
+      breed: 'LIM',
       dob: '02/02/2023',
       age: 26,
-      sex: 'Female',
+      sex: 'F',
       vaccinationStatus: 'Vaccinated',
       notes: ''
     },
@@ -589,10 +584,10 @@ const baseAnimalData = {
       officialId: 'UK120900112302',
       earTagNumber: 'UK120900112302',
       barcode: 'UK120900112302',
-      breed: 'Charolais',
+      breed: 'CH',
       dob: '19/08/2024',
       age: 8,
-      sex: 'Male',
+      sex: 'M',
       vaccinationStatus: 'Not vaccinated',
       notes: ''
     }
@@ -625,8 +620,8 @@ function createGeneratedAnimal(cph, index) {
     herdMark: (fallbackDigits.slice(0, 6) || '123456').padEnd(6, '0'),
     checkDigit: fallbackDigits.slice(6, 7) || '1'
   }
-  const breeds = ['Holstein Friesian', 'British Friesian', 'Angus Cross', 'Limousin', 'Charolais']
-  const sex = index % 5 === 0 ? 'Male' : 'Female'
+  const breeds = ['HF', 'BF', 'AAX', 'LIM', 'CH']
+  const sex = index % 5 === 0 ? 'M' : 'F'
   const age = 4 + (index % 32)
   const vaccinationStatus = index % 4 === 0 ? 'Not vaccinated' : 'Vaccinated'
   const individual = String(index + 1).padStart(5, '0')
@@ -708,7 +703,7 @@ function getFieldValue(animal, field) {
   switch (field) {
     case 'Age':
     case 'Age (youngest to oldest)':
-      return `${animal.age} months`
+      return calculateAgeFromDob(animal.dob)
     case 'Vaccination status':
       return ''
     case 'Ear-tag number':
@@ -791,8 +786,6 @@ function getPreviewSettings(sessionData, fields) {
   }
 }
 
-
-
 function getReportingAnimals(req) {
   const selectedCattle = req.session.data.selectedCattle
   const sortBy = req.session.data.sortBy || 'Ear-tag number'
@@ -835,8 +828,6 @@ function getReportingGroups(animals, decisionMap) {
 
   return groups
 }
-
-
 
 function getSummaryBuckets(groups) {
   return [
@@ -904,20 +895,39 @@ function calculateAgeFromDob(dob) {
   }
 
   const today = new Date()
-  let years = today.getFullYear() - birthDate.getFullYear()
-  const monthDiff = today.getMonth() - birthDate.getMonth()
 
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    years -= 1
+  if (birthDate > today) {
+    return ''
   }
 
-  if (years < 1) {
-    const months = (today.getFullYear() - birthDate.getFullYear()) * 12 + today.getMonth() - birthDate.getMonth() - (today.getDate() < birthDate.getDate() ? 1 : 0)
-    const safeMonths = Math.max(months, 0)
-    return `${safeMonths} ${safeMonths === 1 ? 'month' : 'months'}`
+  const msPerDay = 1000 * 60 * 60 * 24
+  const daysOld = Math.floor((today - birthDate) / msPerDay)
+
+  let monthsOld = (today.getFullYear() - birthDate.getFullYear()) * 12
+    + (today.getMonth() - birthDate.getMonth())
+
+  if (today.getDate() < birthDate.getDate()) {
+    monthsOld -= 1
   }
 
-  return `${years} ${years === 1 ? 'year' : 'years'}`
+  let yearsOld = today.getFullYear() - birthDate.getFullYear()
+
+  if (
+    today.getMonth() < birthDate.getMonth() ||
+    (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())
+  ) {
+    yearsOld -= 1
+  }
+
+  if (daysOld < 30) {
+    return `${daysOld}D`
+  }
+
+  if (monthsOld < 12) {
+    return `${Math.max(monthsOld, 1)}M`
+  }
+
+  return `${Math.max(yearsOld, 1)}Y`
 }
 
 function buildReportingTableRows(animals, otherReasons = {}) {
@@ -1021,7 +1031,6 @@ router.post('/v1-0/check-list-details', function (req, res) {
 
   res.redirect('/v1-0/download-list')
 })
-
 
 router.get('/v1-0/prepare-list-download', function (req, res) {
   res.render('v1-0/prepare-list-download')

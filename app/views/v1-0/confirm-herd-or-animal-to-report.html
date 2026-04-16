@@ -20,7 +20,7 @@
 
     <h1 class="govuk-heading-l">  Your visit to {{ data['herd']['farm'] }}</h1>
     <p class="govuk-body">
-      You're reporting vaccinations for a visit to this farm.
+      You're reporting completed BCG vaccinations at this farm.
     </p>
 
     {% if data['herd'] %}
@@ -91,8 +91,8 @@
           value: data['reportType'],
           errorMessage: { text: errors['reportType'].text } if errors and errors['reportType'],
           items: [
-            { value: "vaccination", text: "Completed vaccinations" },
-            { value: "tb-test", text: "Test results" },
+            { value: "vaccination", text: "Completed BCG vaccinations" },
+            { value: "tb-test", text: "Skin test results" },
             { value: "both", text: "Both" }
           ]
         }) }}

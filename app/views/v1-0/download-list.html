@@ -170,7 +170,7 @@
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
-    <h1 class="govuk-heading-l govuk-!-margin-bottom-4">Your vaccination list</h1>
+    <h1 class="govuk-heading-l govuk-!-margin-bottom-4">List of cattle to vaccinate</h1>
 
 
 
@@ -286,7 +286,7 @@
 
         <div class="govuk-button-group">
           {{ govukButton({ text: "Apply changes" }) }}
-          <a class="govuk-link" href="/v1-0/download-list/reset">Clear filters</a>
+          <a class="govuk-link" href="/v1-0/download-list/reset">Clear settings</a>
         </div>
       </form>
 
@@ -354,20 +354,18 @@
 
 <table class="govuk-table govuk-!-margin-bottom-6">
   <caption class="govuk-table__caption govuk-table__caption--m">
-    Farm details
+    {{ data['herd']['farm'] }}
   </caption>
     <tr class="govuk-table__row">
       <td class="govuk-table__cell">
         <strong>CPH:</strong><br/>{{ data['herd']['cph'] or data['selectedCattle'] }}
       </td>
-      <td class="govuk-table__cell">
-        <strong>Farm:</strong><br/> {{ data['herd']['farm'] }}
-      </td>
+
       <td class="govuk-table__cell">
         <strong>Cattle:</strong><br/> {{ data['herd'].cattle }}
       </td>
       <td class="govuk-table__cell">
-        <strong>Date printed:</strong><br/> <span id="date-printed"><script>
+        <strong>Date populated :</strong><br/> <span id="date-printed"><script>
   document.addEventListener('DOMContentLoaded', function () {
     const printedDate = document.getElementById('date-printed')
     if (printedDate) {
