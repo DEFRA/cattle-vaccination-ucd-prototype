@@ -22,7 +22,7 @@ const herdData = {
   '12/320/6799-01': { cph: '12/320/6799-01', farm: 'High Pastures Farm', address: 'High Pastures Beef Unit, Northallerton, DL7 9KL', cattle: '187', holdingLabel: 'Beef finishing unit' },
   '24/402/6800': { cph: '24/402/6800', farm: 'Green Lane Farm', address: 'Green Lane Farm, Pocklington, YO42 1LM', cattle: '72' },
   '24/405/6801': { cph: '24/405/6801', farm: 'Sunnyside Farm', address: 'Sunnyside Farm, Driffield, YO25 6MN', cattle: '158' },
-  '12/312/6802': { cph: '12/312/6802', farm: 'Mill House Farm', address: 'Mill House Farm, Richmond, DL10 4NP', cattle: '36' },
+  '12/312/6802': { cph: '12/312/6802', farm: 'Mill House Farm', address: 'Mill House Farm, Richmond, DL10 4NP', cattle: '38' },
   '12/365/6803': { cph: '12/365/6803', farm: 'Hazelcroft Farm', address: 'Hazelcroft Farm, Helmsley, YO62 5PQ', cattle: '146' },
   // Birch Hollow Farm – main holding + youngstock unit
   '17/221/6804':    { cph: '17/221/6804',    farm: 'Birch Hollow Farm', address: 'Birch Hollow Farm, Otley, LS21 3QR',           cattle: '250', holdingLabel: 'Main holding' },
@@ -667,14 +667,26 @@ function v11GenerateFarmHerd(cph, count) {
   // number of vaccinated cattle (the farm isn't in v11VaccinatedFarms so
   // the default herd is fully unvaccinated). Mark a fixed couple of
   // animals as vaccinated so the prepare-list flow has a few DIVA
-  // candidates to demo against.
+  // candidates to demo against. We also force two animals to be young
+  // calves (2 and 3 months old) so the prepare-list flow has cattle that
+  // the vet would mark as too young to test.
   if (baseCph === '12/312/6802') {
-    let marked = 0
-    for (let i = 0; i < animals.length && marked < 2; i++) {
-      if (animals[i].vaccinationStatus !== 'Vaccinated') {
+    let vaccinatedMarked = 0
+    let calvesMarked = 0
+    const calfAges = [2, 3]
+    for (let i = 0; i < animals.length; i++) {
+      if (vaccinatedMarked < 2 && animals[i].vaccinationStatus !== 'Vaccinated') {
         animals[i].vaccinationStatus = 'Vaccinated'
-        marked++
+        vaccinatedMarked++
+        continue
       }
+      if (calvesMarked < calfAges.length) {
+        const ageMonths = calfAges[calvesMarked]
+        animals[i].age = ageMonths
+        animals[i].dob = formatDateForOffset(ageMonths, 14)
+        calvesMarked++
+      }
+      if (vaccinatedMarked >= 2 && calvesMarked >= calfAges.length) break
     }
   }
 
