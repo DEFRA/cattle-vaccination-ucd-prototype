@@ -21,9 +21,7 @@
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }} - Day 2 of 2</span>
     <h1 class="govuk-heading-l">When was Day 2 of the test?</h1>
-    <p class="govuk-body">
-      Day 2 is the reading, 72 hours after Day 1.
-    </p>
+
 
     <form action="/v1-1/skin-test-date-day-2" method="post" novalidate>
 
@@ -33,7 +31,7 @@
         errorMessage: { text: errors['skinTestDay2'].text } if errors and errors['skinTestDay2'],
         fieldset: {
           legend: {
-            text: "Day 2 (reading, 72 hours later)",
+            text: "Day 2 (interpretation at 72 hour interval)",
             classes: "govuk-fieldset__legend--m"
           }
         },
@@ -66,7 +64,7 @@
         items: [
           {
             value: "yes",
-            text: "Test taken over more than one day",
+            text: "Select if Day 2 took more than a single day to complete",
             checked: data['skinTestDay2OverMultipleDays'] == "yes"
           }
         ]

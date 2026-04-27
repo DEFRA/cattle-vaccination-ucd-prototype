@@ -25,7 +25,7 @@
     {% set captionLabel = currentTestLabel or data['skinTestType'] or 'Skin test' %}
     <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ captionLabel }}</span>
     <h1 class="govuk-heading-l">
-      Did any cattle react to the {{ captionLabel }} test?
+      Did any cattle show a positive reaction?
     </h1>
 
 
@@ -42,7 +42,7 @@
             classes: "govuk-visually-hidden"
           }
         },
-        hint: { text: "Select 'Yes' if any animals showed a reaction." },
+        hint: { text: "Select 'Yes' if any animals showed a reaction. You should also select 'yes' if any animal showed an inconclusive result." },
         items: [
           { value: "yes", text: "Yes or inconclusive" },
           { value: "no",  text: "No" }

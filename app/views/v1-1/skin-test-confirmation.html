@@ -169,32 +169,37 @@
 
     {# ------------------------------------------------------------------
        Animals added in this report (not on the original list). Each
-       row carries a "Remove" link so the vet can take an animal back
-       out before submitting. Mirrors the Change-link pattern used on
-       the rows above it.
+       row mirrors the Change-link pattern used on the rows above:
+       one summary-list row per animal with a single "Change" action
+       that opens an edit page (where the vet can update the details
+       or remove the animal entirely).
     ------------------------------------------------------------------ #}
     {% if addedEntries and addedEntries.length > 0 %}
       <h2 class="govuk-heading-m govuk-!-margin-top-6">Cattle added to this report ({{ addedCount }})</h2>
-      {% for entry in addedEntries %}
-        <h3 class="govuk-heading-s govuk-!-margin-bottom-1">{{ entry.officialId }}</h3>
-        {{ govukSummaryList({
-          classes: "govuk-summary-list--no-border govuk-!-margin-bottom-2",
-          rows: [
-            { key: { text: "Breed" },   value: { text: entry.breed or 'Not recorded' } },
-            { key: { text: "DOB" },     value: { text: entry.dob or 'Not recorded' } },
-            { key: { text: "Sex" },     value: { text: entry.sex or 'Not recorded' } },
-            { key: { text: "Remarks" }, value: { text: entry.remarks or 'None' } }
-          ]
-        }) }}
-        <form method="post" action="/v1-1/skin-test-add-another/remove" class="govuk-!-margin-bottom-6">
-          <input type="hidden" name="earTag" value="{{ entry.officialId }}">
-          <button type="submit"
-                  class="govuk-link"
-                  style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
-            Remove {{ entry.officialId }}
-          </button>
-        </form>
-      {% endfor %}
+      <dl class="govuk-summary-list">
+        {% for entry in addedEntries %}
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">{{ entry.officialId }}</dt>
+            <dd class="govuk-summary-list__value">
+              <p class="govuk-body govuk-!-margin-bottom-0">
+                {{ entry.breed or 'Breed not recorded' }}
+                &middot; {{ entry.sex or 'Sex not recorded' }}
+                &middot; DOB {{ entry.dob or 'not recorded' }}
+              </p>
+              {% if entry.remarks %}
+                <p class="govuk-body-s govuk-!-margin-top-1 govuk-!-margin-bottom-0">
+                  {{ entry.remarks }}
+                </p>
+              {% endif %}
+            </dd>
+            <dd class="govuk-summary-list__actions">
+              <a class="govuk-link" href="/v1-1/skin-test-add-another/edit/{{ entry.officialId }}">
+                Change<span class="govuk-visually-hidden"> details for {{ entry.officialId }}</span>
+              </a>
+            </dd>
+          </div>
+        {% endfor %}
+      </dl>
     {% endif %}
 
     <form action="/v1-1/skin-test-confirmation" method="post" novalidate>

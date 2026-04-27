@@ -21,7 +21,7 @@
     {% if bothHasNextStep %}
       {# Halfway through the "Both" journey. The first list is saved,
          the second one is up next. #}
-      <h1 class="govuk-heading-l">{{ listTestLabel }} list is ready</h1>
+      <h1 class="govuk-heading-l">You can now print your list</h1>
 
       <p class="govuk-body">
         Next, format the {{ otherTestLabel }} list for {{ otherTestSubject }}.
@@ -36,7 +36,7 @@
 
     {% elif isBothJourney %}
       {# End of the Both journey – both lists are saved. #}
-      <h1 class="govuk-heading-l">SICCT and DIVA lists ready</h1>
+      <h1 class="govuk-heading-l">You can now print your list</h1>
 
       <p class="govuk-body">
         You can now download or print the SICCT and DIVA lists.

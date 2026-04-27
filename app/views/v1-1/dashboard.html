@@ -9,9 +9,9 @@
   .app-dashboard-section {
     margin-bottom: 40px;
   }
-  /* Task-list styled rows. The farm name is a heading-shaped link;
-     directly below it sits the open-task summary, then CPH + the
-     person who's been working on it as supporting metadata.
+  /* Task-list styled rows. The farm name is a heading-shaped link.
+     Below it sits "List prepared on … by …" and a "To do: <task>"
+     line. After a blank line, CPH appears as supporting metadata.
      No tags, no right-hand status column. */
   .app-task-list {
     list-style: none;
@@ -27,12 +27,12 @@
     margin-top: 0;
     margin-bottom: 4px;
   }
-  .app-task-list__summary {
+  .app-task-list__line {
     margin: 0 0 4px;
   }
-  .app-task-list__meta {
+  .app-task-list__cph {
     color: #505a5f;
-    margin: 0;
+    margin: 16px 0 0;
   }
 </style>
 
@@ -84,12 +84,18 @@
               <h3 class="govuk-heading-s app-task-list__farm">
                 <a class="govuk-link" href="{{ farm.href }}">{{ farm.farm }}</a>
               </h3>
-              <p class="govuk-body app-task-list__summary">{{ farm.summary }}</p>
-              {% if farm.primaryDescription %}
-                <p class="govuk-body-s app-task-list__meta">{{ farm.primaryDescription }}</p>
+              {% if farm.preparedAtLabel %}
+                <p class="govuk-body app-task-list__line">
+                  List prepared on {{ farm.preparedAtLabel }} by {{ farm.user }}
+                </p>
               {% endif %}
-              <p class="govuk-body-s app-task-list__meta">
-                CPH {{ farm.cph }} &middot; Worked on by {{ farm.user }}
+              {% if farm.todoTitle %}
+                <p class="govuk-body app-task-list__line">
+                  To do: <strong>{{ farm.todoTitle }}</strong>
+                </p>
+              {% endif %}
+              <p class="govuk-body-s app-task-list__cph">
+                CPH {{ farm.cph }}
               </p>
             </li>
           {% endfor %}

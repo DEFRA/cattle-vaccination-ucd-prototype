@@ -101,7 +101,7 @@
     {% endif %}
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
-    <h1 class="govuk-heading-l">Were any cattle not tested?</h1>
+    <h1 class="govuk-heading-l">Identify the cattle</h1>
 
     {% if animals.length == 0 %}
       <p class="govuk-body">
@@ -112,10 +112,7 @@
       </form>
     {% else %}
       <p class="govuk-body">
-        Tick every animal that was not tested on this visit. You'll
-        add a reason for each one on the next screens. Anything you
-        leave unticked will be recorded as a clear (negative) test
-        result.
+        Select all cattle that were not tested.
       </p>
 
       <div class="app-page-grid">
@@ -169,7 +166,7 @@
             <table class="app-untested-table">
               <thead>
                 <tr>
-                  <th scope="col" class="app-untested-table__select">Not tested</th>
+                  <th scope="col" class="app-untested-table__select">Select</th>
                   <th scope="col">Ear tag</th>
                   <th scope="col">Age</th>
                   <th scope="col">DOB</th>

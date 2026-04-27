@@ -105,12 +105,11 @@
     {% set captionLabel = currentTestLabel or data['skinTestType'] or 'Skin test' %}
     <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ captionLabel }}</span>
     <h1 class="govuk-heading-l">
-      Which cattle reacted to the {{ captionLabel }} test?
+      Identify the cattle
     </h1>
 
     <p class="govuk-body">
-      Select all cattle that reacted. You'll record measurements for
-      these animals next.
+      Select all cattle that reacted or showed an inconclusive result.
     </p>
 
   </div>
@@ -178,7 +177,7 @@
             <table class="app-reactor-table">
           <thead>
             <tr>
-              <th scope="col" class="app-reactor-table__select">Reacted</th>
+              <th scope="col" class="app-reactor-table__select">Select</th>
               <th scope="col">Ear tag</th>
               <th scope="col">Age</th>
               <th scope="col">DOB</th>

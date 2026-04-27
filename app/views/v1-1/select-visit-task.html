@@ -20,12 +20,17 @@
 
     {% if data['herd'] %}
       <form action="/v1-1/select-journey" method="post" novalidate>
+        {# Captioned page heading – the farm name sits above the
+           question as a govuk-caption-l, wrapped inside the same
+           h1 the legend produces so the heading hierarchy stays
+           correct. The farm name is removed from the question text
+           to avoid repeating it. #}
         {{ govukRadios({
           idPrefix: "journey",
           name: "journey",
           fieldset: {
             legend: {
-              text: "What will you do on this visit to " + data['herd']['farm'] + "?",
+              html: '<span class="govuk-caption-l">' + data['herd']['farm'] + '</span>What do you need to do?',
               isPageHeading: true,
               classes: "govuk-fieldset__legend--l"
             }
@@ -36,22 +41,22 @@
             {
               value: "prepare-vaccinate",
               text: "Prepare a list of cattle to vaccinate",
-              hint: { text: "Download or print a list of cattle to take with you to the farm." }
+              hint: { text: "Download or print a list of cattle to support the vaccination process." }
             },
             {
               value: "report-vaccination",
               text: "Report BCG vaccinations",
-              hint: { text: "Record BCG vaccinations you have completed at this farm." }
+              hint: { text: "Report complete vaccinations." }
             },
             {
               value: "prepare-skin-test",
               text: "Prepare a list of cattle for skin tests",
-              hint: { text: "Download or print a list of cattle to use when taking skin test measurements." }
+              hint: { text: "Download or print a list of cattle to support the skin test process." }
             },
             {
               value: "report-skin-test",
               text: "Report skin test results",
-              hint: { text: "Enter Day 1 and Day 2 measurements for each animal." }
+              hint: { text: "Report completed skin tests." }
             }
           ]
         }) }}

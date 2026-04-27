@@ -20,11 +20,10 @@
     {% endif %}
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
-    <h1 class="govuk-heading-l">Which skin test are you preparing a list for?</h1>
+    <h1 class="govuk-heading-l">Are the cattle vaccinated against bovine TB?</h1>
 
     <p class="govuk-body">
-      Choose the skin test you will do on this visit. You can change this
-      later if your plans change.
+      Select the skin tests that need to be done on this visit. 
     </p>
 
     <form action="/v1-1/prepare-skin-test-type" method="post" novalidate>
@@ -42,16 +41,19 @@
         },
         items: [
           {
-            value: "SICCT",
-            text: "SICCT"
+            text: "Yes, the herd is all BCG vaccinated",
+            hint: { text: "DIVA is the skin test used for cattle that have been BCG vaccinated." },
+            value: "DIVA"
           },
           {
-            value: "DIVA",
-            text: "DIVA"
+            text: "None of the herd has been BCG vaccinated",
+            hint: { text: "SICCT is the skin test used for cattle that have not been BCG vaccinated." },
+            value: "SICCT"
           },
           {
-            value: "Both",
-            text: "DIVA and SICCT"
+            text: "Both these tests",
+            hint: { text: "Select this option if the herd has both vaccinated and unvaccinated cattle. You'll need to take both DIVA and SICCT skin tests to the farm." },
+            value: "DIVA and SICCT"
           }
         ]
       }) }}

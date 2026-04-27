@@ -166,7 +166,7 @@
     <span class="govuk-caption-l">
       {{ data['herd']['farm'] }} - DIVA{% if bothStepText %} - {{ bothStepText }}{% endif %}
     </span>
-    <h1 class="govuk-heading-l govuk-!-margin-bottom-3">Record DIVA measurements for cattle</h1>
+    <h1 class="govuk-heading-l govuk-!-margin-bottom-3">Record measurements for cattle: {{ currentAnimal.earTagParts.last4 }}</h1>
 
     <p class="govuk-body">
       DIVA is for the BCG vaccinated cattle on this farm. Record the bovine skin thickness at injection and 72 hours later.
@@ -227,7 +227,7 @@
             DIVA skin measurement
           </legend>
           <p id="diva-measurement-hint" class="govuk-hint">
-            DIVA is a bovine-only test. Record the bovine skin thickness at injection and 72 hours later.
+            Record the bovine skin thickness at injection and 72 hours later.
           </p>
 
           <div style="overflow-x: auto;">

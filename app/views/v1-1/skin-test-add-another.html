@@ -1,7 +1,11 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Add another animal – GOV.UK
+  {% if isEditMode %}
+    Change details for {{ originalEarTag }} – GOV.UK
+  {% else %}
+    Add another animal – GOV.UK
+  {% endif %}
 {% endblock %}
 
 {% block beforeContent %}
@@ -21,12 +25,19 @@
     {% endif %}
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
-    <h1 class="govuk-heading-l">Add another animal</h1>
-    <p class="govuk-body">
-      Enter the details for an animal that wasn't on the original list.
-    </p>
+    {% if isEditMode %}
+      <h1 class="govuk-heading-l">Change details for {{ originalEarTag }}</h1>
+      <p class="govuk-body">
+        Update the details for this animal, or remove it from the report.
+      </p>
+    {% else %}
+      <h1 class="govuk-heading-l">Add another animal</h1>
+      <p class="govuk-body">
+        Enter the details for an animal that wasn't on the original list.
+      </p>
+    {% endif %}
 
-    <form action="/v1-1/skin-test-add-another" method="post" novalidate>
+    <form action="{{ '/v1-1/skin-test-add-another/edit/' + originalEarTag if isEditMode else '/v1-1/skin-test-add-another' }}" method="post" novalidate>
 
       {{ govukInput({
         label: { text: "Ear tag number", classes: "govuk-label--m" },
@@ -91,10 +102,23 @@
         hint: { text: "Optional. Note anything unusual about this animal or the reading." }
       }) }}
 
-      <div class="govuk-button-group govuk-!-margin-top-6">
-        {{ govukButton({ text: "Add this animal" }) }}
-        <a class="govuk-link" href="/v1-1/skin-test-confirmation">Cancel</a>
-      </div>
+      {% if isEditMode %}
+        <div class="govuk-button-group govuk-!-margin-top-6">
+          {{ govukButton({ text: "Save changes" }) }}
+          {{ govukButton({
+            text: "Remove this animal",
+            classes: "govuk-button--warning",
+            name: "addedAction",
+            value: "remove"
+          }) }}
+          <a class="govuk-link" href="/v1-1/skin-test-confirmation">Cancel</a>
+        </div>
+      {% else %}
+        <div class="govuk-button-group govuk-!-margin-top-6">
+          {{ govukButton({ text: "Add this animal" }) }}
+          <a class="govuk-link" href="/v1-1/skin-test-confirmation">Cancel</a>
+        </div>
+      {% endif %}
 
     </form>
 
