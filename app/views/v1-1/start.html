@@ -1,0 +1,57 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Access cattle vaccination and testing data
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    <h1 class="govuk-heading-xl">
+      Vaccinate or test cattle for bovine TB 
+    </h1>
+
+    <p class="govuk-body">
+        This is a service for veterinarians invited to join the bovine TB testing and vaccination scheme.
+    </p>
+
+    <h2 class="govuk-heading-m">
+      Use this service if you are:
+    </h2>
+
+    <ul class="govuk-list govuk-list--bullet">
+      <li>an Official Veterinarian (OV)</li>
+      <li>a qualified APHA officer</li>
+      <li>an approved tuberculin tester</li>
+      <li>an approved tuberculosis vaccinator</li>
+
+    </ul>
+
+    <p class="govuk-body">
+      and have been invited by Defra to vaccinate or test cattle.
+    </p>
+    <h2 class="govuk-heading-m">
+      You can use this service to:
+    </h2>
+
+    <ul class="govuk-list govuk-list--bullet">
+      <li>prepare a list of cattle to vaccinate or test for bovine TB</li>
+      <li>report vaccinations you have completed</li>
+      <li>report skin test results back to APHA</li>
+    </ul>
+
+
+    <h2 class="govuk-heading-m">Before you start</h2>
+
+    <p class="govuk-body">
+      You will need the country parish holding number (CPH), farm name or postcode, or an ear tag number for cattle.
+    </p>
+
+    {{ govukButton({
+      text: "Start now",
+      href: "/v1-1/sign-in",
+      isStartButton: true
+    }) }}
+  </div>
+</div>
+{% endblock %}

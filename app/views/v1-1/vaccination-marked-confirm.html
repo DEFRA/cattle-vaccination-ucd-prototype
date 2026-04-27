@@ -1,0 +1,80 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Confirm what you've marked – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/select-vaccinated-animals"
+}) }}
+{% endblock %}
+
+{% block content %}
+{% set isMarkVaxFirst = vaccinationApproach != 'mark-not-vaccinated' %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    <h1 class="govuk-heading-l">Confirm what you've marked</h1>
+
+    {% if isMarkVaxFirst %}
+      <p class="govuk-body">
+        You have marked <strong>{{ countMarked }} of {{ totalAnimals }}</strong>
+        cattle as vaccinated.
+      </p>
+      {% if countRemaining > 0 %}
+        <p class="govuk-body">
+          There {{ 'is' if countRemaining == 1 else 'are' }}
+          <strong>{{ countRemaining }}</strong>
+          {{ 'animal' if countRemaining == 1 else 'animals' }} still to mark.
+          Add a reason for each of these.
+        </p>
+      {% else %}
+        <p class="govuk-body">All cattle have been marked.</p>
+      {% endif %}
+    {% else %}
+      <p class="govuk-body">
+        You have marked <strong>{{ countMarked }} of {{ totalAnimals }}</strong>
+        cattle as not vaccinated with a reason.
+      </p>
+      {% if countRemaining > 0 %}
+        <p class="govuk-body">
+          The remaining <strong>{{ countRemaining }}</strong>
+          {{ 'animal' if countRemaining == 1 else 'animals' }} will be marked
+          as vaccinated. Check these below before you continue.
+        </p>
+      {% else %}
+        <p class="govuk-body">All cattle have been marked.</p>
+      {% endif %}
+    {% endif %}
+
+    {{ govukSummaryList({
+      rows: summaryRows
+    }) }}
+
+    <form action="/v1-1/vaccination-marked-confirm" method="post" novalidate>
+      <div class="govuk-button-group">
+        {% if countRemaining > 0 %}
+          {{ govukButton({
+            text: ("Continue to remaining cattle" if isMarkVaxFirst else "Continue to confirm vaccinated cattle"),
+            name: "confirmAction",
+            value: "continue"
+          }) }}
+        {% else %}
+          {{ govukButton({
+            text: "Continue",
+            name: "confirmAction",
+            value: "continue"
+          }) }}
+        {% endif %}
+        <button type="submit" name="confirmAction" value="back" class="govuk-link app-link-button" style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
+          Go back and change what I marked
+        </button>
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

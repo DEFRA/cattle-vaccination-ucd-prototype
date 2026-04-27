@@ -1,0 +1,65 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Which skin test are you preparing for? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/select-visit-task"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    <h1 class="govuk-heading-l">Which skin test are you preparing a list for?</h1>
+
+    <p class="govuk-body">
+      Choose the skin test you will do on this visit. You can change this
+      later if your plans change.
+    </p>
+
+    <form action="/v1-1/prepare-skin-test-type" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "prepareSkinTestType",
+        name: "prepareSkinTestType",
+        value: data['prepareSkinTestType'],
+        errorMessage: { text: errors['prepareSkinTestType'].text } if errors and errors['prepareSkinTestType'],
+        fieldset: {
+          legend: {
+            text: "Which skin test are you preparing a list for?",
+            classes: "govuk-visually-hidden"
+          }
+        },
+        items: [
+          {
+            value: "SICCT",
+            text: "SICCT"
+          },
+          {
+            value: "DIVA",
+            text: "DIVA"
+          },
+          {
+            value: "Both",
+            text: "DIVA and SICCT"
+          }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

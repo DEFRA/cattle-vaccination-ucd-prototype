@@ -1,0 +1,103 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Add another animal – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/skin-test-confirmation"
+}) }}
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
+    <h1 class="govuk-heading-l">Add another animal</h1>
+    <p class="govuk-body">
+      Enter the details for an animal that wasn't on the original list.
+    </p>
+
+    <form action="/v1-1/skin-test-add-another" method="post" novalidate>
+
+      {{ govukInput({
+        label: { text: "Ear tag number", classes: "govuk-label--m" },
+        id: "earTag",
+        name: "earTag",
+        classes: "govuk-input--width-20",
+        hint: { text: "For example, UK341234412177" },
+        value: formValues['earTag'],
+        errorMessage: { text: errors['earTag'].text } if errors and errors['earTag']
+      }) }}
+
+      {{ govukInput({
+        label: { text: "Breed", classes: "govuk-label--m" },
+        id: "breed",
+        name: "breed",
+        classes: "govuk-input--width-10",
+        hint: { text: "For example, BALX" },
+        value: formValues['breed']
+      }) }}
+
+      {{ govukDateInput({
+        id: "addedDob",
+        namePrefix: "addedDob",
+        fieldset: {
+          legend: {
+            text: "Date of birth",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        hint: { text: "For example, 27 3 2024" },
+        items: [
+          { name: "day",   classes: "govuk-input--width-2", value: formValues['addedDobDay'] },
+          { name: "month", classes: "govuk-input--width-2", value: formValues['addedDobMonth'] },
+          { name: "year",  classes: "govuk-input--width-4", value: formValues['addedDobYear'] }
+        ],
+        errorMessage: { text: errors['addedDob'].text } if errors and errors['addedDob']
+      }) }}
+
+      {{ govukRadios({
+        idPrefix: "addedSex",
+        name: "addedSex",
+        classes: "govuk-radios--inline",
+        value: formValues['addedSex'],
+        fieldset: {
+          legend: {
+            text: "Sex",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        items: [
+          { value: "F", text: "Female" },
+          { value: "M", text: "Male" }
+        ]
+      }) }}
+
+      {{ govukTextarea({
+        label: { text: "Remarks", classes: "govuk-label--m" },
+        id: "remarks",
+        name: "remarks",
+        rows: 3,
+        value: formValues['remarks'],
+        hint: { text: "Optional. Note anything unusual about this animal or the reading." }
+      }) }}
+
+      <div class="govuk-button-group govuk-!-margin-top-6">
+        {{ govukButton({ text: "Add this animal" }) }}
+        <a class="govuk-link" href="/v1-1/skin-test-confirmation">Cancel</a>
+      </div>
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

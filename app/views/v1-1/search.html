@@ -1,0 +1,54 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Search for a farm
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/dashboard"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <h1 class="govuk-heading-l">Select a farm to work on</h1>
+    <p class="govuk-body">
+      You can search using any of:
+    </p>
+    <ul class="govuk-list govuk-list--bullet">
+      <li>a CPH number, including sub-holdings such as <strong>12/340/6791-01</strong></li>
+      <li>a farm name or part of the name</li>
+      <li>a postcode or part of one</li>
+      <li>an ear tag number, including just the last 4 or 5 digits</li>
+    </ul>
+    <p class="govuk-body">
+      You can combine terms too, for example <strong>Hill 6789</strong> or <strong>Ripon Orchard</strong>.
+    </p>
+
+    <form action="/v1-1/search" method="post" novalidate>
+      {{ govukInput({
+        label: {
+          text: "Enter a CPH, farm name, postcode or ear tag",
+          classes: "govuk-label--m"
+        },
+        hint: {
+          text: "For example, 12/345/6789, Hill Farm, HG4 1BC, or UK341234400156"
+        },
+        id: "cattleSearch",
+        name: "cattleSearch",
+        value: data['cattleSearch'] or data['search'],
+        errorMessage: { text: errors['cattleSearch'].text } if errors and errors['cattleSearch']
+      }) }}
+
+      {{ govukButton({ text: "Search" }) }}
+    </form>
+  </div>
+</div>
+{% endblock %}

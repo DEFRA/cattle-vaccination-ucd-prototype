@@ -1,0 +1,69 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  What will you do on this visit? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/confirm-herd-or-animal"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {% if data['herd'] %}
+      <form action="/v1-1/select-journey" method="post" novalidate>
+        {{ govukRadios({
+          idPrefix: "journey",
+          name: "journey",
+          fieldset: {
+            legend: {
+              text: "What will you do on this visit to " + data['herd']['farm'] + "?",
+              isPageHeading: true,
+              classes: "govuk-fieldset__legend--l"
+            }
+          },
+          value: data['journey'],
+          errorMessage: { text: errors['journey'].text } if errors and errors['journey'],
+          items: [
+            {
+              value: "prepare-vaccinate",
+              text: "Prepare a list of cattle to vaccinate",
+              hint: { text: "Download or print a list of cattle to take with you to the farm." }
+            },
+            {
+              value: "report-vaccination",
+              text: "Report BCG vaccinations",
+              hint: { text: "Record BCG vaccinations you have completed at this farm." }
+            },
+            {
+              value: "prepare-skin-test",
+              text: "Prepare a list of cattle for skin tests",
+              hint: { text: "Download or print a list of cattle to use when taking skin test measurements." }
+            },
+            {
+              value: "report-skin-test",
+              text: "Report skin test results",
+              hint: { text: "Enter Day 1 and Day 2 measurements for each animal." }
+            }
+          ]
+        }) }}
+
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+    {% else %}
+      <h1 class="govuk-heading-l">No farm selected</h1>
+      <p class="govuk-body">
+        <a href="/v1-1/search" class="govuk-link">Go back and select a farm</a>
+      </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check herd details – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/search-results"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <h1 class="govuk-heading-l">Your visit to {{ data['herd']['farm'] }}</h1>
+    <p class="govuk-body">
+      Check the farm details are correct before you continue.
+    </p>
+
+    {% if data['herd'] %}
+      {# Build a single summary list so farm details flow straight into the
+         TB status rows with no visual break. The list is for review only –
+         choosing a different farm is a navigation action, not a field
+         edit, so it sits as a standalone link below the list (not as a
+         "Change" action inside the list). #}
+      {% set farmRows = [
+        {
+          key: { text: "Farm" },
+          value: { text: data['herd']['farm'] }
+        },
+        {
+          key: { text: "CPH" },
+          value: { text: data['herd']['cph'] }
+        },
+        {
+          key: { text: "Address" },
+          value: { text: data['herd']['address'] }
+        },
+        {
+          key: { text: "Number of cattle" },
+          value: { text: data['herd']['cattle'] }
+        },
+        {
+          key: { text: "Bovine TB–vaccinated" },
+          value: { text: vaccinatedCount }
+        }
+      ] %}
+
+      {% if tbStatus %}
+        {% set tbRows = [
+          {
+            key: { text: "Status" },
+            value: {
+              html: "<strong>" + tbStatus.status + "</strong> — " + tbStatus.statusFullName
+            }
+          },
+          {
+            key: { text: "Last TB test day 2" },
+            value: { text: tbStatus.lastTestDate }
+          },
+          {
+            key: { text: "Last breakdown" },
+            value: { text: tbStatus.lastBreakdown }
+          }
+        ] %}
+        {% set allRows = farmRows.concat(tbRows) %}
+      {% else %}
+        {% set allRows = farmRows %}
+      {% endif %}
+
+      {{ govukSummaryList({ rows: allRows }) }}
+
+      {{ govukButton({
+        text: "Confirm this farm",
+        href: "/v1-1/select-visit-task"
+      }) }}
+
+      {# Navigation link – kept out of the summary list so the list stays
+         review-only. Sits directly below the primary CTA so the
+         hierarchy is clear. #}
+      <p class="govuk-body govuk-!-margin-top-2">
+        <a class="govuk-link" href="/v1-1/search">Choose a different farm</a>
+      </p>
+    {% else %}
+      <p class="govuk-body">No herd details were found.</p>
+      <p class="govuk-body">
+        <a href="/v1-1/search" class="govuk-link">Go back and select a farm</a>
+      </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

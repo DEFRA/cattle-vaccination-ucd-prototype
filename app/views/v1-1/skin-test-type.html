@@ -1,0 +1,57 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Which test did you do? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/skin-test-date"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <form action="/v1-1/skin-test-type" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "skinTestType",
+        name: "skinTestType",
+        value: data['skinTestType'],
+        fieldset: {
+          legend: {
+            text: "Which test did you do?",
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+
+        errorMessage: { text: errors['skinTestType'].text } if errors and errors['skinTestType'],
+        items: [
+          {
+            value: "DIVA",
+            text: "DIVA"
+          },
+          {
+            value: "SICCT",
+            text: "SICCT"          },
+          {
+            value: "Both",
+            text: "DIVA and SICCT"          }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

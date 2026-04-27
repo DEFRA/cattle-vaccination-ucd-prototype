@@ -1,0 +1,166 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  You're ready for your farm visit – GOV.UK
+{% endblock %}
+
+{% block content %}
+{% set isCsv = data['downloadFormat'] == 'csv' %}
+{% set farmName = data['herd']['farm'] or 'the selected farm' %}
+{% set cphLabel = data['herd']['cph'] %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if bothHasNextStep %}
+      {# ----------------------------------------------------------------
+         Halfway through the "Both" journey. SICCT list settings have
+         been chosen – now send the vet straight on to format the DIVA
+         list. No download / print here; that happens once both lists
+         are formatted.
+      ---------------------------------------------------------------- #}
+      {{ govukPanel({
+        titleText: "SICCT list saved"
+      }) }}
+
+      <p class="govuk-body">
+        Your SICCT list for <strong>{{ farmName }}</strong>{% if cphLabel %} (CPH {{ cphLabel }}){% endif %}
+        is saved. Next, format the DIVA list for the vaccinated cattle
+        on this farm. You will be able to download or print both lists
+        after you've formatted them.
+      </p>
+
+      <form method="post" action="/v1-1/prepare-skin-test-next">
+        {{ govukButton({ text: "Continue to the DIVA list" }) }}
+      </form>
+
+    {% elif isBothJourney %}
+      {# ----------------------------------------------------------------
+         End of the "Both" journey – both lists are formatted. Offer
+         download / print for each, side by side.
+      ---------------------------------------------------------------- #}
+      {{ govukPanel({
+        titleText: "Your SICCT and DIVA lists are ready"
+      }) }}
+
+      <p class="govuk-body">
+        Both lists are prepared for <strong>{{ farmName }}</strong>{% if cphLabel %} (CPH {{ cphLabel }}){% endif %}.
+        Download or print each list below to take with you.
+      </p>
+
+      <h2 class="govuk-heading-m">Take the lists with you</h2>
+
+      {% if isCsv %}
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: "Download SICCT list (CSV)",
+            href: "/v1-1/skin-test-list?sublist=sicct&download=csv",
+            classes: "govuk-button--secondary"
+          }) }}
+          {{ govukButton({
+            text: "Download DIVA list (CSV)",
+            href: "/v1-1/skin-test-list?sublist=diva&download=csv",
+            classes: "govuk-button--secondary"
+          }) }}
+        </div>
+      {% else %}
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: "Print SICCT list",
+            href: "/v1-1/skin-test-list?sublist=sicct&print=1",
+            classes: "govuk-button--secondary"
+          }) }}
+          {{ govukButton({
+            text: "Print DIVA list",
+            href: "/v1-1/skin-test-list?sublist=diva&print=1",
+            classes: "govuk-button--secondary"
+          }) }}
+        </div>
+        <ul class="govuk-list">
+          <li>
+            <a class="govuk-link" href="/v1-1/skin-test-list?sublist=sicct">Review the SICCT list</a>
+          </li>
+          <li>
+            <a class="govuk-link" href="/v1-1/skin-test-list?sublist=diva">Review the DIVA list</a>
+          </li>
+        </ul>
+      {% endif %}
+
+    {% else %}
+      {# ----------------------------------------------------------------
+         Single-list journey (SICCT-only or DIVA-only). Show the usual
+         download / print action.
+      ---------------------------------------------------------------- #}
+      {{ govukPanel({
+        titleText: ("Your " + listTestLabel + " list is ready") if listTestLabel else "You're ready for your farm visit"
+      }) }}
+
+      <p class="govuk-body">
+        Your
+        {% if listTestLabel %}
+          <strong>{{ listTestLabel }}</strong>
+        {% endif %}
+        list of cattle for skin tests is prepared for
+        <strong>{{ farmName }}</strong>{% if cphLabel %} (CPH {{ cphLabel }}){% endif %}.
+      </p>
+
+      <h2 class="govuk-heading-m">Take the list with you</h2>
+
+      {% if isCsv %}
+        <p class="govuk-body">
+          Download the list as a CSV spreadsheet. You can open it on a
+          phone or tablet to use during the visit.
+        </p>
+        {{ govukButton({
+          text: "Download CSV",
+          href: "/v1-1/skin-test-list?download=csv"
+        }) }}
+      {% else %}
+        <p class="govuk-body">
+          Print the list or save it as a PDF from your browser's print dialog.
+        </p>
+        <div class="govuk-button-group">
+          {{ govukButton({
+            text: "Print this list",
+            href: "/v1-1/skin-test-list?print=1"
+          }) }}
+        </div>
+        <p class="govuk-body govuk-!-margin-top-2">
+          <a class="govuk-link" href="/v1-1/skin-test-list">
+            Review the list before printing
+          </a>
+        </p>
+      {% endif %}
+
+    {% endif %}
+
+    {# ------------------------------------------------------------------
+       What to do next.
+       "Report skin test results" needs to trigger the report journey
+       (which resets test entries, clears dates, etc.) so it's a form
+       POST to /select-journey styled as a standard GOV.UK text link,
+       not a plain <a href>.
+    ------------------------------------------------------------------ #}
+    <h2 class="govuk-heading-m">What to do next</h2>
+    <ul class="govuk-list">
+      <li>
+        <a class="govuk-link" href="/v1-1/search">Prepare another list</a>
+      </li>
+      <li>
+        <form action="/v1-1/select-journey" method="post" style="display: inline;">
+          <input type="hidden" name="journey" value="report-skin-test">
+          <button type="submit"
+                  class="govuk-link"
+                  style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer; text-align: left;">
+            Report skin test results for {{ farmName }}
+          </button>
+        </form>
+      </li>
+      <li>
+        <a class="govuk-link" href="/v1-1/dashboard">Exit the service</a>
+      </li>
+    </ul>
+
+  </div>
+</div>
+{% endblock %}

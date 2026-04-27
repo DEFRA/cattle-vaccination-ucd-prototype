@@ -1,0 +1,55 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Are there more cattle to add? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/skin-test-confirmation"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
+    <h1 class="govuk-heading-l">Are there more cattle to add?</h1>
+
+    <p class="govuk-body">
+      If an animal on the farm wasn't on the original list (for example,
+      a newly arrived animal), you can add it now before submitting.
+    </p>
+
+    <form action="/v1-1/skin-test-add-cattle-question" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "addMoreCattle",
+        name: "addMoreCattle",
+        value: data['addMoreCattle'],
+        errorMessage: { text: errors['addMoreCattle'].text } if errors and errors['addMoreCattle'],
+        fieldset: {
+          legend: {
+            text: "Are there more cattle to add?",
+            classes: "govuk-visually-hidden"
+          }
+        },
+        items: [
+          { value: "yes", text: "Yes, add another animal" },
+          { value: "no",  text: "No, submit the report" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}
