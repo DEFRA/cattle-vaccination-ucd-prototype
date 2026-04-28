@@ -99,11 +99,15 @@
       {{ govukErrorSummary(errorSummary) }}
     {% endif %}
 
-    {# For Both, the caption + heading reflect the current test phase
-       (SICCT or DIVA) so the vet always knows which list they're
-       building. Single-test journeys use the journey-wide test name. #}
+    {# v1-2 covers both tests in one combined picker for the Both
+       journey, so the caption drops the per-test label. Single-test
+       and v1-1 Both journeys still see the SICCT / DIVA caption. #}
     {% set captionLabel = currentTestLabel or data['skinTestType'] or 'Skin test' %}
-    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ captionLabel }}</span>
+    {% if isCombinedBoth %}
+      <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    {% else %}
+      <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ captionLabel }}</span>
+    {% endif %}
     <h1 class="govuk-heading-l">
       Identify the cattle
     </h1>

@@ -16,12 +16,18 @@
 {% set selectedPreviewOptions = previewOptions or [] %}
 {% set isCsv = downloadFormat == 'csv' %}
 
-{# One list at a time – either the SICCT list (unvaccinated cattle) or
-   the DIVA list (vaccinated cattle). For the "Both" journey the vet
-   formats SICCT first, confirms, then comes back through this page
-   with phase = 'diva' to format the DIVA list. #}
+{# v1-2: for the "Both" journey we show a single combined list with a
+   Test column. For SICCT-only or DIVA-only we render that list. #}
 {% set previewGroups = [] %}
-{% if prepareSkinTestPhase == 'diva' and divaPreviewRows %}
+{% if isCombinedBoth %}
+  {% set previewGroups = previewGroups.concat([{
+    key: 'combined',
+    label: 'SICCT and DIVA',
+    description: 'For all cattle being skin tested on this farm. The Test column shows which test is recommended for each animal.',
+    rows: combinedPreviewRows,
+    count: combinedPreviewCount
+  }]) %}
+{% elif prepareSkinTestPhase == 'diva' and divaPreviewRows %}
   {% set previewGroups = previewGroups.concat([{
     key: 'diva',
     label: 'DIVA',
@@ -255,7 +261,11 @@
       List of cattle for testing
     </h1>
 
-    {% if isBothJourney and prepareSkinTestPhase == 'sicct' %}
+    {% if isCombinedBoth %}
+      {{ govukInsetText({
+        html: "This single list covers both SICCT and DIVA. The Test column shows which test is recommended for each animal."
+      }) }}
+    {% elif isBothJourney and prepareSkinTestPhase == 'sicct' %}
       {{ govukInsetText({
         html: "This list is for SICCT only. You'll prepare a separate DIVA list for the vaccinated cattle after you confirm this one."
       }) }}
@@ -398,6 +408,9 @@
                   <tr>
                     <th scope="col" class="app-col-ear-tag">Ear tag number</th>
                     <th scope="col">Flags</th>
+                    {% if group.key == 'combined' %}
+                      <th scope="col">Test</th>
+                    {% endif %}
                     {% for column in fieldColumns %}
                       {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
                       <th scope="col">{{ headingText }}</th>
@@ -421,6 +434,9 @@
                       {% if row.isDuplicate and row.isVaccinated %} {% endif %}
                       {% if row.isDuplicate %}DUP{% endif %}
                     </td>
+                    {% if group.key == 'combined' %}
+                      <td>{{ row.assignedTest }}</td>
+                    {% endif %}
                     {% for cell in row.cells %}
                       <td>{{ cell.value }}</td>
                     {% endfor %}
@@ -475,6 +491,9 @@
                 <thead>
                   <tr>
                     <th scope="col" class="app-col-ear-tag" rowspan="2">Ear tag number</th>
+                    {% if group.key == 'combined' %}
+                      <th scope="col" class="app-col-narrow" rowspan="2">Test</th>
+                    {% endif %}
                     {% for column in fieldColumns %}
                       {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
                       {% set columnClass = "app-col-narrow" %}
@@ -506,9 +525,16 @@
                   </tr>
                 </thead>
                 {% set isDivaGroup = group.key == 'diva' %}
+                {% set isCombinedGroup = group.key == 'combined' %}
                 {% for row in group.rows %}
+                  {# In the combined list, each row decides for itself
+                     whether to render the DIVA single-row layout or the
+                     SICCT two-row layout based on the per-animal
+                     assignedTest. Pure DIVA / pure SICCT groups keep
+                     their existing layout. #}
+                  {% set rowIsDiva = isDivaGroup or (isCombinedGroup and row.assignedTest == 'DIVA') %}
                 <tbody class="{% if row.isVaccinated %}app-row--vaccinated{% endif %}">
-                  {% if isDivaGroup %}
+                  {% if rowIsDiva %}
                     {# DIVA is bovine-only, so one row per animal – no Avian
                        row, no rowspans. Pre / Post refer to the bovine
                        injection (Day 1) and reading (Day 2). #}
@@ -534,6 +560,9 @@
                           {% endif %}
                         </div>
                       </td>
+                      {% if isCombinedGroup %}
+                        <td class="app-col-narrow"><strong>{{ row.assignedTest }}</strong></td>
+                      {% endif %}
                       {% for cell in row.cells %}
                         {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
                         {% set cellClass = "app-col-narrow" %}
@@ -573,6 +602,9 @@
                           {% endif %}
                         </div>
                       </td>
+                      {% if isCombinedGroup %}
+                        <td class="app-col-narrow" rowspan="2"><strong>{{ row.assignedTest }}</strong></td>
+                      {% endif %}
                       {% for cell in row.cells %}
                         {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
                         {% set cellClass = "app-col-narrow" %}
@@ -632,9 +664,11 @@
           </a>
         </p>
 
-        {# Edit assignments – only meaningful on the "Both" journey where
-           the herd has been split into separate SICCT and DIVA lists. #}
-        {% if isBothJourney %}
+        {# Edit assignments – only meaningful on the v1-1 "Both" journey
+           where the herd is split into separate SICCT and DIVA lists.
+           v1-2 combines them into a single list, so these links are
+           hidden there. #}
+        {% if isBothJourney and not isCombinedBoth %}
           <p class="govuk-body govuk-!-margin-top-2">
             <a class="govuk-link" href="/v1-2/prepare-skin-test-assign-cattle/edit/sicct">
               Change cattle on the SICCT list

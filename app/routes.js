@@ -2356,6 +2356,10 @@ function registerSkinTestRoutes(version) {
       // measurement page only when more than one batch was recorded
       // on /skin-test-type; auto-filled when there's just one.
       divaBatchUsed: '',
+      // Same idea for the SICCT batch. Only relevant when the v1-2
+      // Both journey lets the vet pick SICCT for a per-animal save
+      // and there's more than one SICCT batch on /skin-test-type.
+      sicctBatchUsed: '',
       divaNotDoneReason: '',
       divaNotDoneReasonOther: '',
       // Single consolidated notes field shown beneath the measurement +
@@ -2554,7 +2558,28 @@ function registerSkinTestRoutes(version) {
     req.session.data.prepareAssignCompletedTests = []
 
     if (prepareSkinTestType === 'Both') {
-      // For "Both", the vet first decides how to split the herd
+      // v1-2: the SICCT and DIVA cattle are combined into a single
+      // list. Skip the auto/manual assignment step, derive a default
+      // split from vaccination status (so the per-animal "Test" column
+      // can still tell the vet which test each cow needs), and go
+      // straight to the list-format page.
+      if (version === 'v1-2') {
+        const animals = getSkinTestAnimals(req)
+        const sicct = animals
+          .filter(function (a) { return a.vaccinationStatus !== 'Vaccinated' })
+          .map(function (a) { return a.officialId })
+        const diva = animals
+          .filter(function (a) { return a.vaccinationStatus === 'Vaccinated' })
+          .map(function (a) { return a.officialId })
+        req.session.data.prepareSkinTestAssignments = { sicct, diva }
+        req.session.data.prepareAssignCompletedTests = ['sicct', 'diva']
+        req.session.data.prepareSkinTestPhase = 'sicct'
+        req.session.data.prepareSkinTestUntested = []
+        req.session.data.prepareSkinTestUntestedReasons = {}
+        req.session.data.prepareSkinTestUntestedReasonOthers = {}
+        return res.redirect(`/${version}/skin-test-list`)
+      }
+      // v1-1 and earlier: the vet first decides how to split the herd
       // between the SICCT and DIVA lists – auto (by vaccination
       // status) or manual.
       req.session.data.prepareSkinTestPhase = 'sicct'
@@ -3127,11 +3152,47 @@ function registerSkinTestRoutes(version) {
       divaPreview = buildPreviewForPhase('diva')
     }
 
+    // v1-2 combines the SICCT and DIVA lists into a single preview for
+    // the Both journey. Each row carries an `assignedTest` field so the
+    // template can show one extra column telling the vet which test
+    // applies to that animal.
+    const isCombinedBoth = isBoth && version === 'v1-2'
+    let combinedPreview = null
+    if (isCombinedBoth) {
+      const sicctIds = new Set((sicctPreview && sicctPreview.rows || [])
+        .map(function (r) { return r.officialId }))
+      const divaIds = new Set((divaPreview && divaPreview.rows || [])
+        .map(function (r) { return r.officialId }))
+      const combinedRows = []
+      const seen = new Set()
+      // Take the SICCT rows first, then any DIVA-only rows, so the
+      // ordering still matches the vet's chosen sort.
+      const sourceRows = ((sicctPreview && sicctPreview.rows) || [])
+        .concat((divaPreview && divaPreview.rows) || [])
+      sourceRows.forEach(function (r) {
+        if (seen.has(r.officialId)) return
+        seen.add(r.officialId)
+        let assignedTest = ''
+        if (sicctIds.has(r.officialId) && divaIds.has(r.officialId)) {
+          assignedTest = 'Both'
+        } else if (divaIds.has(r.officialId)) {
+          assignedTest = 'DIVA'
+        } else {
+          assignedTest = 'SICCT'
+        }
+        combinedRows.push(Object.assign({}, r, { assignedTest }))
+      })
+      combinedPreview = { rows: combinedRows, count: combinedRows.length }
+    }
+
     // Single-preview variables kept for backwards compatibility with
     // the existing template. For "Both", default to the SICCT preview
     // so the existing SICCT table renders first and the DIVA table is
     // appended via the new divaPreview block.
-    const previewRows = (sicctPreview && sicctPreview.rows) || (divaPreview && divaPreview.rows) || []
+    const previewRows = (combinedPreview && combinedPreview.rows)
+      || (sicctPreview && sicctPreview.rows)
+      || (divaPreview && divaPreview.rows)
+      || []
 
     const downloadFormat = req.session.data.downloadFormat || 'pdf'
 
@@ -3147,17 +3208,23 @@ function registerSkinTestRoutes(version) {
       previewSpacing: req.session.data.skinTestPreviewSpacing || 'standard',
       prepareSkinTestType,
       prepareSkinTestPhase,
-      listTestLabel: prepareSkinTestPhase === 'diva' ? 'DIVA' : 'SICCT',
+      listTestLabel: isCombinedBoth
+        ? 'SICCT and DIVA'
+        : (prepareSkinTestPhase === 'diva' ? 'DIVA' : 'SICCT'),
       isBothJourney: isBoth,
-      // For "Both", show the step indicator so the vet sees there's a
-      // second list still to format after this one.
-      bothStepText: isBoth
+      isCombinedBoth,
+      // For v1-1 "Both", show the step indicator so the vet sees there's
+      // a second list still to format after this one. v1-2 has a single
+      // combined list so the step text isn't shown.
+      bothStepText: isBoth && !isCombinedBoth
         ? (prepareSkinTestPhase === 'sicct' ? 'Step 1 of 2' : 'Step 2 of 2')
         : null,
       sicctPreviewRows: sicctPreview && sicctPreview.rows,
       sicctPreviewCount: sicctPreview && sicctPreview.count,
       divaPreviewRows: divaPreview && divaPreview.rows,
-      divaPreviewCount: divaPreview && divaPreview.count
+      divaPreviewCount: divaPreview && divaPreview.count,
+      combinedPreviewRows: combinedPreview && combinedPreview.rows,
+      combinedPreviewCount: combinedPreview && combinedPreview.count
     })
   })
 
@@ -3200,10 +3267,17 @@ function registerSkinTestRoutes(version) {
     const prepareSkinTestPhase = req.session.data.prepareSkinTestPhase
       || (prepareSkinTestType === 'DIVA' ? 'diva' : 'sicct')
     const isBoth = prepareSkinTestType === 'Both'
-    const listTestLabel = prepareSkinTestPhase === 'diva' ? 'DIVA' : 'SICCT'
+    // v1-2 combines the SICCT and DIVA lists into one, so there's no
+    // mid-journey "now do DIVA" step and the success page renders a
+    // single combined download.
+    const isCombinedBoth = isBoth && version === 'v1-2'
+    const listTestLabel = isCombinedBoth
+      ? 'SICCT and DIVA'
+      : (prepareSkinTestPhase === 'diva' ? 'DIVA' : 'SICCT')
     // Show the "Continue to DIVA list" action only after the SICCT
-    // step of the "Both" journey is confirmed.
-    const bothHasNextStep = isBoth && prepareSkinTestPhase === 'sicct'
+    // step of the v1-1 "Both" journey is confirmed. v1-2's combined
+    // list never needs a second step.
+    const bothHasNextStep = isBoth && !isCombinedBoth && prepareSkinTestPhase === 'sicct'
 
     // Record (or update) the prepared list against the current farm
     // so the dashboard's "Work in progress" can offer the vet a way
@@ -3232,6 +3306,7 @@ function registerSkinTestRoutes(version) {
       prepareSkinTestPhase,
       listTestLabel,
       isBothJourney: isBoth,
+      isCombinedBoth,
       bothHasNextStep
     })
   })
@@ -3389,10 +3464,16 @@ function registerSkinTestRoutes(version) {
     req.session.data.skinTestUntested = null
     req.session.data.skinTestUntestedReasons = null
 
-    // For "Both", ask the test-order question up-front — before the
-    // vet sees any cattle list — so they make the high-level decision
-    // first and the rest of the flow knows the order.
+    // For "Both" the v1-1 flow asks the test-order question up-front,
+    // then runs the reactor + measurement loop once per test. v1-2
+    // collapses the Both journey into a single combined reactor pick:
+    // we default the order to SICCT-first (so the rest of the per-
+    // phase machinery still works) and skip the order page.
     if (skinTestType === 'Both') {
+      if (version === 'v1-2') {
+        req.session.data.skinTestFirstOrder = 'sicct'
+        return res.redirect(`/${version}/skin-test-reactors-any`)
+      }
       return res.redirect(`/${version}/skin-test-both-order`)
     }
 
@@ -3405,12 +3486,28 @@ function registerSkinTestRoutes(version) {
   // to skip the measurement loop entirely). Only reactors go through
   // the detailed SICCT / DIVA screens.
   function getReportingAnimalsWithFlags(req) {
-    // The reactor picker shares its sort settings with the prepare-list
-    // mark-untested page (same session keys), so the vet's preference
-    // carries across the journey.
-    const sortBy = req.session.data.prepareSkinTestUntestedSortBy
-      || 'Ear-tag number (last 5 digits)'
-    const sortDirection = req.session.data.prepareSkinTestUntestedSortDirection || 'asc'
+    // When a list has already been prepared for this farm the reactor
+    // picker mirrors the prepared list's sort so the vet sees cattle
+    // in the same order they were printed in. Otherwise it falls
+    // back to the mark-untested page's sort, then to the default.
+    const cph = req.session.data.herd && req.session.data.herd.cph
+    const preparedRecords = Array.isArray(req.session.data.skinTestListPrepared)
+      ? req.session.data.skinTestListPrepared
+      : []
+    const hasPreparedList = !!cph && preparedRecords.some(function (r) {
+      return r && r.cph === cph
+    })
+    const sortBy = hasPreparedList
+      ? (req.session.data.skinTestSortBy
+        || req.session.data.prepareSkinTestUntestedSortBy
+        || 'Ear-tag number (last 5 digits)')
+      : (req.session.data.prepareSkinTestUntestedSortBy
+        || 'Ear-tag number (last 5 digits)')
+    const sortDirection = hasPreparedList
+      ? (req.session.data.skinTestSortDirection
+        || req.session.data.prepareSkinTestUntestedSortDirection
+        || 'asc')
+      : (req.session.data.prepareSkinTestUntestedSortDirection || 'asc')
     const sortedBase = sortAnimals(getSkinTestAnimals(req), sortBy, sortDirection)
     // Duplicate detection for the reactor / untested pickers so the
     // vet sees the same DUP flag they saw on the printed list.
@@ -3439,10 +3536,14 @@ function registerSkinTestRoutes(version) {
     const phase = getCurrentReactorPhase(req)
     const phaseLabel = getCurrentReactorPhaseLabel(req)
     const isBoth = req.session.data.skinTestType === 'Both'
+    // v1-2 asks the question once across both tests for the Both
+    // journey, so the heading drops the per-test caption.
+    const isCombinedBoth = isBoth && version === 'v1-2'
     res.render(`${version}/skin-test-reactors-any`, {
       currentReactorPhase: phase,
       currentTestLabel: phaseLabel,
-      isBothJourney: isBoth
+      isBothJourney: isBoth,
+      isCombinedBoth
     })
   })
 
@@ -3450,12 +3551,18 @@ function registerSkinTestRoutes(version) {
     const phase = getCurrentReactorPhase(req)
     const phaseLabel = getCurrentReactorPhaseLabel(req)
     const isBoth = req.session.data.skinTestType === 'Both'
+    const isCombinedBoth = isBoth && version === 'v1-2'
     const anyReactors = req.body.anyReactors
 
     // Track the answer per phase so the second pass on a Both journey
-    // doesn't carry the first phase's answer over.
+    // doesn't carry the first phase's answer over. v1-2 also records
+    // the answer against the "other" phase straight away because the
+    // combined question covers both tests in one step.
     const anyReactorsByPhase = Object.assign({}, req.session.data.anyReactorsByPhase || {})
     anyReactorsByPhase[phase] = anyReactors
+    if (isCombinedBoth) {
+      anyReactorsByPhase[phase === 'sicct' ? 'diva' : 'sicct'] = anyReactors
+    }
     req.session.data.anyReactorsByPhase = anyReactorsByPhase
     req.session.data.anyReactors = anyReactors
 
@@ -3464,6 +3571,7 @@ function registerSkinTestRoutes(version) {
         currentReactorPhase: phase,
         currentTestLabel: phaseLabel,
         isBothJourney: isBoth,
+        isCombinedBoth,
         errors: { anyReactors: { text: 'Select yes if any cattle reacted, or no if none reacted' } },
         errorSummary: {
           titleText: 'There is a problem',
@@ -3473,10 +3581,13 @@ function registerSkinTestRoutes(version) {
     }
 
     if (anyReactors === 'no') {
-      // No reactors for this phase. Record an empty list against the
-      // current phase, mark the phase as complete, and either move on
-      // to the next phase (Both) or to the all-tested gate.
+      // No reactors. Record an empty list and mark the phase complete.
+      // For v1-2 Both we close BOTH phases here so the rest of the
+      // flow doesn't ask the same question for the other test.
       setReactorsForPhase(req, phase, [])
+      if (isCombinedBoth) {
+        setReactorsForPhase(req, phase === 'sicct' ? 'diva' : 'sicct', [])
+      }
 
       const allEntries = getEntries(req)
       const stored = Array.isArray(req.session.data.skinTestEntries)
@@ -3489,11 +3600,16 @@ function registerSkinTestRoutes(version) {
         ? req.session.data.completedSkinTestPhases.slice()
         : []
       if (completed.indexOf(phase) === -1) completed.push(phase)
+      if (isCombinedBoth) {
+        const otherPhase = phase === 'sicct' ? 'diva' : 'sicct'
+        if (completed.indexOf(otherPhase) === -1) completed.push(otherPhase)
+      }
       req.session.data.completedSkinTestPhases = completed
 
-      // Both with the other phase still outstanding → ask the same
-      // question again, this time for the other test.
-      if (isBoth) {
+      // v1-1 Both with the other phase still outstanding → ask the
+      // same question again for the other test. v1-2 closes both
+      // phases above, so it always falls through to the all-tested gate.
+      if (isBoth && !isCombinedBoth) {
         const otherPhase = phase === 'sicct' ? 'diva' : 'sicct'
         if (completed.indexOf(otherPhase) === -1) {
           return res.redirect(`/${version}/skin-test-reactors-any`)
@@ -3512,6 +3628,7 @@ function registerSkinTestRoutes(version) {
     const phase = getCurrentReactorPhase(req)
     const phaseLabel = getCurrentReactorPhaseLabel(req)
     const isBoth = req.session.data.skinTestType === 'Both'
+    const isCombinedBoth = isBoth && version === 'v1-2'
     const anyReactorsByPhase = req.session.data.anyReactorsByPhase || {}
 
     // Skip straight back to the decision page if the vet hasn't
@@ -3523,15 +3640,47 @@ function registerSkinTestRoutes(version) {
     if (!animals.length) {
       return res.redirect(`/${version}/skin-test-type`)
     }
-    const selectedReactors = getReactorsForPhase(req, phase)
+    // For v1-2 Both we show one combined picker covering both tests,
+    // so the pre-ticked set is the union of the SICCT and DIVA reactor
+    // lists (typically empty on first visit).
+    const selectedReactors = isCombinedBoth
+      ? Array.from(new Set([
+          ...getReactorsForPhase(req, 'sicct'),
+          ...getReactorsForPhase(req, 'diva')
+        ]))
+      : getReactorsForPhase(req, phase)
+
+    // When a list has been prepared for this farm we surface the
+    // prepared-list sort so the filter panel matches the order the
+    // animals are actually displayed in.
+    const cph = req.session.data.herd && req.session.data.herd.cph
+    const preparedRecords = Array.isArray(req.session.data.skinTestListPrepared)
+      ? req.session.data.skinTestListPrepared
+      : []
+    const hasPreparedList = !!cph && preparedRecords.some(function (r) {
+      return r && r.cph === cph
+    })
+    const sortByForFilter = hasPreparedList
+      ? (req.session.data.skinTestSortBy
+        || req.session.data.prepareSkinTestUntestedSortBy
+        || 'Ear-tag number (last 5 digits)')
+      : (req.session.data.prepareSkinTestUntestedSortBy
+        || 'Ear-tag number (last 5 digits)')
+    const sortDirectionForFilter = hasPreparedList
+      ? (req.session.data.skinTestSortDirection
+        || req.session.data.prepareSkinTestUntestedSortDirection
+        || 'asc')
+      : (req.session.data.prepareSkinTestUntestedSortDirection || 'asc')
+
     res.render(`${version}/skin-test-reactors`, {
       animals,
       selectedReactors,
       currentReactorPhase: phase,
       currentTestLabel: phaseLabel,
       isBothJourney: isBoth,
-      sortBy: req.session.data.prepareSkinTestUntestedSortBy || 'Ear-tag number (last 5 digits)',
-      sortDirection: req.session.data.prepareSkinTestUntestedSortDirection || 'asc'
+      isCombinedBoth,
+      sortBy: sortByForFilter,
+      sortDirection: sortDirectionForFilter
     })
   })
 
@@ -3559,13 +3708,20 @@ function registerSkinTestRoutes(version) {
   router.post(`/${version}/skin-test-reactors/skip`, function (req, res) {
     const phase = getCurrentReactorPhase(req)
     const isBoth = req.session.data.skinTestType === 'Both'
+    const isCombinedBoth = isBoth && version === 'v1-2'
 
     setReactorsForPhase(req, phase, [])
+    if (isCombinedBoth) {
+      setReactorsForPhase(req, phase === 'sicct' ? 'diva' : 'sicct', [])
+    }
 
     // Mirror the "answered No" flag on the gate page so a back/forward
     // refresh doesn't bounce the vet straight back to the picker.
     const anyReactorsByPhase = Object.assign({}, req.session.data.anyReactorsByPhase || {})
     anyReactorsByPhase[phase] = 'no'
+    if (isCombinedBoth) {
+      anyReactorsByPhase[phase === 'sicct' ? 'diva' : 'sicct'] = 'no'
+    }
     req.session.data.anyReactorsByPhase = anyReactorsByPhase
     req.session.data.anyReactors = 'no'
 
@@ -3582,11 +3738,15 @@ function registerSkinTestRoutes(version) {
       ? req.session.data.completedSkinTestPhases.slice()
       : []
     if (completed.indexOf(phase) === -1) completed.push(phase)
+    if (isCombinedBoth) {
+      const otherPhase = phase === 'sicct' ? 'diva' : 'sicct'
+      if (completed.indexOf(otherPhase) === -1) completed.push(otherPhase)
+    }
     req.session.data.completedSkinTestPhases = completed
 
-    // Both with the other phase still outstanding – ask the gate
-    // question again for that test.
-    if (isBoth) {
+    // v1-1 Both with the other phase still outstanding – ask the gate
+    // question again for that test. v1-2 closes both phases above.
+    if (isBoth && !isCombinedBoth) {
       const otherPhase = phase === 'sicct' ? 'diva' : 'sicct'
       if (completed.indexOf(otherPhase) === -1) {
         return res.redirect(`/${version}/skin-test-reactors-any`)
@@ -3600,6 +3760,7 @@ function registerSkinTestRoutes(version) {
     const phase = getCurrentReactorPhase(req)
     const phaseLabel = getCurrentReactorPhaseLabel(req)
     const isBoth = req.session.data.skinTestType === 'Both'
+    const isCombinedBoth = isBoth && version === 'v1-2'
 
     // Filter the Prototype Kit's "_unchecked" placeholder so an empty
     // submission really registers as zero reactors.
@@ -3621,12 +3782,45 @@ function registerSkinTestRoutes(version) {
         currentReactorPhase: phase,
         currentTestLabel: phaseLabel,
         isBothJourney: isBoth,
+        isCombinedBoth,
         errors: { reactors: { text: 'Select at least one animal that reacted' } },
         errorSummary: {
           titleText: 'There is a problem',
           errorList: [{ text: 'Select at least one animal that reacted', href: '#reactor-1' }]
         }
       })
+    }
+
+    // For v1-2 Both, ALL reactors loop through the unified measurement
+    // page (skin-test-diva). The vet picks SICCT or DIVA per animal on
+    // that page; the per-animal `performedTest` field captures the
+    // choice and the confirmation page derives per-test reactor counts
+    // from it. We mark the SICCT phase complete on entry so the loop
+    // doesn't try to run a separate SICCT pass.
+    if (isCombinedBoth) {
+      setReactorsForPhase(req, 'sicct', [])
+      setReactorsForPhase(req, 'diva', reactors)
+
+      req.session.data.currentSkinTestIndex = 0
+      req.session.data.currentDivaIndex = 0
+
+      const completed = Array.isArray(req.session.data.completedSkinTestPhases)
+        ? req.session.data.completedSkinTestPhases.slice()
+        : []
+      if (completed.indexOf('sicct') === -1) completed.push('sicct')
+      req.session.data.completedSkinTestPhases = completed
+
+      // Seed blank entries so each reactor has a row ready when the
+      // measurement screens write back.
+      const allEntries = getEntries(req)
+      const stored = Array.isArray(req.session.data.skinTestEntries)
+        ? [...req.session.data.skinTestEntries]
+        : []
+      while (stored.length < allEntries.length) stored.push(blankEntry())
+      req.session.data.skinTestEntries = stored
+
+      req.session.data.currentSkinTestPhase = 'diva'
+      return res.redirect(`/${version}/skin-test-diva/0`)
     }
 
     setReactorsForPhase(req, phase, reactors)
@@ -4149,6 +4343,18 @@ function registerSkinTestRoutes(version) {
     const divaBatches = (Array.isArray(req.session.data.skinTestDivaBatches)
       ? req.session.data.skinTestDivaBatches
       : []).map(function (b) { return (b || '').trim() }).filter(Boolean)
+    const sicctBatches = (Array.isArray(req.session.data.skinTestSicctBatches)
+      ? req.session.data.skinTestSicctBatches
+      : []).map(function (b) { return (b || '').trim() }).filter(Boolean)
+
+    // For v1-2 Both, this page handles SICCT and DIVA measurements in
+    // one loop – the vet picks the test per animal up top. The
+    // recommended test pre-selects DIVA for vaccinated cattle and
+    // SICCT for everyone else.
+    const isCombinedBoth = isBoth && version === 'v1-2'
+    const recommendedTest = currentAnimal && currentAnimal.vaccinationStatus === 'Vaccinated'
+      ? 'DIVA'
+      : 'SICCT'
 
     res.render(`${version}/skin-test-diva`, {
       currentIndex: safeIndex,
@@ -4161,9 +4367,12 @@ function registerSkinTestRoutes(version) {
       savedEntry: currentAnimal,
       displayTestType: 'DIVA',
       isBothJourney: isBoth,
+      isCombinedBoth,
+      recommendedTest,
       bothStepText: bothStep,
       backHref,
       divaBatches,
+      sicctBatches,
       errors: options && options.errors,
       errorSummary: options && options.errorSummary,
       formValues: (options && options.formValues) || {}
@@ -4212,10 +4421,31 @@ function registerSkinTestRoutes(version) {
 
     const index = Math.max(0, Math.min(parseInt(req.params.index, 10) || 0, entries.length - 1))
     const loopAction = req.body.loopAction || 'next'
-    // The "what happened with this animal?" radio is gone – the DIVA
-    // page now always captures measurements (the vet only reaches it
-    // for animals they ticked as reactors). Anything left blank is
-    // simply blank in the saved entry.
+
+    // For v1-2 Both, the page is a unified measurement form for both
+    // tests. The vet picks SICCT or DIVA at the top; the form fields
+    // we save depend on that choice.
+    const isBothJourney = req.session.data.skinTestType === 'Both'
+    const isCombinedBoth = isBothJourney && version === 'v1-2'
+    const performedTestRaw = (req.body.performedTest || '').trim()
+    const performedTest = (performedTestRaw === 'SICCT' || performedTestRaw === 'DIVA')
+      ? performedTestRaw
+      : null
+    const recordingSicct = isCombinedBoth && performedTest === 'SICCT'
+
+    // SICCT-only fields (used when the vet picked SICCT in the
+    // combined Both flow).
+    const avianBeforeInjection = (req.body.avianBeforeInjection || '').trim()
+    const avianAfter72Hours = (req.body.avianAfter72Hours || '').trim()
+    const bovineBeforeInjection = (req.body.bovineBeforeInjection || '').trim()
+    const bovineAfter72Hours = (req.body.bovineAfter72Hours || '').trim()
+    const reactionDescription = (req.body.reactionDescription || '').trim()
+    const overallResult = (req.body.overallResult || '').trim()
+    const sicctBatchUsed = (req.body.sicctBatchUsed || '').trim()
+
+    // DIVA-only fields. When the vet picks SICCT in the combined flow
+    // these stay blank and the existing DIVA fields on the entry are
+    // cleared so a previous DIVA save doesn't bleed through.
     const divaBovineBeforeInjection = (req.body.divaBovineBeforeInjection || '').trim()
     const divaBovineAfter72Hours = (req.body.divaBovineAfter72Hours || '').trim()
     const divaReactionDescription = (req.body.divaReactionDescription || '').trim()
@@ -4224,19 +4454,68 @@ function registerSkinTestRoutes(version) {
     const additionalNotes = (req.body.additionalNotes || '').trim()
     const divaBatchUsed = (req.body.divaBatchUsed || '').trim()
 
+    // For v1-2 Both, the vet must pick which test was performed before
+    // we save anything (other than save-exit / previous, which preserve
+    // the in-progress state).
+    if (isCombinedBoth
+        && !performedTest
+        && loopAction !== 'save-exit'
+        && loopAction !== 'previous') {
+      return renderDivaMeasurement(req, res, index, {
+        formValues: {
+          performedTest: performedTestRaw,
+          avianBeforeInjection,
+          avianAfter72Hours,
+          bovineBeforeInjection,
+          bovineAfter72Hours,
+          reactionDescription,
+          overallResult,
+          sicctBatchUsed,
+          divaBovineBeforeInjection,
+          divaBovineAfter72Hours,
+          divaReactionDescription,
+          divaRemarks,
+          divaResult,
+          divaBatchUsed,
+          additionalNotes
+        },
+        errors: { performedTest: { text: 'Select which test you did on this animal' } },
+        errorSummary: {
+          titleText: 'There is a problem',
+          errorList: [{ text: 'Select which test you did on this animal', href: '#performedTest' }]
+        }
+      })
+    }
+
     // When the vet recorded more than one DIVA batch on /skin-test-type
     // we ask which one was used for this animal. A single batch is
-    // applied silently (no question is shown).
+    // applied silently (no question is shown). The batch question only
+    // applies when the vet is recording a DIVA reading.
     const divaBatchesList = (Array.isArray(req.session.data.skinTestDivaBatches)
       ? req.session.data.skinTestDivaBatches
       : []).map(function (b) { return (b || '').trim() }).filter(Boolean)
+    const sicctBatchesList = (Array.isArray(req.session.data.skinTestSicctBatches)
+      ? req.session.data.skinTestSicctBatches
+      : []).map(function (b) { return (b || '').trim() }).filter(Boolean)
 
-    if (divaBatchesList.length > 1
+    const askingForDivaMeasurements = !isCombinedBoth || performedTest === 'DIVA'
+    const askingForSicctMeasurements = isCombinedBoth && performedTest === 'SICCT'
+
+    if (askingForDivaMeasurements
+        && divaBatchesList.length > 1
         && loopAction !== 'save-exit'
         && loopAction !== 'previous'
         && !divaBatchUsed) {
       return renderDivaMeasurement(req, res, index, {
         formValues: {
+          performedTest: performedTestRaw,
+          avianBeforeInjection,
+          avianAfter72Hours,
+          bovineBeforeInjection,
+          bovineAfter72Hours,
+          reactionDescription,
+          overallResult,
+          sicctBatchUsed,
           divaBovineBeforeInjection,
           divaBovineAfter72Hours,
           divaReactionDescription,
@@ -4253,35 +4532,101 @@ function registerSkinTestRoutes(version) {
       })
     }
 
+    if (askingForSicctMeasurements
+        && sicctBatchesList.length > 1
+        && loopAction !== 'save-exit'
+        && loopAction !== 'previous'
+        && !sicctBatchUsed) {
+      return renderDivaMeasurement(req, res, index, {
+        formValues: {
+          performedTest: performedTestRaw,
+          avianBeforeInjection,
+          avianAfter72Hours,
+          bovineBeforeInjection,
+          bovineAfter72Hours,
+          reactionDescription,
+          overallResult,
+          sicctBatchUsed,
+          divaBovineBeforeInjection,
+          divaBovineAfter72Hours,
+          divaReactionDescription,
+          divaRemarks,
+          divaResult,
+          divaBatchUsed,
+          additionalNotes
+        },
+        errors: { sicctBatchUsed: { text: 'Select which SICCT batch was used for this animal' } },
+        errorSummary: {
+          titleText: 'There is a problem',
+          errorList: [{ text: 'Select which SICCT batch was used for this animal', href: '#sicctBatchUsed' }]
+        }
+      })
+    }
+
     // Single batch case – record it automatically so the entry still
     // carries the batch number even though we didn't ask.
-    const resolvedBatchUsed = divaBatchesList.length === 1
+    const resolvedDivaBatchUsed = divaBatchesList.length === 1
       ? divaBatchesList[0]
       : divaBatchUsed
+    const resolvedSicctBatchUsed = sicctBatchesList.length === 1
+      ? sicctBatchesList[0]
+      : sicctBatchUsed
 
     // Map the filtered DIVA-only index back to the full entries array.
     const targetOriginalIndex = entries[index] && entries[index].originalIndex
     const allAnimalsCount = getEntries(req).length
 
-    // Persist the updated DIVA entry against the underlying animal.
+    // Persist the updated entry against the underlying animal.
     const stored = Array.isArray(req.session.data.skinTestEntries)
       ? [...req.session.data.skinTestEntries]
       : []
     while (stored.length < allAnimalsCount) {
       stored.push(blankEntry())
     }
-    stored[targetOriginalIndex] = Object.assign({}, stored[targetOriginalIndex] || blankEntry(), {
-      divaStatus: 'done',
-      divaBovineBeforeInjection,
-      divaBovineAfter72Hours,
-      divaReactionDescription,
-      divaRemarks,
-      divaResult,
-      divaBatchUsed: resolvedBatchUsed,
-      additionalNotes,
-      performedTest: 'DIVA'
-    })
+    if (recordingSicct) {
+      // SICCT was performed for this animal in the combined Both flow.
+      // Save the SICCT measurements and clear any stale DIVA values.
+      stored[targetOriginalIndex] = Object.assign({}, stored[targetOriginalIndex] || blankEntry(), {
+        divaStatus: 'done',
+        avianBeforeInjection,
+        avianAfter72Hours,
+        bovineBeforeInjection,
+        bovineAfter72Hours,
+        reactionDescription,
+        overallResult,
+        sicctBatchUsed: resolvedSicctBatchUsed,
+        // Clear DIVA fields so a re-save after switching tests doesn't
+        // leave both populated.
+        divaBovineBeforeInjection: '',
+        divaBovineAfter72Hours: '',
+        divaReactionDescription: '',
+        divaRemarks: '',
+        divaResult: '',
+        divaBatchUsed: '',
+        additionalNotes,
+        performedTest: 'SICCT'
+      })
+    } else {
+      // Default DIVA save (single-test DIVA, v1-1 Both DIVA phase, or
+      // v1-2 Both with the vet picking DIVA).
+      stored[targetOriginalIndex] = Object.assign({}, stored[targetOriginalIndex] || blankEntry(), {
+        divaStatus: 'done',
+        divaBovineBeforeInjection,
+        divaBovineAfter72Hours,
+        divaReactionDescription,
+        divaRemarks,
+        divaResult,
+        divaBatchUsed: resolvedDivaBatchUsed,
+        additionalNotes,
+        performedTest: 'DIVA'
+      })
+    }
     req.session.data.skinTestEntries = stored
+
+    // For v1-2 Both, all reactors stay on the DIVA phase list during
+    // the loop so navigation back/next uses a stable iteration set.
+    // The per-phase split is done once at the end of the loop (below)
+    // by reading each entry's saved `performedTest`.
 
     if (loopAction === 'save-exit') {
       req.session.data.currentDivaIndex = index
@@ -4311,12 +4656,36 @@ function registerSkinTestRoutes(version) {
     if (!completed.includes('diva')) completed.push('diva')
     req.session.data.completedSkinTestPhases = completed
 
-    // For the "Both" journey, hand off to the SICCT reactor flow if
-    // it's still outstanding. The vet picks SICCT reactors (a fresh
-    // list, separate from the DIVA reactors above) and enters SICCT
-    // measurements for those animals.
-    const isBoth = req.session.data.skinTestType === 'Both'
-    if (isBoth && !completed.includes('sicct')) {
+    // For v1-2 Both, redistribute the reactor IDs across SICCT and
+    // DIVA phases now that the loop is finished, using each animal's
+    // saved `performedTest`. This keeps the confirmation page's
+    // per-test rows accurate without disturbing in-flight navigation.
+    if (isCombinedBoth) {
+      const allAnimals = getEntries(req)
+      const finalSicct = []
+      const finalDiva = []
+      const reactorIds = getReactorsForPhase(req, 'diva')
+      const reactorSet = new Set(reactorIds)
+      const storedNow = Array.isArray(req.session.data.skinTestEntries)
+        ? req.session.data.skinTestEntries
+        : []
+      allAnimals.forEach(function (a, i) {
+        if (!reactorSet.has(a.officialId)) return
+        const e = storedNow[i] || {}
+        if (e.performedTest === 'SICCT') {
+          finalSicct.push(a.officialId)
+        } else {
+          finalDiva.push(a.officialId)
+        }
+      })
+      setReactorsForPhase(req, 'sicct', finalSicct)
+      setReactorsForPhase(req, 'diva', finalDiva)
+    }
+
+    // For the v1-1 "Both" journey, hand off to the SICCT reactor flow
+    // if it's still outstanding. v1-2's combined journey marks SICCT
+    // complete on entry so this branch is skipped there.
+    if (isBothJourney && !completed.includes('sicct')) {
       return res.redirect(`/${version}/skin-test-reactors-any`)
     }
 
@@ -4359,8 +4728,37 @@ function registerSkinTestRoutes(version) {
     // For "Both", we read SICCT and DIVA reactors separately so the
     // confirmation page can list them in their own sections.
     const isBoth = skinTestType === 'Both'
-    const sicctReactorIds = getReactorsForPhase(req, 'sicct')
-    const divaReactorIds = getReactorsForPhase(req, 'diva')
+    const isCombinedBoth = isBoth && version === 'v1-2'
+    let sicctReactorIds = getReactorsForPhase(req, 'sicct')
+    let divaReactorIds = getReactorsForPhase(req, 'diva')
+    // For v1-2 Both, the per-animal `performedTest` is the source of
+    // truth for which list each reactor belongs in. Derive the per-
+    // test reactor IDs from saved entries so the confirmation page is
+    // accurate even if the loop hasn't finished (and therefore the
+    // end-of-loop redistribute hasn't run yet).
+    if (isCombinedBoth) {
+      const allReactorIds = Array.from(new Set([...sicctReactorIds, ...divaReactorIds]))
+      const allReactorSet = new Set(allReactorIds)
+      const derivedSicct = []
+      const derivedDiva = []
+      entries.forEach(function (e) {
+        if (!allReactorSet.has(e.officialId)) return
+        if (e.performedTest === 'SICCT') {
+          derivedSicct.push(e.officialId)
+        } else if (e.performedTest === 'DIVA') {
+          derivedDiva.push(e.officialId)
+        } else {
+          // Reactor that hasn't been recorded yet – fall back to the
+          // recommended test based on vaccination status so the
+          // confirmation page still bins them sensibly while the
+          // vet's mid-flow.
+          if (e.isVaccinated) derivedDiva.push(e.officialId)
+          else derivedSicct.push(e.officialId)
+        }
+      })
+      sicctReactorIds = derivedSicct
+      divaReactorIds = derivedDiva
+    }
     const combinedReactorIds = Array.from(new Set([...sicctReactorIds, ...divaReactorIds]))
 
     const untestedIds = Array.isArray(req.session.data.skinTestUntested)

@@ -7,7 +7,7 @@
 {% block beforeContent %}
 {{ govukBackLink({
   text: "Back",
-  href: "/v1-2/skin-test-both-order" if data['skinTestType'] == 'Both' else "/v1-2/skin-test-type"
+  href: "/v1-2/skin-test-type"
 }) }}
 {% endblock %}
 
@@ -19,16 +19,19 @@
       {{ govukErrorSummary(errorSummary) }}
     {% endif %}
 
-    {# For Both, the page is rendered twice – once per test – so the
-       caption / heading shows the specific test the question is about
-       (SICCT or DIVA). Single-test journeys use that journey's name. #}
+    {# v1-2 asks the question once across both tests for the Both
+       journey, so the caption shows the farm name only and the
+       hidden legend uses generic wording. Single-test journeys keep
+       the SICCT / DIVA caption. #}
     {% set captionLabel = currentTestLabel or data['skinTestType'] or 'Skin test' %}
-    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ captionLabel }}</span>
+    {% if isCombinedBoth %}
+      <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    {% else %}
+      <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ captionLabel }}</span>
+    {% endif %}
     <h1 class="govuk-heading-l">
       Did any cattle show a positive reaction?
     </h1>
-
-
 
     <form action="/v1-2/skin-test-reactors-any" method="post" novalidate>
 
@@ -38,7 +41,7 @@
         errorMessage: { text: errors['anyReactors'].text } if errors and errors['anyReactors'],
         fieldset: {
           legend: {
-            text: ("Did any cattle react to the " + captionLabel + " test?"),
+            text: "Did any cattle show a positive reaction?" if isCombinedBoth else ("Did any cattle react to the " + captionLabel + " test?"),
             classes: "govuk-visually-hidden"
           }
         },
