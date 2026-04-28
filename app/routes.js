@@ -3464,6 +3464,52 @@ function registerSkinTestRoutes(version) {
     res.redirect(`/${version}/skin-test-reactors`)
   })
 
+  // "None of these cattle" skip link on the reactors page. The vet has
+  // landed here after answering "Yes" on skin-test-reactors-any but has
+  // changed their mind – this acts the same as answering "No" on the
+  // gate page: clears reactors for the current phase, marks the phase
+  // complete, and routes onward (to the other phase for Both, or to
+  // the all-tested gate).
+  router.post(`/${version}/skin-test-reactors/skip`, function (req, res) {
+    const phase = getCurrentReactorPhase(req)
+    const isBoth = req.session.data.skinTestType === 'Both'
+
+    setReactorsForPhase(req, phase, [])
+
+    // Mirror the "answered No" flag on the gate page so a back/forward
+    // refresh doesn't bounce the vet straight back to the picker.
+    const anyReactorsByPhase = Object.assign({}, req.session.data.anyReactorsByPhase || {})
+    anyReactorsByPhase[phase] = 'no'
+    req.session.data.anyReactorsByPhase = anyReactorsByPhase
+    req.session.data.anyReactors = 'no'
+
+    // Seed blank entries so each animal has a row, matching the
+    // "answered No" branch on the gate page.
+    const allEntries = getEntries(req)
+    const stored = Array.isArray(req.session.data.skinTestEntries)
+      ? [...req.session.data.skinTestEntries]
+      : []
+    while (stored.length < allEntries.length) stored.push(blankEntry())
+    req.session.data.skinTestEntries = stored
+
+    const completed = Array.isArray(req.session.data.completedSkinTestPhases)
+      ? req.session.data.completedSkinTestPhases.slice()
+      : []
+    if (completed.indexOf(phase) === -1) completed.push(phase)
+    req.session.data.completedSkinTestPhases = completed
+
+    // Both with the other phase still outstanding – ask the gate
+    // question again for that test.
+    if (isBoth) {
+      const otherPhase = phase === 'sicct' ? 'diva' : 'sicct'
+      if (completed.indexOf(otherPhase) === -1) {
+        return res.redirect(`/${version}/skin-test-reactors-any`)
+      }
+    }
+
+    res.redirect(`/${version}/skin-test-all-tested`)
+  })
+
   router.post(`/${version}/skin-test-reactors`, function (req, res) {
     const phase = getCurrentReactorPhase(req)
     const phaseLabel = getCurrentReactorPhaseLabel(req)
@@ -4354,6 +4400,15 @@ function registerSkinTestRoutes(version) {
 
     // Once the user has seen the final confirmation, the report is no longer in progress
     req.session.data.skinTestInProgress = false
+
+    // Drop the prepared-list record for this farm so the dashboard
+    // stops offering "Report skin test results" once it's been done.
+    const submittedCph = req.session.data.herd && req.session.data.herd.cph
+    if (submittedCph && Array.isArray(req.session.data.skinTestListPrepared)) {
+      req.session.data.skinTestListPrepared = req.session.data.skinTestListPrepared.filter(function (r) {
+        return r && r.cph !== submittedCph
+      })
+    }
 
     res.render(`${version}/skin-test-submitted`, {
       entriesSummary: summary,

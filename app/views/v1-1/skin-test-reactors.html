@@ -220,6 +220,21 @@
           </div>
 
         </form>
+
+        {# Skip link – the vet may have answered "Yes" on the gate page
+           but, on seeing the cattle, decided that none of them
+           reacted after all. Posting to /skip records zero reactors
+           for this phase and routes onward (next phase for Both, or
+           the all-tested gate). #}
+        <form action="/v1-1/skin-test-reactors/skip" method="post" class="govuk-!-margin-top-4">
+          <p class="govuk-body govuk-!-margin-bottom-0">
+            <button type="submit"
+                    class="govuk-link"
+                    style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
+              None of these cattle reacted
+            </button>
+          </p>
+        </form>
       </div>
 
     </div>
