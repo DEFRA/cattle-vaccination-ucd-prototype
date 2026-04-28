@@ -30,33 +30,76 @@
       Review what you've recorded before submitting.
     </p>
 
-    {{ govukSummaryList({
-      rows: [
-        {
-          key: { text: "Farm" },
-          value: { text: data['herd']['farm'] }
-        },
-        {
-          key: { text: "CPH" },
-          value: { text: data['herd']['cph'] }
-        },
-        {
-          key: { text: "Day 1 (injection)" },
-          value: { text: day1Formatted or "Not recorded" },
-          actions: { items: [{ href: "/v1-2/skin-test-date", text: "Change", visuallyHiddenText: "day 1 date" }] }
-        },
-        {
-          key: { text: "Day 2 (reading)" },
-          value: { text: day2Formatted or "Not recorded" },
-          actions: { items: [{ href: "/v1-2/skin-test-date", text: "Change", visuallyHiddenText: "day 2 date" }] }
-        },
-        {
-          key: { text: "Test type" },
-          value: { text: (skinTestType or data['skinTestType'] or "Not recorded") | replace('Both', 'DIVA and SICCT') },
-          actions: { items: [{ href: "/v1-2/skin-test-type", text: "Change", visuallyHiddenText: "test type" }] }
-        }
-      ]
-    }) }}
+    {# Batch numbers entered on /skin-test-type are rendered as
+       bullet lists when there's more than one, or a plain line when
+       there's just one – matches how the vet entered them. #}
+    {% set sicctBatchesHtml %}
+      {% if sicctBatches and sicctBatches.length > 1 %}
+        <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
+          {% for batch in sicctBatches %}<li>{{ batch }}</li>{% endfor %}
+        </ul>
+      {% elif sicctBatches and sicctBatches.length == 1 %}
+        {{ sicctBatches[0] }}
+      {% else %}
+        Not recorded
+      {% endif %}
+    {% endset %}
+
+    {% set divaBatchesHtml %}
+      {% if divaBatches and divaBatches.length > 1 %}
+        <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
+          {% for batch in divaBatches %}<li>{{ batch }}</li>{% endfor %}
+        </ul>
+      {% elif divaBatches and divaBatches.length == 1 %}
+        {{ divaBatches[0] }}
+      {% else %}
+        Not recorded
+      {% endif %}
+    {% endset %}
+
+    {% set summaryRows = [
+      {
+        key: { text: "Farm" },
+        value: { text: data['herd']['farm'] }
+      },
+      {
+        key: { text: "CPH" },
+        value: { text: data['herd']['cph'] }
+      },
+      {
+        key: { text: "Day 1 (injection)" },
+        value: { text: day1Formatted or "Not recorded" },
+        actions: { items: [{ href: "/v1-2/skin-test-date", text: "Change", visuallyHiddenText: "day 1 date" }] }
+      },
+      {
+        key: { text: "Day 2 (reading)" },
+        value: { text: day2Formatted or "Not recorded" },
+        actions: { items: [{ href: "/v1-2/skin-test-date", text: "Change", visuallyHiddenText: "day 2 date" }] }
+      },
+      {
+        key: { text: "Test type" },
+        value: { text: (skinTestType or data['skinTestType'] or "Not recorded") | replace('Both', 'DIVA and SICCT') },
+        actions: { items: [{ href: "/v1-2/skin-test-type", text: "Change", visuallyHiddenText: "test type" }] }
+      }
+    ] %}
+
+    {% if showSicct %}
+      {% set summaryRows = summaryRows.concat([{
+        key: { text: "SICCT batch" + ("es" if sicctBatches.length > 1 else "") },
+        value: { html: sicctBatchesHtml },
+        actions: { items: [{ href: "/v1-2/skin-test-type", text: "Change", visuallyHiddenText: "SICCT batch numbers" }] }
+      }]) %}
+    {% endif %}
+
+    {% if showDiva %}
+      {% set summaryRows = summaryRows.concat([{
+        key: { text: "DIVA batch" + ("es" if divaBatches.length > 1 else "") },
+        value: { html: divaBatchesHtml },
+        actions: { items: [{ href: "/v1-2/skin-test-type", text: "Change", visuallyHiddenText: "DIVA batch numbers" }] }
+      }]) %}
+    {% endif %}
+
+    {{ govukSummaryList({ rows: summaryRows }) }}
 
     {# ------------------------------------------------------------------
        Reactor / untested / clear breakdown – this is the headline for

@@ -313,6 +313,32 @@
           ]
         }) }}
 
+        {# When the vet recorded more than one DIVA batch on
+           /skin-test-type, ask which batch was actually used for
+           this animal so each entry carries the right batch number.
+           A single batch is applied silently in the route handler. #}
+        {% if divaBatches and divaBatches.length > 1 %}
+          {% set divaBatchItems = [] %}
+          {% for batch in divaBatches %}
+            {% set divaBatchItems = divaBatchItems.concat([{ value: batch, text: batch }]) %}
+          {% endfor %}
+          {{ govukRadios({
+            idPrefix: "divaBatchUsed",
+            name: "divaBatchUsed",
+            classes: "govuk-!-margin-top-6",
+            value: formValues['divaBatchUsed'] or savedEntry.divaBatchUsed,
+            fieldset: {
+              legend: {
+                text: "Which DIVA batch was used?",
+                classes: "govuk-fieldset__legend--m"
+              }
+            },
+            hint: { text: "Select the batch the vaccine for this animal came from." },
+            errorMessage: { text: errors['divaBatchUsed'].text } if errors and errors['divaBatchUsed'],
+            items: divaBatchItems
+          }) }}
+        {% endif %}
+
         {# DIVA-specific remarks (free text, separate from the measurement
            description). #}
         {{ govukTextarea({

@@ -2352,6 +2352,10 @@ function registerSkinTestRoutes(version) {
       divaBovineAfter72Hours: '',
       divaReactionDescription: '',
       divaRemarks: '',
+      // Which DIVA batch was used for this animal. Asked on the
+      // measurement page only when more than one batch was recorded
+      // on /skin-test-type; auto-filled when there's just one.
+      divaBatchUsed: '',
       divaNotDoneReason: '',
       divaNotDoneReasonOther: '',
       // Single consolidated notes field shown beneath the measurement +
@@ -4139,6 +4143,13 @@ function registerSkinTestRoutes(version) {
           ? `/${version}/skin-test-measurements/${Math.max((getEntriesForPhase(req, 'sicct').length - 1), 0)}`
           : (isBoth ? `/${version}/skin-test-both-order` : `/${version}/skin-test-reactors`))
 
+    // DIVA batch numbers entered on /skin-test-type. When the vet
+    // recorded more than one, the measurement page asks them to
+    // confirm which batch was used for this specific animal.
+    const divaBatches = (Array.isArray(req.session.data.skinTestDivaBatches)
+      ? req.session.data.skinTestDivaBatches
+      : []).map(function (b) { return (b || '').trim() }).filter(Boolean)
+
     res.render(`${version}/skin-test-diva`, {
       currentIndex: safeIndex,
       currentPosition: safeIndex + 1,
@@ -4152,6 +4163,7 @@ function registerSkinTestRoutes(version) {
       isBothJourney: isBoth,
       bothStepText: bothStep,
       backHref,
+      divaBatches,
       errors: options && options.errors,
       errorSummary: options && options.errorSummary,
       formValues: (options && options.formValues) || {}
@@ -4210,6 +4222,42 @@ function registerSkinTestRoutes(version) {
     const divaRemarks = (req.body.divaRemarks || '').trim()
     const divaResult = (req.body.divaResult || '').trim()
     const additionalNotes = (req.body.additionalNotes || '').trim()
+    const divaBatchUsed = (req.body.divaBatchUsed || '').trim()
+
+    // When the vet recorded more than one DIVA batch on /skin-test-type
+    // we ask which one was used for this animal. A single batch is
+    // applied silently (no question is shown).
+    const divaBatchesList = (Array.isArray(req.session.data.skinTestDivaBatches)
+      ? req.session.data.skinTestDivaBatches
+      : []).map(function (b) { return (b || '').trim() }).filter(Boolean)
+
+    if (divaBatchesList.length > 1
+        && loopAction !== 'save-exit'
+        && loopAction !== 'previous'
+        && !divaBatchUsed) {
+      return renderDivaMeasurement(req, res, index, {
+        formValues: {
+          divaBovineBeforeInjection,
+          divaBovineAfter72Hours,
+          divaReactionDescription,
+          divaRemarks,
+          divaResult,
+          divaBatchUsed,
+          additionalNotes
+        },
+        errors: { divaBatchUsed: { text: 'Select which DIVA batch was used for this animal' } },
+        errorSummary: {
+          titleText: 'There is a problem',
+          errorList: [{ text: 'Select which DIVA batch was used for this animal', href: '#divaBatchUsed' }]
+        }
+      })
+    }
+
+    // Single batch case – record it automatically so the entry still
+    // carries the batch number even though we didn't ask.
+    const resolvedBatchUsed = divaBatchesList.length === 1
+      ? divaBatchesList[0]
+      : divaBatchUsed
 
     // Map the filtered DIVA-only index back to the full entries array.
     const targetOriginalIndex = entries[index] && entries[index].originalIndex
@@ -4229,6 +4277,7 @@ function registerSkinTestRoutes(version) {
       divaReactionDescription,
       divaRemarks,
       divaResult,
+      divaBatchUsed: resolvedBatchUsed,
       additionalNotes,
       performedTest: 'DIVA'
     })

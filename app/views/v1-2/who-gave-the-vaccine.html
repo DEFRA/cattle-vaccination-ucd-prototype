@@ -1,8 +1,16 @@
 
 {% extends "layouts/main.html" %}
 
+{# The same page is the first step of two journeys:
+   - Vaccination report → "Who vaccinated the cattle?"
+   - Skin test report   → "Who tested the cattle?"
+   The journey is detected from data['reportType'] (set in the session
+   before the redirect to this page). #}
+{% set isTbTest = data['reportType'] == 'tb-test' %}
+{% set headingText = "Who tested the cattle?" if isTbTest else "Who vaccinated the cattle?" %}
+
 {% block pageTitle %}
-  Who administered the vaccine? – GOV.UK
+  {{ headingText }} – GOV.UK
 {% endblock %}
 
 {% block beforeContent %}
@@ -89,7 +97,7 @@
         name: "administeredBy",
         fieldset: {
           legend: {
-            text: "Who vaccinated the cattle?",
+            text: headingText,
             isPageHeading: true,
             classes: "govuk-fieldset__legend--l"
           }
