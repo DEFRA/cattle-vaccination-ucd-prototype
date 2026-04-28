@@ -454,26 +454,26 @@ const v11VaccinatedFarms = new Set([
 // record. Last-test dates are spread from "tested last week" back to "four
 // years ago" so the data feels lived-in.
 const v11FarmTbStatus = {
-  '12/345/6789': { status: 'OTF',  lastTestDate: '12 March 2026',     lastBreakdown: 'None recorded' },
-  '17/205/6790': { status: 'OTFW', lastTestDate: '4 February 2026',   lastBreakdown: '18 August 2025' },
-  '12/340/6791': { status: 'OTF',  lastTestDate: '9 January 2026',    lastBreakdown: '23 July 2023' },
+  '12/345/6789': { status: 'OTF',  lastTestDate: '12 March 2025',     lastBreakdown: 'None recorded' },
+  '17/205/6790': { status: 'OTFW', lastTestDate: '4 February 2025',   lastBreakdown: '18 August 2025' },
+  '12/340/6791': { status: 'OTF',  lastTestDate: '9 January 2025',    lastBreakdown: '23 July 2023' },
   '12/348/6792': { status: 'OTF',  lastTestDate: '27 November 2025',  lastBreakdown: 'None recorded' },
-  '12/325/6793': { status: 'OTFW', lastTestDate: '15 April 2026',     lastBreakdown: '2 April 2026' },
+  '12/325/6793': { status: 'OTFW', lastTestDate: '15 April 2025',     lastBreakdown: '2 April 2025' },
   '12/338/6794': { status: 'OTF',  lastTestDate: '5 October 2025',    lastBreakdown: 'None recorded' },
   '12/360/6795': { status: 'OTF',  lastTestDate: '30 August 2025',    lastBreakdown: '14 May 2022' },
-  '12/315/6796': { status: 'OTFW', lastTestDate: '3 March 2026',      lastBreakdown: '9 February 2026' },
+  '12/315/6796': { status: 'OTFW', lastTestDate: '3 March 2025',      lastBreakdown: '9 February 2025' },
   '12/310/6797': { status: 'OTF',  lastTestDate: '14 June 2025',      lastBreakdown: 'None recorded' },
   '24/420/6798': { status: 'OTF',  lastTestDate: '22 December 2025',  lastBreakdown: 'None recorded' },
   '12/320/6799': { status: 'OTF',  lastTestDate: '11 March 2025',     lastBreakdown: '6 November 2024' },
-  '24/402/6800': { status: 'OTF',  lastTestDate: '7 November 2024',   lastBreakdown: 'None recorded' },
-  '24/405/6801': { status: 'OTFW', lastTestDate: '25 January 2026',   lastBreakdown: '12 January 2026' },
-  '12/312/6802': { status: 'OTF',  lastTestDate: '19 September 2024', lastBreakdown: 'None recorded' },
+  '24/402/6800': { status: 'OTF',  lastTestDate: '7 November 2025',   lastBreakdown: 'None recorded' },
+  '24/405/6801': { status: 'OTFW', lastTestDate: '25 January 2025',   lastBreakdown: '12 January 2025' },
+  '12/312/6802': { status: 'OTF',  lastTestDate: '19 September 2025', lastBreakdown: 'None recorded' },
   '12/365/6803': { status: 'OTF',  lastTestDate: '2 July 2025',       lastBreakdown: '16 May 2023' },
   '17/221/6804': { status: 'OTF',  lastTestDate: '28 November 2025',  lastBreakdown: 'None recorded' },
-  '17/218/6805': { status: 'OTFW', lastTestDate: '8 April 2026',      lastBreakdown: '1 April 2026' },
+  '17/218/6805': { status: 'OTFW', lastTestDate: '8 April 2025',      lastBreakdown: '1 April 2025' },
   '12/355/6806': { status: 'OTF',  lastTestDate: '16 August 2025',    lastBreakdown: 'None recorded' },
-  '12/370/6807': { status: 'OTF',  lastTestDate: '3 May 2024',        lastBreakdown: '21 February 2022' },
-  '12/352/6808': { status: 'OTF',  lastTestDate: '30 January 2026',   lastBreakdown: 'None recorded' }
+  '12/370/6807': { status: 'OTF',  lastTestDate: '3 May 2025',        lastBreakdown: '21 February 2022' },
+  '12/352/6808': { status: 'OTF',  lastTestDate: '30 January 2025',   lastBreakdown: 'None recorded' }
 }
 
 function getV11TbStatusForCph(cph) {

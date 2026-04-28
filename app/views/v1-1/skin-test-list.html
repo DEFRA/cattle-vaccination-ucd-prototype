@@ -269,7 +269,7 @@
 
       <form method="post" action="/v1-1/skin-test-list" class="app-filter-panel">
         <h2 class="govuk-heading-m govuk-!-margin-bottom-3">List settings</h2>
-        <p class="govuk-body govuk-!-margin-bottom-4">You will need to apply any changes you make to these filters.</p>
+        <p class="govuk-body govuk-!-margin-bottom-4">You will need to apply any changes you make to these settings.</p>
 
         {{ govukRadios({
           idPrefix: "downloadFormat",
@@ -470,7 +470,14 @@
                   {% endif %}
                 </tr>
               </table>
-
+              <table class="govuk-table govuk-!-margin-bottom-6" style="min-width: 900px; table-layout: fixed;">
+                  <tr>
+                    <td>
+                        <strong>DUP</strong> shows the last 4 digits of ear tag number are duplicates<br>
+                        <strong>VAX</strong> shows the animal is BCG vaccinated
+                    </td>
+                  </tr>
+              </table>
               <table class="app-record-table">
                 <thead>
                   <tr>

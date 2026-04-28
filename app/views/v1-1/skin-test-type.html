@@ -35,7 +35,7 @@
       {% set sicctConditionalHtml %}
         {% for batch in sicctBatches %}
           {{ govukInput({
-            label: { text: "SICCT batch number (optional)" },
+            label: { text: "SICCT batch number" },
             id: "sicctBatch-" + loop.index|string,
             name: "sicctBatches",
             classes: "govuk-input--width-20",
@@ -57,7 +57,7 @@
       {% set divaConditionalHtml %}
         {% for batch in divaBatches %}
           {{ govukInput({
-            label: { text: "DIVA batch number (optional)" },
+            label: { text: "DIVA batch number" },
             id: "divaBatch-" + loop.index|string,
             name: "divaBatches",
             classes: "govuk-input--width-20",
