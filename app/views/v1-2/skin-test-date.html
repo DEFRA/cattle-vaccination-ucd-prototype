@@ -7,7 +7,7 @@
 {% block beforeContent %}
 {{ govukBackLink({
   text: "Back",
-  href: "/v1-1/who-gave-the-vaccine"
+  href: "/v1-2/select-visit-task"
 }) }}
 {% endblock %}
 
@@ -25,7 +25,7 @@
       Day 1 is when you injected the tuberculin. Day 2 (the reading) takes place 72 hours later – you'll record that on the next page.
     </p>
 
-    <form action="/v1-1/skin-test-date" method="post" novalidate>
+    <form action="/v1-2/skin-test-date" method="post" novalidate>
 
       {{ govukDateInput({
         id: "skinTestDay1",

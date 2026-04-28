@@ -1,0 +1,33 @@
+
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Vaccination report submitted – GOV.UK
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {{ govukPanel({
+      titleText: "Vaccination report submitted"
+    }) }}
+
+    <p class="govuk-body">
+      This information will be updated in Sam, the online system for submitting bovine tuberculosis (TB) test results in the UK.
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-2/#" class="govuk-link">Send a report to the farmer</a>
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-2/dashboard" class="govuk-link">Do more vacinations</a>
+    </p>
+        <p class="govuk-body">
+      <a href="/v1-2/dashboard" class="govuk-link">Exit the service</a>
+    </p>
+
+  </div>
+</div>
+{% endblock %}

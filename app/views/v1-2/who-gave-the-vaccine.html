@@ -1,22 +1,14 @@
 
 {% extends "layouts/main.html" %}
 
-{# The same page is the first step of two journeys:
-   - Vaccination report → "Who vaccinated the cattle?"
-   - Skin test report   → "Who tested the cattle?"
-   The journey is detected from data['reportType'] (set in the session
-   before the redirect to this page). #}
-{% set isTbTest = data['reportType'] == 'tb-test' %}
-{% set headingText = "Who tested the cattle?" if isTbTest else "Who vaccinated the cattle?" %}
-
 {% block pageTitle %}
-  {{ headingText }} – GOV.UK
+  Who administered the vaccine? – GOV.UK
 {% endblock %}
 
 {% block beforeContent %}
 {{ govukBackLink({
   text: "Back",
-  href: "/v1-1/select-visit-task"
+  href: "/v1-2/select-visit-task"
 }) }}
 {% endblock %}
 
@@ -91,13 +83,13 @@
       {{ govukErrorSummary(errorSummary) }}
     {% endif %}
 
-    <form action="/v1-1/who-gave-the-vaccine" method="post" novalidate>
+    <form action="/v1-2/who-gave-the-vaccine" method="post" novalidate>
 
       {{ govukRadios({
         name: "administeredBy",
         fieldset: {
           legend: {
-            text: headingText,
+            text: "Who vaccinated the cattle?",
             isPageHeading: true,
             classes: "govuk-fieldset__legend--l"
           }

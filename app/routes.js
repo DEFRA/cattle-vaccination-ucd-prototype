@@ -248,7 +248,7 @@ function handleFarmSearch(req, res, pageName, version) {
     })
   }
 
-  if (version === 'v1-1') {
+  if (version === 'v1-1' || version === 'v1-2') {
     const { candidates, groups } = searchV11(searchInput)
     req.session.data.searchResultGroups = groups
     // Keep a flat list for any legacy page that still reads searchResults.
@@ -694,7 +694,7 @@ function buildV11Dataset() {
 const v11AnimalsByCph = buildV11Dataset()
 
 function getAnimalsForSelection(selectedCattle, version) {
-  if (version === 'v1-1' && v11AnimalsByCph[selectedCattle]) {
+  if ((version === 'v1-1' || version === 'v1-2') && v11AnimalsByCph[selectedCattle]) {
     return v11AnimalsByCph[selectedCattle]
   }
 
@@ -1145,12 +1145,12 @@ function registerVersionRoutes(version) {
 
   router.get(`/${version}/confirm-herd-or-animal`, (req, res) => {
     const locals = {}
-    // Only v1-1 shows the TB status block – v1-0 template doesn't use it.
-    if (version === 'v1-1' && req.session.data.selectedCattle) {
+    // v1-1 / v1-2 show the TB status block – v1-0 template doesn't use it.
+    if ((version === 'v1-1' || version === 'v1-2') && req.session.data.selectedCattle) {
       locals.tbStatus = getV11TbStatusForCph(req.session.data.selectedCattle)
       // Count vaccinated cattle on the selected farm so the template
       // can show "Vaccinated cattle" under "Number of cattle".
-      const animals = getAnimalsForSelection(req.session.data.selectedCattle, 'v1-1')
+      const animals = getAnimalsForSelection(req.session.data.selectedCattle, version)
       locals.vaccinatedCount = animals.filter(function (a) {
         return a.vaccinationStatus === 'Vaccinated'
       }).length
@@ -1260,7 +1260,10 @@ function registerVersionRoutes(version) {
       req.session.data.skinTestType = null
       req.session.data.currentSkinTestIndex = 0
       req.session.data.skinTestInProgress = true
-      return res.redirect(`/${version}/skin-test-date`)
+      // The skin test report journey now starts with the same
+      // "who did this work?" page used by the vaccination journey,
+      // rendered in tester mode (heading: "Who tested the cattle?").
+      return res.redirect(`/${version}/who-gave-the-vaccine`)
     }
 
     if (reportType === 'vaccination' || reportType === 'both') {
@@ -1278,18 +1281,29 @@ function registerVersionRoutes(version) {
     req.session.data.theirRole = req.body.theirRole
     req.session.data.otherRole = req.body.otherRole
 
+    // The same page is reused as the first step of the skin test
+    // report journey. Tailor the error message and onward route to
+    // whichever journey the vet is currently in.
+    const isTbTest = req.session.data.reportType === 'tb-test'
+    const errorText = isTbTest
+      ? 'Select who tested the cattle'
+      : 'Select who gave the vaccine'
+
     if (!administeredBy) {
       return res.render(`${version}/who-gave-the-vaccine`, {
         errors: {
-          administeredBy: { text: 'Select who gave the vaccine' }
+          administeredBy: { text: errorText }
         },
         errorSummary: {
           titleText: 'There is a problem',
-          errorList: [{ text: 'Select who gave the vaccine', href: '#administeredBy' }]
+          errorList: [{ text: errorText, href: '#administeredBy' }]
         }
       })
     }
 
+    if (isTbTest) {
+      return res.redirect(`/${version}/skin-test-date`)
+    }
     return res.redirect(`/${version}/enter-vaccine-batch-details`)
   })
 
@@ -2190,7 +2204,7 @@ function registerVersionRoutes(version) {
           req.session.data.currentSkinTestIndex = 0
           req.session.data.skinTestInProgress = true
         }
-        return res.redirect(`/${version}/skin-test-date`)
+        return res.redirect(`/${version}/who-gave-the-vaccine`)
 
       default:
         return res.redirect(`/${version}/dashboard`)
@@ -2263,7 +2277,7 @@ function registerVersionRoutes(version) {
         req.session.data.skinTestType = null
         req.session.data.currentSkinTestIndex = 0
         req.session.data.skinTestInProgress = true
-        return res.redirect(`/${version}/skin-test-date`)
+        return res.redirect(`/${version}/who-gave-the-vaccine`)
     }
 
     // Unknown journey – send back to the confirm page
@@ -2274,6 +2288,7 @@ function registerVersionRoutes(version) {
 // Register routes for each supported prototype version
 registerVersionRoutes('v1-0')
 registerVersionRoutes('v1-1')
+registerVersionRoutes('v1-2')
 
 // -----------------------------------------------------------------------------
 // Skin test journey routes (V1-1 only)
@@ -2287,8 +2302,10 @@ function registerSkinTestRoutes(version) {
     const selectedCattle = req.session.data.selectedCattle
     const sortBy = req.session.data.skinTestSortBy || 'Ear-tag number (last 5 digits)'
     const sortDirection = req.session.data.skinTestSortDirection || 'asc'
-    // registerSkinTestRoutes is only registered for v1-1, so always pass 'v1-1'
-    return sortAnimals(getAnimalsForSelection(selectedCattle, 'v1-1'), sortBy, sortDirection)
+    // registerSkinTestRoutes is registered per version – use the
+    // closure's version so v1-1 and v1-2 each pull from the right
+    // dataset.
+    return sortAnimals(getAnimalsForSelection(selectedCattle, version), sortBy, sortDirection)
   }
 
   function blankEntry() {
@@ -3279,18 +3296,83 @@ function registerSkinTestRoutes(version) {
   })
 
   router.post(`/${version}/skin-test-type`, function (req, res) {
-    const skinTestType = req.body.skinTestType
-    req.session.data.skinTestType = skinTestType
+    // Tests: a checkbox group with values "SICCT" and "DIVA". The vet
+    // can pick one or both. The Prototype Kit injects the "_unchecked"
+    // placeholder for empty submissions, which we strip out.
+    const submittedTests = Array.isArray(req.body.tests)
+      ? req.body.tests
+      : (req.body.tests ? [req.body.tests] : [])
+    const tests = submittedTests.filter(function (t) {
+      return t && t !== '_unchecked'
+    })
 
-    if (!skinTestType) {
+    // Per-test batch number inputs. When the checkbox is ticked, the
+    // page renders one input per existing batch (plus an empty one
+    // initially). We keep blank entries here so an empty input the
+    // vet hasn't filled in yet stays on the page after a re-render –
+    // they are stripped out at final submit time below.
+    const sicctBatchesRaw = Array.isArray(req.body.sicctBatches)
+      ? req.body.sicctBatches
+      : (req.body.sicctBatches !== undefined ? [req.body.sicctBatches] : [])
+    const divaBatchesRaw = Array.isArray(req.body.divaBatches)
+      ? req.body.divaBatches
+      : (req.body.divaBatches !== undefined ? [req.body.divaBatches] : [])
+
+    // Stash the in-progress state so a redirect-driven re-render
+    // shows everything the vet has just typed.
+    req.session.data.skinTestTests = tests
+    req.session.data.skinTestSicctBatches = sicctBatchesRaw
+    req.session.data.skinTestDivaBatches = divaBatchesRaw
+
+    // "Add another batch" buttons – append a blank input to the
+    // matching list and re-render the same page so the new field
+    // appears under the existing ones.
+    if (req.body.addBatch === 'sicct') {
+      req.session.data.skinTestSicctBatches = sicctBatchesRaw.concat([''])
+      // Make sure the checkbox stays ticked even if the vet clicked
+      // "Add another batch" before ticking it.
+      if (tests.indexOf('SICCT') === -1) {
+        req.session.data.skinTestTests = tests.concat(['SICCT'])
+      }
+      return res.redirect(`/${version}/skin-test-type`)
+    }
+    if (req.body.addBatch === 'diva') {
+      req.session.data.skinTestDivaBatches = divaBatchesRaw.concat([''])
+      if (tests.indexOf('DIVA') === -1) {
+        req.session.data.skinTestTests = tests.concat(['DIVA'])
+      }
+      return res.redirect(`/${version}/skin-test-type`)
+    }
+
+    // Final Continue submit – at least one test must be ticked.
+    if (!tests.length) {
       return res.render(`${version}/skin-test-type`, {
-        errors: { skinTestType: { text: 'Select which test you did' } },
+        errors: { tests: { text: 'Select which test you did' } },
         errorSummary: {
           titleText: 'There is a problem',
-          errorList: [{ text: 'Select which test you did', href: '#skinTestType' }]
+          errorList: [{ text: 'Select which test you did', href: '#tests' }]
         }
       })
     }
+
+    // Map the checkbox selection to the journey-wide skinTestType
+    // string the rest of the flow already understands.
+    const hasSicct = tests.indexOf('SICCT') !== -1
+    const hasDiva = tests.indexOf('DIVA') !== -1
+    const skinTestType = (hasSicct && hasDiva)
+      ? 'Both'
+      : (hasDiva ? 'DIVA' : 'SICCT')
+    req.session.data.skinTestType = skinTestType
+
+    // Trim blank batch entries before we hand the data on to the
+    // rest of the journey – only the test the vet actually ticked
+    // gets a non-empty list.
+    req.session.data.skinTestSicctBatches = hasSicct
+      ? sicctBatchesRaw.map(function (b) { return (b || '').trim() }).filter(Boolean)
+      : []
+    req.session.data.skinTestDivaBatches = hasDiva
+      ? divaBatchesRaw.map(function (b) { return (b || '').trim() }).filter(Boolean)
+      : []
 
     // Reset phase-specific pointers + the reactor/untested state so a
     // brand-new choice always starts from a clean slate.
@@ -4244,6 +4326,15 @@ function registerSkinTestRoutes(version) {
     const clearEntries = allEntries.filter(e => !reactorSet.has(e.officialId) && !untestedSet.has(e.officialId))
     const untestedReasons = req.session.data.skinTestUntestedReasons || {}
 
+    // Batch numbers captured on /skin-test-type. Filter blanks so the
+    // confirmation page only lists batches the vet actually entered.
+    const sicctBatches = (Array.isArray(req.session.data.skinTestSicctBatches)
+      ? req.session.data.skinTestSicctBatches
+      : []).map(function (b) { return (b || '').trim() }).filter(Boolean)
+    const divaBatches = (Array.isArray(req.session.data.skinTestDivaBatches)
+      ? req.session.data.skinTestDivaBatches
+      : []).map(function (b) { return (b || '').trim() }).filter(Boolean)
+
     res.render(`${version}/skin-test-confirmation`, {
       entries: allEntries,
       entriesSummary: summary,
@@ -4267,7 +4358,9 @@ function registerSkinTestRoutes(version) {
       untestedCount: untestedEntries.length,
       clearCount: clearEntries.length,
       addedCount: addedEntries.length,
-      isBothJourney: isBoth
+      isBothJourney: isBoth,
+      sicctBatches,
+      divaBatches
     })
   })
 
@@ -4536,5 +4629,6 @@ function registerSkinTestRoutes(version) {
 }
 
 registerSkinTestRoutes('v1-1')
+registerSkinTestRoutes('v1-2')
 
 module.exports = router

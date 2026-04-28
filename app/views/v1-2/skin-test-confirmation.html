@@ -7,7 +7,7 @@
 {% block beforeContent %}
 {{ govukBackLink({
   text: "Back",
-  href: "/v1-1/skin-test-measurements" if showSicct else "/v1-1/skin-test-diva"
+  href: "/v1-2/skin-test-measurements" if showSicct else "/v1-2/skin-test-diva"
 }) }}
 {% endblock %}
 
@@ -30,76 +30,33 @@
       Review what you've recorded before submitting.
     </p>
 
-    {# Batch numbers entered on /skin-test-type are rendered as
-       bullet lists when there's more than one, or a plain line when
-       there's just one – matches how the vet entered them. #}
-    {% set sicctBatchesHtml %}
-      {% if sicctBatches and sicctBatches.length > 1 %}
-        <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
-          {% for batch in sicctBatches %}<li>{{ batch }}</li>{% endfor %}
-        </ul>
-      {% elif sicctBatches and sicctBatches.length == 1 %}
-        {{ sicctBatches[0] }}
-      {% else %}
-        Not recorded
-      {% endif %}
-    {% endset %}
-
-    {% set divaBatchesHtml %}
-      {% if divaBatches and divaBatches.length > 1 %}
-        <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
-          {% for batch in divaBatches %}<li>{{ batch }}</li>{% endfor %}
-        </ul>
-      {% elif divaBatches and divaBatches.length == 1 %}
-        {{ divaBatches[0] }}
-      {% else %}
-        Not recorded
-      {% endif %}
-    {% endset %}
-
-    {% set summaryRows = [
-      {
-        key: { text: "Farm" },
-        value: { text: data['herd']['farm'] }
-      },
-      {
-        key: { text: "CPH" },
-        value: { text: data['herd']['cph'] }
-      },
-      {
-        key: { text: "Day 1 (injection)" },
-        value: { text: day1Formatted or "Not recorded" },
-        actions: { items: [{ href: "/v1-1/skin-test-date", text: "Change", visuallyHiddenText: "day 1 date" }] }
-      },
-      {
-        key: { text: "Day 2 (reading)" },
-        value: { text: day2Formatted or "Not recorded" },
-        actions: { items: [{ href: "/v1-1/skin-test-date", text: "Change", visuallyHiddenText: "day 2 date" }] }
-      },
-      {
-        key: { text: "Test type" },
-        value: { text: (skinTestType or data['skinTestType'] or "Not recorded") | replace('Both', 'DIVA and SICCT') },
-        actions: { items: [{ href: "/v1-1/skin-test-type", text: "Change", visuallyHiddenText: "test type" }] }
-      }
-    ] %}
-
-    {% if showSicct %}
-      {% set summaryRows = summaryRows.concat([{
-        key: { text: "SICCT batch" + ("es" if sicctBatches.length > 1 else "") },
-        value: { html: sicctBatchesHtml },
-        actions: { items: [{ href: "/v1-1/skin-test-type", text: "Change", visuallyHiddenText: "SICCT batch numbers" }] }
-      }]) %}
-    {% endif %}
-
-    {% if showDiva %}
-      {% set summaryRows = summaryRows.concat([{
-        key: { text: "DIVA batch" + ("es" if divaBatches.length > 1 else "") },
-        value: { html: divaBatchesHtml },
-        actions: { items: [{ href: "/v1-1/skin-test-type", text: "Change", visuallyHiddenText: "DIVA batch numbers" }] }
-      }]) %}
-    {% endif %}
-
-    {{ govukSummaryList({ rows: summaryRows }) }}
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Farm" },
+          value: { text: data['herd']['farm'] }
+        },
+        {
+          key: { text: "CPH" },
+          value: { text: data['herd']['cph'] }
+        },
+        {
+          key: { text: "Day 1 (injection)" },
+          value: { text: day1Formatted or "Not recorded" },
+          actions: { items: [{ href: "/v1-2/skin-test-date", text: "Change", visuallyHiddenText: "day 1 date" }] }
+        },
+        {
+          key: { text: "Day 2 (reading)" },
+          value: { text: day2Formatted or "Not recorded" },
+          actions: { items: [{ href: "/v1-2/skin-test-date", text: "Change", visuallyHiddenText: "day 2 date" }] }
+        },
+        {
+          key: { text: "Test type" },
+          value: { text: (skinTestType or data['skinTestType'] or "Not recorded") | replace('Both', 'DIVA and SICCT') },
+          actions: { items: [{ href: "/v1-2/skin-test-type", text: "Change", visuallyHiddenText: "test type" }] }
+        }
+      ]
+    }) }}
 
     {# ------------------------------------------------------------------
        Reactor / untested / clear breakdown – this is the headline for
@@ -169,22 +126,22 @@
           {
             key: { text: "Reacted to SICCT" },
             value: { html: sicctReactedHtml },
-            actions: { items: [{ href: "/v1-1/skin-test-reactors-any", text: "Change", visuallyHiddenText: "which cattle reacted to SICCT" }] }
+            actions: { items: [{ href: "/v1-2/skin-test-reactors-any", text: "Change", visuallyHiddenText: "which cattle reacted to SICCT" }] }
           },
           {
             key: { text: "Reacted to DIVA" },
             value: { html: divaReactedHtml },
-            actions: { items: [{ href: "/v1-1/skin-test-reactors-any", text: "Change", visuallyHiddenText: "which cattle reacted to DIVA" }] }
+            actions: { items: [{ href: "/v1-2/skin-test-reactors-any", text: "Change", visuallyHiddenText: "which cattle reacted to DIVA" }] }
           },
           {
             key: { text: "Not tested" },
             value: { html: notTestedHtml },
-            actions: { items: [{ href: "/v1-1/skin-test-untested", text: "Change", visuallyHiddenText: "which cattle were not tested" }] }
+            actions: { items: [{ href: "/v1-2/skin-test-untested", text: "Change", visuallyHiddenText: "which cattle were not tested" }] }
           },
           {
             key: { text: "Clear (negative)" },
             value: { text: clearCount + (" animal" if clearCount == 1 else " animals") },
-            actions: { items: [{ href: "/v1-1/skin-test-reactors-any", text: "Change", visuallyHiddenText: "to mark a clear animal as a reactor" }] }
+            actions: { items: [{ href: "/v1-2/skin-test-reactors-any", text: "Change", visuallyHiddenText: "to mark a clear animal as a reactor" }] }
           }
         ]
       }) }}
@@ -194,17 +151,17 @@
           {
             key: { text: "Reacted" },
             value: { html: reactedHtml },
-            actions: { items: [{ href: "/v1-1/skin-test-reactors", text: "Change", visuallyHiddenText: "which cattle reacted" }] }
+            actions: { items: [{ href: "/v1-2/skin-test-reactors", text: "Change", visuallyHiddenText: "which cattle reacted" }] }
           },
           {
             key: { text: "Not tested" },
             value: { html: notTestedHtml },
-            actions: { items: [{ href: "/v1-1/skin-test-untested", text: "Change", visuallyHiddenText: "which cattle were not tested" }] }
+            actions: { items: [{ href: "/v1-2/skin-test-untested", text: "Change", visuallyHiddenText: "which cattle were not tested" }] }
           },
           {
             key: { text: "Clear (negative)" },
             value: { text: clearCount + (" animal" if clearCount == 1 else " animals") },
-            actions: { items: [{ href: "/v1-1/skin-test-reactors-any", text: "Change", visuallyHiddenText: "to mark a clear animal as a reactor" }] }
+            actions: { items: [{ href: "/v1-2/skin-test-reactors-any", text: "Change", visuallyHiddenText: "to mark a clear animal as a reactor" }] }
           }
         ]
       }) }}
@@ -236,7 +193,7 @@
               {% endif %}
             </dd>
             <dd class="govuk-summary-list__actions">
-              <a class="govuk-link" href="/v1-1/skin-test-add-another/edit/{{ entry.officialId }}">
+              <a class="govuk-link" href="/v1-2/skin-test-add-another/edit/{{ entry.officialId }}">
                 Change<span class="govuk-visually-hidden"> details for {{ entry.officialId }}</span>
               </a>
             </dd>
@@ -245,7 +202,7 @@
       </dl>
     {% endif %}
 
-    <form action="/v1-1/skin-test-confirmation" method="post" novalidate>
+    <form action="/v1-2/skin-test-confirmation" method="post" novalidate>
       <div class="govuk-button-group">
         {{ govukButton({ text: "Continue" }) }}
       </div>

@@ -1,0 +1,98 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Tasks for {{ farmName }} – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-2/dashboard"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Single-column task rows. The task title is a heading-shaped link;
+     supporting context (e.g. "244 records remaining") sits below it
+     as plain secondary text. No right-hand status column or trailing
+     action link. */
+  .app-task-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-top: 1px solid #b1b4b6;
+  }
+  .app-task-list__item {
+    border-bottom: 1px solid #b1b4b6;
+    padding: 20px 0;
+  }
+  .app-task-list__title {
+    margin-top: 0;
+    margin-bottom: 4px;
+  }
+  .app-task-list__progress {
+    color: #505a5f;
+    margin: 0;
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l govuk-!-margin-bottom-3">Tasks for {{ farmName }}</h1>
+
+    {{ govukSummaryList({
+      classes: "govuk-summary-list--no-border govuk-!-margin-bottom-6",
+      rows: [
+        { key: { text: "Farm" }, value: { text: farmName } },
+        { key: { text: "CPH" }, value: { text: cph } }
+      ]
+    }) }}
+
+    {% if tasks and tasks.length > 0 %}
+      <h2 class="govuk-heading-m">Tasks</h2>
+      <ul class="app-task-list">
+        {% for task in tasks %}
+          <li class="app-task-list__item">
+            <h3 class="govuk-heading-s app-task-list__title">
+              <a class="govuk-link" href="{{ task.href }}">{{ task.title }}</a>
+            </h3>
+            {% if task.description %}
+              <p class="govuk-body-s app-task-list__progress">{{ task.description }}</p>
+            {% endif %}
+            {% if task.progress %}
+              <p class="govuk-body-s app-task-list__progress">{{ task.progress }}</p>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="govuk-body">No tasks have been started for this farm.</p>
+    {% endif %}
+
+    {# Prepared lists for this farm – sit separately from the active
+       task list so they don't compete with the next thing the vet
+       needs to do. Vet can still get back to a list to view, edit or
+       reprint it. #}
+    {% if preparedLists and preparedLists.length > 0 %}
+      <h2 class="govuk-heading-m govuk-!-margin-top-6">Prepared lists</h2>
+      <ul class="app-task-list">
+        {% for list in preparedLists %}
+          <li class="app-task-list__item">
+            <h3 class="govuk-heading-s app-task-list__title">
+              <a class="govuk-link" href="{{ list.href }}">{{ list.title }}</a>
+            </h3>
+            <p class="govuk-body-s app-task-list__progress">{{ list.actionText }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <p class="govuk-body govuk-!-margin-top-6">
+      <a class="govuk-link" href="/v1-2/dashboard">Back to all farms</a>
+    </p>
+
+  </div>
+</div>
+{% endblock %}

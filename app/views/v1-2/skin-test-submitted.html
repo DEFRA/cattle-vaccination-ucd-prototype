@@ -1,0 +1,135 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Skin test report submitted – GOV.UK
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {{ govukPanel({
+      titleText: "Skin test report submitted"
+    }) }}
+
+    <p class="govuk-body">
+      This information will be updated in Sam, the online system for submitting bovine tuberculosis (TB) test results in the UK.
+    </p>
+
+    <h2 class="govuk-heading-m">What you reported</h2>
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Farm" },
+          value: { text: data['herd']['farm'] or 'Not recorded' }
+        },
+        {
+          key: { text: "CPH" },
+          value: { text: data['herd']['cph'] or 'Not recorded' }
+        },
+        {
+          key: { text: "Day 1" },
+          value: { text: day1Formatted or 'Not recorded' }
+        },
+        {
+          key: { text: "Day 2" },
+          value: { text: day2Formatted or 'Not recorded' }
+        },
+        {
+          key: { text: "Test type" },
+          value: { text: (data['skinTestType'] or 'Not recorded') | replace('Both', 'DIVA and SICCT') }
+        }
+      ]
+    }) }}
+
+    {# Reactor / untested / clear breakdown – mirrors the same Results
+       summary the vet signed off on at /v1-2/skin-test-confirmation
+       so the submitted page shows what was actually reported. #}
+    <h2 class="govuk-heading-m">Results</h2>
+
+    {% set reactedSubmittedHtml %}
+      {% if reactorEntries and reactorEntries.length > 0 %}
+        <p class="govuk-body govuk-!-margin-bottom-1">
+          {{ reactorCount }} {{ "animal" if reactorCount == 1 else "animals" }}
+        </p>
+        <ul class="govuk-list govuk-!-margin-top-0 govuk-!-margin-bottom-0">
+          {% for entry in reactorEntries %}
+            <li><strong>{{ entry.officialId }}</strong></li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        0 animals
+      {% endif %}
+    {% endset %}
+
+    {% set notTestedSubmittedHtml %}
+      {% if untestedEntries and untestedEntries.length > 0 %}
+        <p class="govuk-body govuk-!-margin-bottom-1">
+          {{ untestedCount }} {{ "animal" if untestedCount == 1 else "animals" }}
+        </p>
+        <ul class="govuk-list govuk-!-margin-top-0 govuk-!-margin-bottom-0">
+          {% for entry in untestedEntries %}
+            {% set reason = untestedReasons[entry.officialId] %}
+            <li>
+              <strong>{{ entry.officialId }}</strong>{% if reason %} - {{ reason | replace('-', ' ') | capitalize }}{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        0 animals
+      {% endif %}
+    {% endset %}
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Reacted" },
+          value: { html: reactedSubmittedHtml }
+        },
+        {
+          key: { text: "Not tested" },
+          value: { html: notTestedSubmittedHtml }
+        },
+        {
+          key: { text: "Clear (negative)" },
+          value: { text: clearCount + (" animal" if clearCount == 1 else " animals") }
+        }
+      ]
+    }) }}
+
+    {% if addedEntries and addedEntries.length > 0 %}
+      <h2 class="govuk-heading-m govuk-!-margin-top-6">Cattle added to this report ({{ addedCount }})</h2>
+      {% for entry in addedEntries %}
+        <h3 class="govuk-heading-s govuk-!-margin-bottom-1">{{ entry.officialId }}</h3>
+        {{ govukSummaryList({
+          classes: "govuk-summary-list--no-border govuk-!-margin-bottom-4",
+          rows: [
+            { key: { text: "Breed" },   value: { text: entry.breed or 'Not recorded' } },
+            { key: { text: "DOB" },     value: { text: entry.dob or 'Not recorded' } },
+            { key: { text: "Sex" },     value: { text: entry.sex or 'Not recorded' } },
+            { key: { text: "Remarks" }, value: { text: entry.remarks or 'None' } }
+          ]
+        }) }}
+      {% endfor %}
+    {% endif %}
+
+    <h2 class="govuk-heading-m">What happens next</h2>
+    <p class="govuk-body">
+      APHA will review the report. 
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-2/#" class="govuk-link">Send a report to the farmer</a>
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-2/dashboard" class="govuk-link">Report another skin test</a>
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-2/dashboard" class="govuk-link">Exit the service</a>
+    </p>
+
+  </div>
+</div>
+{% endblock %}

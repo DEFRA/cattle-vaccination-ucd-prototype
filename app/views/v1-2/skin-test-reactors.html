@@ -1,0 +1,243 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Which cattle reacted to the skin test? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-2/skin-test-reactors-any"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Two-column page grid: filter panel on the left, the cattle table
+     on the right. Same pattern as the format / mark-untested screens. */
+  .app-page-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 30px;
+    align-items: start;
+  }
+  .app-filter-panel {
+    border: 1px solid #b1b4b6;
+    background: #f8f8f8;
+    padding: 20px;
+    top: 20px;
+    font-family: "GDS Transport", arial, sans-serif;
+  }
+  .app-filter-panel .govuk-fieldset__legend,
+  .app-filter-panel .govuk-radios__label,
+  .app-filter-panel .govuk-button,
+  .app-filter-panel .govuk-link,
+  .app-filter-panel .govuk-body {
+    font-size: 19px;
+    line-height: 1.31579;
+  }
+  .app-filter-panel .govuk-heading-m {
+    font-family: "GDS Transport", arial, sans-serif;
+  }
+  .app-filter-panel .govuk-radios,
+  .app-filter-panel .govuk-form-group:last-child {
+    margin-bottom: 0;
+  }
+  @media (max-width: 900px) {
+    .app-page-grid { grid-template-columns: 1fr; }
+  }
+
+  .app-reactor-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: "GDS Transport", arial, sans-serif;
+    margin: 0 0 20px;
+  }
+  .app-reactor-table th,
+  .app-reactor-table td {
+    border-bottom: 1px solid #b1b4b6;
+    padding: 10px 12px;
+    vertical-align: middle;
+    text-align: left;
+  }
+  .app-reactor-table thead th {
+    border-bottom: 2px solid #0b0c0c;
+    font-weight: 700;
+  }
+  .app-reactor-table__select { width: 72px; text-align: center; }
+  .app-reactor-table__flag {
+    display: inline-block;
+    background: #f3f2f1;
+    color: #505a5f;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    margin-left: 8px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .app-reactor-ear-tag {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .app-reactor-ear-tag__last4 {
+    padding: 2px 6px;
+    border: 2px solid #0b0c0c;
+    margin-left: 2px;
+  }
+  /* No gap between "UK" and the number on the ear tag. */
+  .app-reactor-ear-tag__prefix { margin-right: 0; }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {# For Both, the caption + heading reflect the current test phase
+       (SICCT or DIVA) so the vet always knows which list they're
+       building. Single-test journeys use the journey-wide test name. #}
+    {% set captionLabel = currentTestLabel or data['skinTestType'] or 'Skin test' %}
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ captionLabel }}</span>
+    <h1 class="govuk-heading-l">
+      Identify the cattle
+    </h1>
+
+    <p class="govuk-body">
+      Select all cattle that reacted or showed an inconclusive result.
+    </p>
+
+  </div>
+</div>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    <div class="app-page-grid">
+
+      {# ---- List settings panel (sort) – submits to a separate route
+             so applying a new sort doesn't disturb the reactor checkboxes.
+             The vet's existing ticks are preserved in session and
+             re-applied below when the page is re-rendered. #}
+      <form method="post" action="/v1-2/skin-test-reactors/settings" class="app-filter-panel">
+        <h2 class="govuk-heading-m govuk-!-margin-bottom-3">List settings</h2>
+        <p class="govuk-body govuk-!-margin-bottom-4">Reorder the cattle below to suit how you'll work through them on the farm.</p>
+
+        {{ govukRadios({
+          idPrefix: "sortBy",
+          name: "sortBy",
+          classes: "govuk-!-margin-bottom-4",
+          fieldset: { legend: { text: "Sort by", classes: "govuk-fieldset__legend--s" } },
+          items: [
+            { value: "Ear-tag number (last 5 digits)", text: "Ear tag number (last 4 digits)", checked: (sortBy or 'Ear-tag number (last 5 digits)') == "Ear-tag number (last 5 digits)" },
+            { value: "Ear-tag number",                 text: "Ear tag number (full)",          checked: sortBy == "Ear-tag number" },
+            { value: "Age",                            text: "Age",                            checked: sortBy == "Age" },
+            { value: "Sex",                            text: "Sex",                            checked: sortBy == "Sex" },
+            { value: "Breed",                          text: "Breed",                          checked: sortBy == "Breed" },
+            { value: "DOB",                            text: "DOB",                            checked: sortBy == "DOB" }
+          ]
+        }) }}
+
+        {{ govukRadios({
+          idPrefix: "sortDirection",
+          name: "sortDirection",
+          classes: "govuk-!-margin-bottom-4",
+          fieldset: { legend: { text: "Order", classes: "govuk-fieldset__legend--s" } },
+          items: [
+            { value: "asc",  text: "Ascending",  checked: (sortDirection or 'asc') == "asc" },
+            { value: "desc", text: "Descending", checked: sortDirection == "desc" }
+          ]
+        }) }}
+
+        <div class="govuk-button-group">
+          {{ govukButton({ text: "Apply changes" }) }}
+        </div>
+        <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">
+          <a class="govuk-link" href="/v1-2/skin-test-reactors/settings/reset">Clear settings</a>
+        </p>
+      </form>
+
+      {# ---- Main form: per-animal checkboxes + Continue ----------- #}
+      <div>
+        <form action="/v1-2/skin-test-reactors" method="post" novalidate>
+
+          <fieldset class="govuk-fieldset" aria-describedby="reactor-error">
+            <legend class="govuk-visually-hidden">Cattle that reacted</legend>
+
+            {% if errors and errors['reactors'] %}
+              <p id="reactor-error" class="govuk-error-message">
+                <span class="govuk-visually-hidden">Error:</span> {{ errors['reactors'].text }}
+              </p>
+            {% endif %}
+
+            <table class="app-reactor-table">
+          <thead>
+            <tr>
+              <th scope="col" class="app-reactor-table__select">Select</th>
+              <th scope="col">Ear tag</th>
+              <th scope="col">Age</th>
+              <th scope="col">DOB</th>
+              <th scope="col">Sex</th>
+              <th scope="col">Breed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for animal in animals %}
+              <tr>
+                <td class="app-reactor-table__select">
+                  <div class="govuk-checkboxes govuk-checkboxes--small">
+                    <div class="govuk-checkboxes__item govuk-!-margin-bottom-0">
+                      <input class="govuk-checkboxes__input" id="reactor-{{ loop.index }}" name="reactors" type="checkbox" value="{{ animal.officialId }}" {% if animal.officialId in selectedReactors %}checked{% endif %}>
+                      <label class="govuk-label govuk-checkboxes__label" for="reactor-{{ loop.index }}">
+                        <span class="govuk-visually-hidden">{{ animal.officialId }} reacted</span>
+                      </label>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="app-reactor-ear-tag">
+                    <span class="app-reactor-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span><span>{{ animal.earTagParts.herd }}</span><span>{{ animal.earTagParts.check }}</span><span>{{ animal.earTagParts.individualStart }}</span><span class="app-reactor-ear-tag__last4">{{ animal.earTagParts.last4 }}</span>
+                  </span>
+                  {% if animal.isVaccinated %}<strong class="app-reactor-table__flag" title="BCG vaccinated">VAX</strong>{% endif %}
+                  {% if animal.isDuplicate %}<strong class="app-reactor-table__flag" title="Another animal on this farm shares the last 4 digits of this ear tag">DUP</strong>{% endif %}
+                </td>
+                <td>{{ animal.age }}</td>
+                <td>{{ animal.dob }}</td>
+                <td>{{ animal.sex }}</td>
+                <td>{{ animal.breed }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+          </fieldset>
+
+          <div class="govuk-button-group">
+            {{ govukButton({ text: "Continue" }) }}
+          </div>
+
+        </form>
+
+        {# Skip link – the vet may have answered "Yes" on the gate page
+           but, on seeing the cattle, decided that none of them
+           reacted after all. Posting to /skip records zero reactors
+           for this phase and routes onward (next phase for Both, or
+           the all-tested gate). #}
+        <form action="/v1-2/skin-test-reactors/skip" method="post" class="govuk-!-margin-top-4">
+          <p class="govuk-body govuk-!-margin-bottom-0">
+            <button type="submit"
+                    class="govuk-link"
+                    style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
+              None of these cattle reacted
+            </button>
+          </p>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

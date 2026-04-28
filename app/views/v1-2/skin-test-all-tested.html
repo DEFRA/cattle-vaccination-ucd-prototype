@@ -1,0 +1,57 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Were all of the cattle tested? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref or "/v1-2/skin-test-reactors"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
+    <h1 class="govuk-heading-l">
+      Were all of the {{ totalCattle }} cattle tested?
+    </h1>
+
+    <p class="govuk-body">
+      Select 'No' if any cattle on this farm were not tested on this
+      visit. You'll add a reason for each one on the next screens.
+    </p>
+
+    <form action="/v1-2/skin-test-all-tested" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "allCattleTestedReport",
+        name: "allCattleTestedReport",
+        value: data['allCattleTestedReport'],
+        errorMessage: { text: errors['allCattleTestedReport'].text } if errors and errors['allCattleTestedReport'],
+        fieldset: {
+          legend: {
+            text: "Were all of the cattle tested?",
+            classes: "govuk-visually-hidden"
+          }
+        },
+        items: [
+          { value: "yes", text: "Yes, all cattle were tested" },
+          { value: "no",  text: "No, some cattle were not tested" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}
