@@ -665,12 +665,13 @@ function v11GenerateFarmHerd(cph, count) {
 
   // Per-farm vaccination overrides. Mill House Farm is a fully BCG
   // vaccinated herd – mark every animal as Vaccinated so the prepare-
-  // list flow defaults to DIVA on this farm. We also force two animals
-  // to be young calves (2 and 3 months old) so the prepare-list flow
-  // has cattle that the vet would mark as too young to test.
+  // list flow defaults to DIVA on this farm. We also force five young
+  // calves up the front of the list: three 1-month-olds and one each
+  // at 2 and 3 months, so the prepare-list flow has plenty of cattle
+  // the vet would mark as too young to test.
   if (baseCph === '12/312/6802') {
     animals.forEach(function (a) { a.vaccinationStatus = 'Vaccinated' })
-    const calfAges = [2, 3]
+    const calfAges = [1, 1, 1, 2, 3]
     for (let i = 0; i < animals.length && i < calfAges.length; i++) {
       const ageMonths = calfAges[i]
       animals[i].age = ageMonths
@@ -3856,10 +3857,50 @@ function registerSkinTestRoutes(version) {
   // doesn't have to scan the long animal table when every cow was
   // actually tested.
   router.get(`/${version}/skin-test-all-tested`, function (req, res) {
-    const animals = getSkinTestAnimals(req)
+    // Show the same animal list (and order) that the vet prepared for
+    // this farm, so the "were all tested?" question has the herd they
+    // worked from sat above the radios.
+    const animals = getReportingAnimalsWithFlags(req)
+    // Surface the active sort to the filter panel. Prefer the
+    // prepared-list keys (skinTestSortBy / Direction) when set – they
+    // are what getReportingAnimalsWithFlags applies when a list has
+    // been prepared. Otherwise fall back to the picker keys used by
+    // the reactor / mark-untested pages.
+    const sortBy = req.session.data.skinTestSortBy
+      || req.session.data.prepareSkinTestUntestedSortBy
+      || 'Ear-tag number (last 5 digits)'
+    const sortDirection = req.session.data.skinTestSortDirection
+      || req.session.data.prepareSkinTestUntestedSortDirection
+      || 'asc'
     res.render(`${version}/skin-test-all-tested`, {
-      totalCattle: animals.length
+      animals,
+      totalCattle: animals.length,
+      sortBy,
+      sortDirection
     })
+  })
+
+  // List-settings POST – persist the chosen sort + direction and bounce
+  // back to the all-tested page so applying a new sort doesn't disturb
+  // the radio selection. We write to both the prepared-list keys and
+  // the picker keys so the choice carries across however the order is
+  // resolved downstream.
+  router.post(`/${version}/skin-test-all-tested/settings`, function (req, res) {
+    const sortBy = req.body.sortBy || 'Ear-tag number (last 5 digits)'
+    const sortDirection = req.body.sortDirection || 'asc'
+    req.session.data.skinTestSortBy = sortBy
+    req.session.data.skinTestSortDirection = sortDirection
+    req.session.data.prepareSkinTestUntestedSortBy = sortBy
+    req.session.data.prepareSkinTestUntestedSortDirection = sortDirection
+    res.redirect(`/${version}/skin-test-all-tested`)
+  })
+
+  router.get(`/${version}/skin-test-all-tested/settings/reset`, function (req, res) {
+    req.session.data.skinTestSortBy = 'Ear-tag number (last 5 digits)'
+    req.session.data.skinTestSortDirection = 'asc'
+    req.session.data.prepareSkinTestUntestedSortBy = 'Ear-tag number (last 5 digits)'
+    req.session.data.prepareSkinTestUntestedSortDirection = 'asc'
+    res.redirect(`/${version}/skin-test-all-tested`)
   })
 
   router.post(`/${version}/skin-test-all-tested`, function (req, res) {
@@ -3867,9 +3908,18 @@ function registerSkinTestRoutes(version) {
     req.session.data.allCattleTestedReport = allCattleTestedReport
 
     if (allCattleTestedReport !== 'yes' && allCattleTestedReport !== 'no') {
-      const animals = getSkinTestAnimals(req)
+      const animals = getReportingAnimalsWithFlags(req)
+      const sortBy = req.session.data.skinTestSortBy
+        || req.session.data.prepareSkinTestUntestedSortBy
+        || 'Ear-tag number (last 5 digits)'
+      const sortDirection = req.session.data.skinTestSortDirection
+        || req.session.data.prepareSkinTestUntestedSortDirection
+        || 'asc'
       return res.render(`${version}/skin-test-all-tested`, {
+        animals,
         totalCattle: animals.length,
+        sortBy,
+        sortDirection,
         errors: { allCattleTestedReport: { text: 'Select yes if all cattle were tested, or no if some were not' } },
         errorSummary: {
           titleText: 'There is a problem',

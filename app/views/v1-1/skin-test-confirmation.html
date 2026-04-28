@@ -99,6 +99,21 @@
       }]) %}
     {% endif %}
 
+    {# Declaration – the vet has confirmed (on /skin-test-all-tested)
+       whether every animal was tested. Surface the answer here with a
+       Change link so they can revisit it before submitting. #}
+    {% set declarationText = "Not confirmed" %}
+    {% if data['allCattleTestedReport'] == 'yes' %}
+      {% set declarationText = "Confirmed all cattle were tested" %}
+    {% elif data['allCattleTestedReport'] == 'no' %}
+      {% set declarationText = "Some cattle were not tested" %}
+    {% endif %}
+    {% set summaryRows = summaryRows.concat([{
+      key: { text: "Declaration" },
+      value: { text: declarationText },
+      actions: { items: [{ href: "/v1-1/skin-test-all-tested", text: "Change", visuallyHiddenText: "the declaration that all cattle were tested" }] }
+    }]) %}
+
     {{ govukSummaryList({ rows: summaryRows }) }}
 
     {# ------------------------------------------------------------------
