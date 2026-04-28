@@ -91,7 +91,7 @@
 
     {% else %}
       {# Single-test journey (SICCT only or DIVA only). #}
-      <h1 class="govuk-heading-l">{{ listTestLabel or 'Skin test' }} list is ready</h1>
+      <h1 class="govuk-heading-l">You can now print your list</h1>
 
       <p class="govuk-body">
         You can now download or print the list.
@@ -122,16 +122,6 @@
       <ul class="govuk-list">
         <li>
           <a class="govuk-link" href="/v1-1/search">Prepare another list</a>
-        </li>
-        <li>
-          <form action="/v1-1/select-journey" method="post" style="display: inline;">
-            <input type="hidden" name="journey" value="report-skin-test">
-            <button type="submit"
-                    class="govuk-link"
-                    style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer; text-align: left;">
-              Report skin test results
-            </button>
-          </form>
         </li>
         <li>
           <a class="govuk-link" href="/v1-1/dashboard">Exit the service</a>
