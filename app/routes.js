@@ -694,7 +694,28 @@ function buildV11Dataset() {
 // Build the v1-1 dataset once at module load time.
 const v11AnimalsByCph = buildV11Dataset()
 
+// v1-2 dataset: same as v1-1 except for per-farm overrides where v1-2
+// has diverged. Mill House Farm in v1-2 marks a hand-picked set of
+// cattle as BCG vaccinated (so they land on the DIVA list); every
+// other animal on the farm is unvaccinated and goes on the SICCT list.
+// Match is by the visible last-4 digits of the ear tag, which is what
+// the demo notes refer to.
+const v12AnimalsByCph = Object.assign({}, v11AnimalsByCph)
+if (v12AnimalsByCph['12/312/6802']) {
+  const millHouse = v11AnimalsByCph['12/312/6802']
+  const vaccinatedLast4 = new Set(['0075', '0081', '0082', '0094', '0102'])
+  v12AnimalsByCph['12/312/6802'] = millHouse.map(function (a) {
+    const last4 = String(a.officialId || '').slice(-4)
+    return Object.assign({}, a, {
+      vaccinationStatus: vaccinatedLast4.has(last4) ? 'Vaccinated' : 'Not vaccinated'
+    })
+  })
+}
+
 function getAnimalsForSelection(selectedCattle, version) {
+  if (version === 'v1-2' && v12AnimalsByCph[selectedCattle]) {
+    return v12AnimalsByCph[selectedCattle]
+  }
   if ((version === 'v1-1' || version === 'v1-2') && v11AnimalsByCph[selectedCattle]) {
     return v11AnimalsByCph[selectedCattle]
   }
@@ -727,7 +748,11 @@ function getSortValue(animal, sortBy) {
   switch (sortBy) {
     case 'Age':
     case 'Age (youngest to oldest)':
-      return animal.age
+      // Sort by months-from-dob so the order matches what's displayed
+      // in the Age column. The stored animal.age field is set at
+      // generation time and drifts as today's date moves on, which
+      // produced ties / mis-ordering against the displayed value.
+      return ageInMonthsFromDob(animal.dob)
     case 'Vaccination status':
       return animal.vaccinationStatus || ''
     case 'Ear-tag number':
@@ -744,6 +769,26 @@ function getSortValue(animal, sortBy) {
     default:
       return animal.earTagNumber || ''
   }
+}
+
+// Numeric months-since-birth from a UK-formatted dob (DD/MM/YYYY).
+// Used as the sort key for the Age column so stable, equal display
+// values (e.g. two animals shown as "5M") sort in a deterministic
+// younger-first order based on the underlying days-of-the-month.
+function ageInMonthsFromDob(dob) {
+  if (!dob || typeof dob !== 'string') return -1
+  const parts = dob.split('/')
+  if (parts.length !== 3) return -1
+  const [day, month, year] = parts.map(Number)
+  const birthDate = new Date(year, month - 1, day)
+  if (Number.isNaN(birthDate.getTime())) return -1
+  const today = new Date()
+  // Days-since-birth gives a strictly monotonic key – two animals
+  // displayed as the same number of months still sort in birth-date
+  // order (older animal first when sorting youngest → oldest is
+  // ascending, the opposite when descending).
+  const msPerDay = 1000 * 60 * 60 * 24
+  return Math.floor((today - birthDate) / msPerDay)
 }
 
 function sortAnimals(animals, sortBy, sortDirection) {
@@ -2533,7 +2578,13 @@ function registerSkinTestRoutes(version) {
   })
 
   router.post(`/${version}/prepare-skin-test-type`, function (req, res) {
-    const prepareSkinTestType = req.body.prepareSkinTestType
+    // The "mixed herd" radio submits the value "DIVA and SICCT". The
+    // rest of the journey keys off the canonical "Both" value, so
+    // normalise here once.
+    const submittedType = req.body.prepareSkinTestType
+    const prepareSkinTestType = submittedType === 'DIVA and SICCT'
+      ? 'Both'
+      : submittedType
     req.session.data.prepareSkinTestType = prepareSkinTestType
 
     if (!prepareSkinTestType) {
@@ -3225,31 +3276,67 @@ function registerSkinTestRoutes(version) {
       divaPreviewRows: divaPreview && divaPreview.rows,
       divaPreviewCount: divaPreview && divaPreview.count,
       combinedPreviewRows: combinedPreview && combinedPreview.rows,
-      combinedPreviewCount: combinedPreview && combinedPreview.count
+      combinedPreviewCount: combinedPreview && combinedPreview.count,
+      // v1-2 paginates the preview so each "page" represents a single
+      // A4 sheet. The vet picks the list "look" (Easy to read / Compact)
+      // on the disclosure panel; that value drives both pagination and
+      // visual density. Default to Easy to read (20 per page) if
+      // nothing has been chosen yet.
+      pageSize: req.session.data.skinTestCattlePerPage || 20,
+      cattlePerPage: req.session.data.skinTestCattlePerPage || 20,
+      listLook: req.session.data.skinTestListLook || 'easy',
+      sortByLabel: (function () {
+        const s = req.session.data.skinTestSortBy || 'Ear-tag number (last 5 digits)'
+        if (s === 'Age') return 'age'
+        if (s === 'Sex') return 'sex'
+        return 'ear tag'
+      })(),
+      currentPage: Math.max(1, parseInt((req.query && req.query.page) || '1', 10) || 1)
     })
   })
 
   router.post(`/${version}/skin-test-list`, function (req, res) {
-    const submitted = Array.isArray(req.body.previewOptions)
-      ? req.body.previewOptions
-      : (req.body.previewOptions ? [req.body.previewOptions] : [])
-    const cleaned = submitted.filter(option => option && option !== '_unchecked')
+    // v1-2: only two settings are user-facing now – the list "look"
+    // (Easy to read / Compact) and the sort key. All columns are
+    // always shown and the last-4 ear-tag emphasis is always on.
+    // listLook drives both the page size and the visual density:
+    //   easy    → 20 per page, standard text/spacing
+    //   compact → 40 per page, small text + tight spacing
+    const listLook = req.body.listLook === 'compact' ? 'compact' : 'easy'
+    const cattlePerPage = listLook === 'compact' ? 40 : 20
+    let textSize = 'standard'
+    let spacing = 'standard'
+    if (listLook === 'compact') { textSize = 'small'; spacing = 'tight' }
 
-    // Column options are restricted to the known skin-test columns; the
-    // "show-last-five" flag is a separate preview option. Persist whatever
-    // the user submitted so unchecking sticks.
-    req.session.data.skinTestPreviewOptions = cleaned
-    req.session.data.skinTestSortBy = req.body.sortBy || 'Ear-tag number (last 5 digits)'
-    req.session.data.skinTestSortDirection = req.body.sortDirection || 'asc'
-    req.session.data.downloadFormat = req.body.downloadFormat || 'pdf'
-    req.session.data.skinTestPreviewTextSize = req.body.previewTextSize || 'standard'
-    req.session.data.skinTestPreviewOrientation = req.body.previewOrientation || 'portrait'
-    req.session.data.skinTestPreviewSpacing = req.body.previewSpacing || 'standard'
+    // Sort key – restricted to the three options on the new "Change
+    // list settings" panel. Anything else falls back to the default.
+    const allowedSorts = [
+      'Ear-tag number (last 5 digits)',
+      'Age',
+      'Sex'
+    ]
+    const submittedSort = req.body.sortBy
+    const sortBy = allowedSorts.indexOf(submittedSort) !== -1
+      ? submittedSort
+      : 'Ear-tag number (last 5 digits)'
+
+    req.session.data.skinTestListLook = listLook
+    req.session.data.skinTestCattlePerPage = cattlePerPage
+    req.session.data.skinTestPreviewTextSize = textSize
+    req.session.data.skinTestPreviewSpacing = spacing
+    req.session.data.skinTestPreviewOrientation = 'portrait'
+    req.session.data.downloadFormat = 'pdf'
+    req.session.data.skinTestSortBy = sortBy
+    req.session.data.skinTestSortDirection = 'asc'
+    // All columns + last-4 emphasis are always on for the new design.
+    req.session.data.skinTestPreviewOptions = ['show-last-five', ...skinTestListColumns]
 
     res.redirect(`/${version}/skin-test-list`)
   })
 
   router.get(`/${version}/skin-test-list/reset`, function (req, res) {
+    req.session.data.skinTestListLook = 'easy'
+    req.session.data.skinTestCattlePerPage = 20
     req.session.data.skinTestPreviewOptions = ['show-last-five', ...skinTestListColumns]
     req.session.data.skinTestSortBy = 'Ear-tag number (last 5 digits)'
     req.session.data.skinTestSortDirection = 'asc'
@@ -3930,10 +4017,15 @@ function registerSkinTestRoutes(version) {
 
     if (allCattleTestedReport === 'yes') {
       // Every animal tested – clear any prior untested state and
-      // skip the mark-untested page entirely.
+      // skip the mark-untested page entirely. v1-2 routes through
+      // the "are there more cattle to add?" question before review;
+      // v1-1 goes straight to the review page.
       req.session.data.skinTestUntested = []
       req.session.data.skinTestUntestedReasons = {}
       req.session.data.skinTestUntestedReasonOthers = {}
+      if (version === 'v1-2') {
+        return res.redirect(`/${version}/skin-test-add-cattle-question`)
+      }
       return res.redirect(`/${version}/skin-test-confirmation`)
     }
 
@@ -4862,8 +4954,14 @@ function registerSkinTestRoutes(version) {
   })
 
   router.post(`/${version}/skin-test-confirmation`, function (req, res) {
-    // Confirmation page is review-only now. Onward action lives on
-    // a dedicated yes/no question page.
+    // v1-2 puts the "are there more cattle to add?" question BEFORE the
+    // review page, so the confirmation page's "Submit" button submits
+    // the report directly. v1-1 keeps the original ordering – Continue
+    // here goes to the add-cattle-question gate, then on to submit.
+    if (version === 'v1-2') {
+      req.session.data.skinTestInProgress = false
+      return res.redirect(`/${version}/skin-test-submitted`)
+    }
     res.redirect(`/${version}/skin-test-add-cattle-question`)
   })
 
@@ -4890,7 +4988,13 @@ function registerSkinTestRoutes(version) {
       return res.redirect(`/${version}/skin-test-add-another`)
     }
 
-    // Submit the report
+    // No more cattle to add. v1-2 sits this question between the
+    // "all tested?" gate and the final review page, so "no" continues
+    // on to the confirmation page rather than submitting outright.
+    // v1-1 keeps the original "no = submit" behaviour.
+    if (version === 'v1-2') {
+      return res.redirect(`/${version}/skin-test-confirmation`)
+    }
     req.session.data.skinTestInProgress = false
     res.redirect(`/${version}/skin-test-submitted`)
   })

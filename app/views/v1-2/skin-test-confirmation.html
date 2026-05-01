@@ -1,7 +1,7 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Check skin test report – GOV.UK
+  Check and send – GOV.UK
 {% endblock %}
 
 {% block beforeContent %}
@@ -24,7 +24,7 @@
     {% endif %}
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (skinTestType or data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
-    <h1 class="govuk-heading-l">Check skin test report</h1>
+    <h1 class="govuk-heading-l">Check and send</h1>
 
     <p class="govuk-body">
       Review what you've recorded before submitting.
@@ -163,6 +163,21 @@
       {{ reactorListHtml(divaReactorEntries, divaReactorCount) }}
     {% endset %}
 
+    {# Declaration row – the vet's "all cattle tested?" answer from
+       /skin-test-all-tested. Sits as the final row of the Results
+       summary list so it reads as the closing confirmation. #}
+    {% set declarationText = "Not confirmed" %}
+    {% if data['allCattleTestedReport'] == 'yes' %}
+      {% set declarationText = "Confirmed all cattle were tested" %}
+    {% elif data['allCattleTestedReport'] == 'no' %}
+      {% set declarationText = "Some cattle were not tested" %}
+    {% endif %}
+    {% set declarationRow = {
+      key: { text: "Declaration" },
+      value: { text: declarationText },
+      actions: { items: [{ href: "/v1-2/skin-test-all-tested", text: "Change", visuallyHiddenText: "the declaration that all cattle were tested" }] }
+    } %}
+
     {% if isBothJourney %}
       {{ govukSummaryList({
         rows: [
@@ -185,7 +200,8 @@
             key: { text: "Clear (negative)" },
             value: { text: clearCount + (" animal" if clearCount == 1 else " animals") },
             actions: { items: [{ href: "/v1-2/skin-test-reactors-any", text: "Change", visuallyHiddenText: "to mark a clear animal as a reactor" }] }
-          }
+          },
+          declarationRow
         ]
       }) }}
     {% else %}
@@ -205,7 +221,8 @@
             key: { text: "Clear (negative)" },
             value: { text: clearCount + (" animal" if clearCount == 1 else " animals") },
             actions: { items: [{ href: "/v1-2/skin-test-reactors-any", text: "Change", visuallyHiddenText: "to mark a clear animal as a reactor" }] }
-          }
+          },
+          declarationRow
         ]
       }) }}
     {% endif %}
@@ -247,7 +264,7 @@
 
     <form action="/v1-2/skin-test-confirmation" method="post" novalidate>
       <div class="govuk-button-group">
-        {{ govukButton({ text: "Continue" }) }}
+        {{ govukButton({ text: "Submit" }) }}
       </div>
     </form>
 

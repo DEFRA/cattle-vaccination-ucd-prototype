@@ -74,7 +74,7 @@
   .app-animal__meta dt {
     color: #505a5f;
     margin: 0;
-    flex: 0 0 5rem;
+    flex: 0 0 8rem;
   }
   .app-animal__meta dd {
     color: #0b0c0c;
@@ -206,7 +206,10 @@
             <strong class="app-tag-dark" title="Another animal on this farm shares the last 4 digits of this ear tag">DUP</strong>
           {% endif %}
         </div>
-        {# Compact single-column animal details. Order: Age, DOB, Sex, Breed. #}
+        {# Compact single-column animal details. Order: Age, DOB, Sex,
+           Breed, then Expected test (combined Both only). The
+           Expected test row uses the same key/value layout so the
+           label column lines up with the rest. #}
         <dl class="app-animal__meta govuk-body">
           <div class="app-animal__meta-item">
             <dt>Age</dt>
@@ -224,6 +227,12 @@
             <dt>Breed</dt>
             <dd>{{ currentAnimal.breed }}</dd>
           </div>
+          {% if isCombinedBoth %}
+            <div class="app-animal__meta-item">
+              <dt>Expected test</dt>
+              <dd>{{ recommendedTest }}</dd>
+            </div>
+          {% endif %}
         </dl>
       </div>
 
@@ -424,7 +433,6 @@
           fieldset: { legend: { text: "Overall SICCT result", classes: "govuk-fieldset__legend--m" } },
           hint: { text: "Select the overall interpretation of the SICCT skin test for this animal." },
           items: [
-            { value: "negative",     text: "Negative" },
             { value: "positive",     text: "Positive" },
             { value: "inconclusive", text: "Inconclusive" }
           ]
@@ -457,6 +465,7 @@
              vaccinated cattle, SICCT for everyone else) so the vet
              only has to switch when reality differs from the plan. #}
           {% set selectedPerformedTest = formValues['performedTest'] or savedEntry.performedTest or recommendedTest %}
+
           {{ govukRadios({
             idPrefix: "performedTest",
             name: "performedTest",
@@ -468,7 +477,7 @@
                 classes: "govuk-fieldset__legend--m"
               }
             },
-            hint: { text: "Pick the test you actually performed. The recommended option is pre-selected based on whether this animal is BCG vaccinated." },
+            hint: { text: "The expected test is pre-selected based on whether this animal is BCG vaccinated. Change it if you actually performed the other test." },
             errorMessage: { text: errors['performedTest'].text } if errors and errors['performedTest'],
             items: [
               { value: "SICCT", text: "SICCT", conditional: { html: sicctFieldsHtml } },

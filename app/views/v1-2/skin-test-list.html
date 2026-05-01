@@ -17,7 +17,11 @@
 {% set isCsv = downloadFormat == 'csv' %}
 
 {# v1-2: for the "Both" journey we show a single combined list with a
-   Test column. For SICCT-only or DIVA-only we render that list. #}
+   Test column. For SICCT-only or DIVA-only we render that list.
+   Each preview is paginated so a single "page" of the preview maps
+   to one A4 sheet (default 25 rows). #}
+{% set _pageSize = pageSize or 25 %}
+{% set _currentPage = currentPage or 1 %}
 {% set previewGroups = [] %}
 {% if isCombinedBoth %}
   {% set previewGroups = previewGroups.concat([{
@@ -52,6 +56,34 @@
     gap: 30px;
     align-items: start;
   }
+  /* v1-2 settings sit in a horizontal bar above the list. The
+     individual fieldsets line up across the row and wrap onto new
+     rows on narrower screens. */
+  .app-filter-bar {
+    border: 1px solid #b1b4b6;
+    background: #f8f8f8;
+    padding: 20px;
+    margin: 0 0 24px;
+    font-family: "GDS Transport", arial, sans-serif;
+  }
+  .app-filter-bar__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px 30px;
+    align-items: start;
+  }
+  .app-filter-bar__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #b1b4b6;
+  }
+  .app-filter-bar .govuk-form-group { margin-bottom: 0; }
+  .app-filter-bar .govuk-radios,
+  .app-filter-bar .govuk-checkboxes { margin-bottom: 0; }
   .app-filter-panel {
     border: 1px solid #b1b4b6;
     background: #f8f8f8;
@@ -98,6 +130,7 @@
   }
   .app-sheet--portrait { max-width: 100%; }
   .app-sheet--landscape { max-width: 100%; }
+  .app-sheet--text-tiny { font-size: 11px; }
   .app-sheet--text-small { font-size: 14px; }
   .app-sheet--text-standard { font-size: 16px; }
   .app-sheet--text-large { font-size: 19px; }
@@ -108,6 +141,8 @@
   .app-record-table td {
     padding: 10px 12px;
   }
+  .app-sheet--spacing-xtight .app-record-table th,
+  .app-sheet--spacing-xtight .app-record-table td { padding: 3px 4px; }
   .app-sheet--spacing-tight .app-record-table th,
   .app-sheet--spacing-tight .app-record-table td { padding: 6px 8px; }
   .app-sheet--spacing-standard .app-record-table th,
@@ -148,7 +183,15 @@
   .app-col-breed    { width: 4.5rem; text-align: center !important; }
   .app-col-dob      { width: 7rem;   text-align: center !important; }
   .app-col-narrow   { width: 3.5rem; text-align: center !important; }
+  /* "Test" column on the combined SICCT/DIVA list. Wider than the
+     other narrow columns and forces extra horizontal padding so the
+     SICCT / DIVA labels can't bleed into the next column line. */
+  .app-col-test     { width: 5.25rem; text-align: center !important; padding-left: 14px !important; padding-right: 14px !important; }
   .app-col-label    { width: 2.75rem; text-align: center !important; font-weight: 700; background: #ffffff; }
+  /* DIVA is bovine-only, so the Site cell is left blank. Shade it
+     so the vet can see at a glance that the row is single-line and
+     no value is expected there. */
+  .app-col-label--na { background: #f3f2f1; }
   .app-col-skin     { width: 3.5rem; text-align: center !important; }
   .app-col-reaction { width: 4.5rem; text-align: center !important; }
   .app-col-overall  { width: 3.5rem; text-align: center !important; }
@@ -232,8 +275,11 @@
     /* Hide the page chrome AND the on-screen-only headings/actions so only
        the printable sheet ends up on the printed page. The H1 "List of
        cattle for skin tests", the "Preview" heading + its intro paragraph,
-       and the "Print this list" button rows are all dropped. */
+       the inset text, the settings bar, the pagination and the
+       "Print this list" button rows are all dropped. */
     .govuk-back-link, .govuk-button, .govuk-link, .app-filter-panel,
+    .app-filter-bar, .app-list-summary, .govuk-details, .govuk-inset-text,
+    .govuk-pagination, .govuk-caption-l,
     .govuk-header, .govuk-footer, .govuk-phase-banner,
     .govuk-breadcrumbs, .govuk-service-navigation,
     h1, .app-results-header, .app-results-actions { display: none !important; }
@@ -275,130 +321,74 @@
       }) }}
     {% endif %}
 
-    <div class="app-page-grid">
+    {# Summary line + collapsible "Change list settings" panel.
+       Most vets in the field don't change defaults, so the controls
+       sit behind a govukDetails. The summary line above always
+       reflects the current state so the choice is still discoverable. #}
+    {% set lookLabel = 'Compact' if listLook == 'compact' else 'Easy to read' %}
+    <p class="app-list-summary govuk-body-s govuk-!-margin-bottom-2">
+      <strong>{{ totalCattle or (sicctPreviewCount + divaPreviewCount) }} cattle on this farm</strong>
+      &middot; Sorted by {{ sortByLabel }}
+      &middot; {{ lookLabel }}
+    </p>
 
-      <form method="post" action="/v1-2/skin-test-list" class="app-filter-panel">
-        <h2 class="govuk-heading-m govuk-!-margin-bottom-3">List settings</h2>
-        <p class="govuk-body govuk-!-margin-bottom-4">You will need to apply any changes you make to these filters.</p>
+    {% set listSettingsHtml %}
+      <form method="post" action="/v1-2/skin-test-list">
 
         {{ govukRadios({
-          idPrefix: "downloadFormat",
-          name: "downloadFormat",
-          classes: "govuk-!-margin-bottom-4",
-          fieldset: { legend: { text: "File format", classes: "govuk-fieldset__legend--s" } },
+          idPrefix: "listLook",
+          name: "listLook",
+          classes: "govuk-radios--small",
+          fieldset: { legend: { text: "How would you like the list to look?", classes: "govuk-fieldset__legend--s" } },
+          hint: { text: "Choose how much detail to show on each page." },
           items: [
-            { value: "pdf", text: "PDF to print", checked: (data['downloadFormat'] or 'pdf') == "pdf" },
-            { value: "csv", text: "CSV spreadsheet to download", checked: data['downloadFormat'] == "csv" }
+            { value: "easy",    text: "Easy to read (around 20 cattle per page)", checked: (listLook or 'easy') == 'easy' },
+            { value: "compact", text: "Compact (around 40 cattle per page)",      checked: listLook == 'compact' }
           ]
         }) }}
-
-        {% if not isCsv %}
-        <div class="govuk-form-group govuk-!-margin-bottom-4">
-          <fieldset class="govuk-fieldset">
-            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Preview options</legend>
-            <div class="govuk-checkboxes">
-              <div class="govuk-checkboxes__item">
-                <input class="govuk-checkboxes__input" id="show-last-five" name="previewOptions" type="checkbox" value="show-last-five" {% if 'show-last-five' in selectedPreviewOptions %}checked{% endif %}>
-                <label class="govuk-label govuk-checkboxes__label" for="show-last-five">Emphasise the last 4 digits of the ear tag</label>
-              </div>
-            </div>
-          </fieldset>
-        </div>
-        {% endif %}
-
-        <div class="govuk-form-group govuk-!-margin-bottom-4">
-          <fieldset class="govuk-fieldset">
-            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Columns</legend>
-            <div class="govuk-checkboxes">
-              {% for column in previewAllColumns %}
-                {% set optionLabel = 'Age' if column == 'Age (youngest to oldest)' else column %}
-                <div class="govuk-checkboxes__item">
-                  <input class="govuk-checkboxes__input" id="column-{{ loop.index }}" name="previewOptions" type="checkbox" value="{{ column }}" {% if column in selectedPreviewOptions %}checked{% endif %}>
-                  <label class="govuk-label govuk-checkboxes__label" for="column-{{ loop.index }}">{{ optionLabel }}</label>
-                </div>
-              {% endfor %}
-            </div>
-          </fieldset>
-        </div>
 
         {{ govukRadios({
           idPrefix: "sortBy",
           name: "sortBy",
-          classes: "govuk-!-margin-bottom-4",
-          fieldset: { legend: { text: "Sort by", classes: "govuk-fieldset__legend--s" } },
+          classes: "govuk-radios--small govuk-!-margin-top-4",
+          fieldset: { legend: { text: "Sort the list by", classes: "govuk-fieldset__legend--s" } },
           items: [
-            { value: "Ear-tag number (last 5 digits)", text: "Ear tag number (last 4 digits)", checked: (data['skinTestSortBy'] or 'Ear-tag number (last 5 digits)') == "Ear-tag number (last 5 digits)" },
-            { value: "Ear-tag number", text: "Ear tag number (full)", checked: data['skinTestSortBy'] == "Ear-tag number" },
+            { value: "Ear-tag number (last 5 digits)", text: "Ear tag (last 4 digits)", hint: { text: "Default" }, checked: (data['skinTestSortBy'] or 'Ear-tag number (last 5 digits)') == "Ear-tag number (last 5 digits)" },
             { value: "Age", text: "Age", checked: data['skinTestSortBy'] == "Age" },
-            { value: "Sex", text: "Sex", checked: data['skinTestSortBy'] == "Sex" },
-            { value: "Breed", text: "Breed", checked: data['skinTestSortBy'] == "Breed" },
-            { value: "DOB", text: "DOB", checked: data['skinTestSortBy'] == "DOB" }
+            { value: "Sex", text: "Sex", checked: data['skinTestSortBy'] == "Sex" }
           ]
         }) }}
 
-        {{ govukRadios({
-          idPrefix: "sortDirection",
-          name: "sortDirection",
-          classes: "govuk-!-margin-bottom-4",
-          fieldset: { legend: { text: "Order", classes: "govuk-fieldset__legend--s" } },
-          items: [
-            { value: "asc", text: "Ascending", checked: (data['skinTestSortDirection'] or 'asc') == "asc" },
-            { value: "desc", text: "Descending", checked: data['skinTestSortDirection'] == "desc" }
-          ]
-        }) }}
-
-        {% if not isCsv %}
-          {{ govukRadios({
-            idPrefix: "previewTextSize",
-            name: "previewTextSize",
-            classes: "govuk-!-margin-bottom-4",
-            fieldset: { legend: { text: "Text size", classes: "govuk-fieldset__legend--s" } },
-            items: [
-              { value: "small", text: "Smaller", checked: previewTextSize == "small" },
-              { value: "standard", text: "Standard", checked: previewTextSize == "standard" },
-              { value: "large", text: "Large", checked: previewTextSize == "large" }
-            ]
-          }) }}
-
-          {{ govukRadios({
-            idPrefix: "previewOrientation",
-            name: "previewOrientation",
-            classes: "govuk-!-margin-bottom-4",
-            fieldset: { legend: { text: "Page orientation", classes: "govuk-fieldset__legend--s" } },
-            items: [
-              { value: "portrait", text: "Portrait", checked: previewOrientation == "portrait" },
-              { value: "landscape", text: "Landscape", checked: previewOrientation == "landscape" }
-            ]
-          }) }}
-
-          {{ govukRadios({
-            idPrefix: "previewSpacing",
-            name: "previewSpacing",
-            classes: "govuk-!-margin-bottom-4",
-            fieldset: { legend: { text: "Line spacing", classes: "govuk-fieldset__legend--s" } },
-            items: [
-              { value: "tight", text: "Tight", checked: previewSpacing == "tight" },
-              { value: "standard", text: "Standard", checked: previewSpacing == "standard" },
-              { value: "spaced", text: "Spaced", checked: previewSpacing == "spaced" }
-            ]
-          }) }}
-        {% endif %}
-
-        <div class="govuk-button-group">
-          {{ govukButton({ text: "Apply changes" }) }}
+        <div class="govuk-button-group govuk-!-margin-top-4">
+          {{ govukButton({ text: "Apply changes", classes: "govuk-!-margin-bottom-0" }) }}
+          <a class="govuk-link" href="/v1-2/skin-test-list/reset">Reset to default</a>
         </div>
-        <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">
-          <a class="govuk-link" href="/v1-2/skin-test-list/reset">Clear settings</a>
-        </p>
       </form>
+    {% endset %}
 
-      <div>
+    {{ govukDetails({
+      summaryText: "Change list settings",
+      html: listSettingsHtml,
+      classes: "app-list-settings-details govuk-!-margin-bottom-6"
+    }) }}
+
+    <div>
         <div class="app-results-header">
           <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Preview</h2>
           <p class="govuk-body govuk-!-margin-bottom-0">You can adjust the list settings to create the list layout you want.</p>
         </div>
 
         {% for group in previewGroups %}
+          {# Pagination: slice the rows for this preview down to the
+             current page so it represents one A4 sheet at a time. #}
+          {% set _totalPages = ((group.count + _pageSize - 1) / _pageSize) | int %}
+          {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+          {% set _currentPageClamped = _currentPage %}
+          {% if _currentPageClamped > _totalPages %}{% set _currentPageClamped = _totalPages %}{% endif %}
+          {% set _start = (_currentPageClamped - 1) * _pageSize %}
+          {% set _end = _start + _pageSize %}
+          {% set pagedRows = group.rows.slice(_start, _end) %}
+
           {% if group.count == 0 %}
             <p class="govuk-body">There are no cattle on this farm for the {{ group.label }} list.</p>
           {% elif isCsv %}
@@ -409,7 +399,7 @@
                     <th scope="col" class="app-col-ear-tag">Ear tag number</th>
                     <th scope="col">Flags</th>
                     {% if group.key == 'combined' %}
-                      <th scope="col">Test</th>
+                      <th scope="col" class="app-col-test">Test</th>
                     {% endif %}
                     {% for column in fieldColumns %}
                       {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
@@ -426,7 +416,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {% for row in group.rows | slice(0, 25) %}
+                  {% for row in pagedRows %}
                   <tr>
                     <td>{{ row.officialId }}</td>
                     <td>
@@ -435,7 +425,7 @@
                       {% if row.isDuplicate %}DUP{% endif %}
                     </td>
                     {% if group.key == 'combined' %}
-                      <td>{{ row.assignedTest }}</td>
+                      <td class="app-col-test">{{ row.assignedTest }}</td>
                     {% endif %}
                     {% for cell in row.cells %}
                       <td>{{ cell.value }}</td>
@@ -475,24 +465,31 @@
                     <strong>Date list was made;</strong><br/>
                     <span class="js-date-printed"></span>
                   </td>
-                  {% if group.key == 'diva' %}
-                    {# DIVA is a single-injection bovine test. The vet needs
-                       to record the DIVA antigen batch number once for the
-                       whole visit, so it sits in the header of the sheet. #}
-                    <td class="govuk-table__cell">
+                  {% if group.key == 'diva' or group.key == 'combined' %}
+                    {# DIVA is a single-injection bovine test. The vet
+                       needs to record the DIVA antigen batch number
+                       once for the whole visit, so it sits at the top
+                       right of the sheet header. The combined list
+                       also includes DIVA cattle, so the field appears
+                       there too. #}
+                    <td class="govuk-table__cell" style="text-align: right;">
                       <strong>DIVA batch number:</strong><br/>
-                      <span style="display: inline-block; min-width: 120px; border-bottom: 1px solid #0b0c0c; height: 1.2em;"></span>
+                      <span style="display: inline-block; min-width: 160px; border-bottom: 1px solid #0b0c0c; height: 1.2em;"></span>
                     </td>
                   {% endif %}
                 </tr>
               </table>
 
+              {# DIVA = single-row per animal (bovine-only, no A/B).
+                 SICCT = two rows per animal (A=Avian, B=Bovine).
+                 The combined list mixes both per-row based on the
+                 animal's assignedTest. #}
               <table class="app-record-table">
                 <thead>
                   <tr>
                     <th scope="col" class="app-col-ear-tag" rowspan="2">Ear tag number</th>
                     {% if group.key == 'combined' %}
-                      <th scope="col" class="app-col-narrow" rowspan="2">Test</th>
+                      <th scope="col" class="app-col-test" rowspan="2">Test</th>
                     {% endif %}
                     {% for column in fieldColumns %}
                       {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
@@ -526,18 +523,13 @@
                 </thead>
                 {% set isDivaGroup = group.key == 'diva' %}
                 {% set isCombinedGroup = group.key == 'combined' %}
-                {% for row in group.rows %}
-                  {# In the combined list, each row decides for itself
-                     whether to render the DIVA single-row layout or the
-                     SICCT two-row layout based on the per-animal
-                     assignedTest. Pure DIVA / pure SICCT groups keep
-                     their existing layout. #}
+                {% for row in pagedRows %}
+                  {# DIVA always renders as a single row; SICCT renders
+                     as the existing 2-row Avian/Bovine layout. In the
+                     combined list the choice is made per animal. #}
                   {% set rowIsDiva = isDivaGroup or (isCombinedGroup and row.assignedTest == 'DIVA') %}
                 <tbody class="{% if row.isVaccinated %}app-row--vaccinated{% endif %}">
                   {% if rowIsDiva %}
-                    {# DIVA is bovine-only, so one row per animal – no Avian
-                       row, no rowspans. Pre / Post refer to the bovine
-                       injection (Day 1) and reading (Day 2). #}
                     <tr>
                       <td>
                         <div class="app-ear-tag-wrapper">
@@ -561,7 +553,7 @@
                         </div>
                       </td>
                       {% if isCombinedGroup %}
-                        <td class="app-col-narrow"><strong>{{ row.assignedTest }}</strong></td>
+                        <td class="app-col-test"><strong>{{ row.assignedTest }}</strong></td>
                       {% endif %}
                       {% for cell in row.cells %}
                         {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
@@ -572,7 +564,10 @@
                         {% if cellHeading == "Breed" %}{% set cellClass = "app-col-breed" %}{% endif %}
                         <td class="{{ cellClass }}">{{ cell.value }}</td>
                       {% endfor %}
-                      <th scope="row" class="app-col-label">B</th>
+                      {# DIVA is bovine-only, no Avian/Bovine split. The
+                         Site cell is left empty (greyed out) so the row
+                         still aligns with the SICCT layout above. #}
+                      <td class="app-col-label app-col-label--na"></td>
                       <td class="app-col-skin"></td>
                       <td class="app-col-skin"></td>
                       <td class="app-col-reaction"></td>
@@ -603,7 +598,7 @@
                         </div>
                       </td>
                       {% if isCombinedGroup %}
-                        <td class="app-col-narrow" rowspan="2"><strong>{{ row.assignedTest }}</strong></td>
+                        <td class="app-col-test" rowspan="2"><strong>{{ row.assignedTest }}</strong></td>
                       {% endif %}
                       {% for cell in row.cells %}
                         {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
@@ -633,6 +628,25 @@
               </table>
 
             </div>
+
+            {# GOV.UK pagination – one page of the preview maps to one
+               A4 sheet. Only show when there's more than one page. #}
+            {% if _totalPages > 1 %}
+              {% set _paginationItems = [] %}
+              {% for _p in range(1, _totalPages + 1) %}
+                {% set _paginationItems = _paginationItems.concat([{
+                  number: _p,
+                  href: "?page=" + _p|string,
+                  current: _p == _currentPageClamped
+                }]) %}
+              {% endfor %}
+              {{ govukPagination({
+                previous: { href: "?page=" + (_currentPageClamped - 1)|string } if _currentPageClamped > 1 else null,
+                next: { href: "?page=" + (_currentPageClamped + 1)|string } if _currentPageClamped < _totalPages else null,
+                items: _paginationItems
+              }) }}
+            {% endif %}
+
           {% endif %}
         {% endfor %}
 
@@ -683,7 +697,6 @@
 
       </div>
 
-    </div>
   </div>
 </div>
 
