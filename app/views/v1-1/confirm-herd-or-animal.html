@@ -1,0 +1,106 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check herd details – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/search-results"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <h1 class="govuk-heading-l">{{ data['herd']['farm'] }}</h1>
+    <p class="govuk-body">
+      Check the farm details are correct before you continue.
+    </p>
+
+
+    {% if data['herd'] %}
+      {# Summary list written as raw HTML so a full-width "source of
+         data" note can sit as a row directly under "Number of cattle",
+         spanning both the key and value columns while keeping the
+         summary-list horizontal rule beneath it. The list is review-
+         only – choosing a different farm is a navigation action, not a
+         field edit, so it sits as a standalone link below the list
+         (not as a "Change" action inside the list). #}
+      <dl class="govuk-summary-list">
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Farm</dt>
+          <dd class="govuk-summary-list__value">{{ data['herd']['farm'] }}</dd>
+        </div>
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">CPH</dt>
+          <dd class="govuk-summary-list__value">{{ data['herd']['cph'] }}</dd>
+        </div>
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Address</dt>
+          <dd class="govuk-summary-list__value">{{ data['herd']['address'] }}</dd>
+        </div>
+        {# The "source of data" note sits inside the value cell of the
+           "Number of cattle" row, directly under the count. Only the
+           cattle count is sourced from CTS, so the note belongs with
+           that value (not as a separate full-width row). #}
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Number of cattle</dt>
+          <dd class="govuk-summary-list__value">
+            {{ data['herd']['cattle'] }}
+            <p class="govuk-body govuk-!-margin-top-3 govuk-!-margin-bottom-0">
+              This information comes from the
+              <strong><a class="govuk-link" href="https://www.gov.uk/cattle-tracing-online">Cattle Tracing System</a></strong>.
+              It may not be up to date.
+            </p>
+          </dd>
+        </div>
+
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Vaccinated</dt>
+          <dd class="govuk-summary-list__value">{{ vaccinatedCount }}</dd>
+        </div>
+
+        {% if tbStatus %}
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Status</dt>
+            <dd class="govuk-summary-list__value">
+              <strong>{{ tbStatus.status }}</strong> — {{ tbStatus.statusFullName }}
+            </dd>
+          </div>
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Day 1 of last TB test</dt>
+            <dd class="govuk-summary-list__value">{{ tbStatus.lastTestDate }}</dd>
+          </div>
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Last breakdown</dt>
+            <dd class="govuk-summary-list__value">{{ tbStatus.lastBreakdown }}</dd>
+          </div>
+        {% endif %}
+      </dl>
+
+      {{ govukButton({
+        text: "Continue",
+        href: "/v1-1/select-visit-task"
+      }) }}
+
+      {# Navigation link – kept out of the summary list so the list stays
+         review-only. Sits directly below the primary CTA so the
+         hierarchy is clear. #}
+      <p class="govuk-body govuk-!-margin-top-2">
+        <a class="govuk-link" href="/v1-1/search">Choose a different farm</a>
+      </p>
+    {% else %}
+      <p class="govuk-body">No herd details were found.</p>
+      <p class="govuk-body">
+        <a href="/v1-1/search" class="govuk-link">Go back and select a farm</a>
+      </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

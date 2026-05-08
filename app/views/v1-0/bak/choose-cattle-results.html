@@ -1,0 +1,45 @@
+{% extends "layouts/main.html" %}
+{% block pageTitle %}Select a herd or animal – GOV.UK{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/prepare-list-for"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if data['searchResults'] and data['searchResults'].length > 0 %}
+
+      <form action="/v1-0/herd-details" method="post">
+        {{ govukRadios({
+          name: "selectedCattle",
+          value: data['selectedCattle'],
+          fieldset: {
+            legend: {
+              text: "Select a herd or animal",
+              classes: "govuk-fieldset__legend--l",
+              isPageHeading: true
+            }
+          },
+          hint: {
+            text: "Search results for " + (data['cattleSearch'] or "your search")
+          },
+          items: data['searchResults']
+        }) }}
+
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+
+    {% else %}
+
+      <h1 class="govuk-heading-l">No results found</h1>
+      <p class="govuk-body">Try searching for a CPH such as 12/345/6789, a farm name like Hill Farm, or an ear tag.</p>
+      <p class="govuk-body"><a href="/v1-0/prepare-list-for" class="govuk-link">Search again</a></p>
+
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

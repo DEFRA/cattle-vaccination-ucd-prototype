@@ -1,0 +1,159 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Were any cattle not tested? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref or "/v1-2/skin-test-reactors"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* v1-2: the untested picker now uses the same printable-list look
+     as /v1-2/skin-test-list, /v1-2/skin-test-reactors and
+     /v1-2/skin-test-all-tested so the vet sees a familiar table.
+     The list settings panel has been removed entirely – the order
+     matches the skin-test-list order so no separate sort UI is
+     needed here. */
+  .app-record-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin: 0 0 20px;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .app-record-table th,
+  .app-record-table td {
+    border: 1px solid #0b0c0c;
+    padding: 6px 8px;
+    vertical-align: middle;
+    box-sizing: border-box;
+  }
+  .app-record-table th {
+    background: #ffffff;
+    text-align: center;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .app-record-table td {
+    height: 2.4em;
+  }
+
+  /* Column widths mirror /v1-2/skin-test-list and the other v1-2
+     skin-test pages so the tables read the same on screen. The
+     Select column is left-aligned so the checkbox sits flush with
+     the column header rather than centred. */
+  .app-col-select   { width: 4rem; text-align: left !important; }
+  .app-col-select .govuk-checkboxes__item { padding-left: 28px; }
+  .app-col-ear-tag  { width: 8.5rem; }
+  .app-col-vax      { width: 4.5rem; text-align: center !important; font-variant-numeric: tabular-nums; }
+  .app-col-dob      { width: 7rem;   text-align: center !important; }
+  .app-col-sex      { width: 3.5rem; text-align: center !important; }
+  .app-col-breed    { width: 4.5rem; text-align: center !important; }
+
+  /* Ear tag rendering – matches the skin-test-list table.
+     The last-4 digits sit in a tight bordered box so the vet can
+     spot the animal at a glance; duplicates invert the box. */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 {
+    padding: 2px 3px;
+    border: 2px solid #b1b4b6;
+  }
+  .app-ear-tag__part--last4--duplicate {
+    background-color: #0b0c0c;
+    color: #ffffff;
+    border-color: #0b0c0c;
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
+    <h1 class="govuk-heading-l">Identify the cattle</h1>
+
+    {% if animals.length == 0 %}
+      <p class="govuk-body">
+        Every animal on this visit has been accounted for. You can continue to the review step.
+      </p>
+      <form action="/v1-2/skin-test-untested" method="post" novalidate>
+        {{ govukButton({ text: "Continue to review" }) }}
+      </form>
+    {% else %}
+      <p class="govuk-body">
+        Select all cattle that were not tested.
+      </p>
+
+      <form action="/v1-2/skin-test-untested" method="post" novalidate>
+
+        <table class="app-record-table">
+          <thead>
+            <tr>
+              <th scope="col" class="app-col-select">Select</th>
+              <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+              <th scope="col" class="app-col-vax">TB Vax</th>
+              <th scope="col" class="app-col-dob">DOB</th>
+              <th scope="col" class="app-col-sex">Sex</th>
+              <th scope="col" class="app-col-breed">Breed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for animal in animals %}
+              <tr>
+                <td class="app-col-select">
+                  <div class="govuk-checkboxes govuk-checkboxes--small">
+                    <div class="govuk-checkboxes__item govuk-!-margin-bottom-0">
+                      <input class="govuk-checkboxes__input" id="untested-{{ loop.index }}" name="untested" type="checkbox" value="{{ animal.officialId }}" {% if animal.officialId in selectedUntested %}checked{% endif %}>
+                      <label class="govuk-label govuk-checkboxes__label" for="untested-{{ loop.index }}">
+                        <span class="govuk-visually-hidden">{{ animal.officialId }} was not tested</span>
+                      </label>
+                    </div>
+                  </div>
+                </td>
+                <td class="app-col-ear-tag">
+                  <div class="app-ear-tag">
+                    <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--check">{{ animal.earTagParts.check }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ animal.earTagParts.individualStart }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--last4{% if animal.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                          {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
+                  </div>
+                </td>
+                <td class="app-col-vax">{{ animal.vaccinationDate or '-' }}</td>
+                <td class="app-col-dob">{{ animal.dob }}</td>
+                <td class="app-col-sex">{{ animal.sex }}</td>
+                <td class="app-col-breed">{{ animal.breed }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <div class="govuk-button-group">
+          {{ govukButton({ text: "Continue" }) }}
+        </div>
+
+      </form>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

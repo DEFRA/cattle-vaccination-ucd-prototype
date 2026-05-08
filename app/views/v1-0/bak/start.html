@@ -1,0 +1,43 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Prepare and do farm visits – GOV.UK
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-xl">
+      Prepare and do farm visits
+    </h1>
+
+    <p class="govuk-body-l">
+      Prepare cattle lists for farm visits, manage work orders and report animal health work.
+    </p>
+
+    <p class="govuk-body">You can use this service to:</p>
+
+    <ul class="govuk-list govuk-list--bullet">
+      <li>prepare a list for vaccination, TB testing or both</li>
+      <li>view open work orders</li>
+      <li>report vaccinations or TB tests after a visit</li>
+    </ul>
+
+    <h2 class="govuk-heading-m">Before you start</h2>
+
+    <p class="govuk-body">
+      You need the county parish holding number (CPH) or an ear tag for the herd or animal you want to work with.
+    </p>
+
+    {{ govukButton({
+      text: "Start now",
+      href: "/v1-0/sign-in",
+      isStartButton: true
+    }) }}
+
+  </div>
+</div>
+
+{% endblock %}

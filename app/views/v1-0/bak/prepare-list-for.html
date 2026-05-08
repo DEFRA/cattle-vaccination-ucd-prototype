@@ -1,0 +1,45 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Start a farm visit – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{% set backHref = "/v1-0/dashboard" %}
+{% if data['prepareListBackLink'] == 'workorder' %}
+  {% set backHref = "/v1-0/workorder-tasks" %}
+{% endif %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    <h1 class="govuk-heading-l">Start a farm visit</h1>
+
+    <p class="govuk-body">
+      Search for a herd or animal to prepare your visit.
+    </p>
+
+    <form action="/v1-0/prepare-list-for" method="post">
+      {{ govukInput({
+        label: {
+          text: "Enter a CPH, farm name or ear tag",
+          classes: "govuk-label--m"
+        },
+        hint: {
+          text: "For example, 12/345/6789 or Hill Farm"
+        },
+        id: "cattleSearch",
+        name: "cattleSearch",
+        value: data['cattleSearch']
+      }) }}
+
+      {{ govukButton({ text: "Search" }) }}
+    </form>
+  </div>
+</div>
+{% endblock %}

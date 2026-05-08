@@ -1,0 +1,112 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check herd details – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/choose-a-herd-or-animal-to-report"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <h1 class="govuk-heading-l">  Your visit to {{ data['herd']['farm'] }}</h1>
+    <p class="govuk-body">
+      You're reporting completed BCG vaccinations at this farm.
+    </p>
+
+    {% if data['herd'] %}
+      {{ govukSummaryList({
+  rows: [
+    {
+      key: {
+        text: "Farm"
+      },
+      value: {
+        text: data['herd']['farm']
+      },
+      actions: {
+        items: [
+          {
+            href: "/v1-0/search-for-a-herd-or-animal-to-report",
+            text: "Change",
+            visuallyHiddenText: "farm"
+          }
+        ]
+      }
+    },
+    {
+      key: {
+        text: "CPH"
+      },
+      value: {
+        text: data['herd']['cph']
+      }
+    },
+    {
+      key: {
+        text: "Address"
+      },
+      value: {
+        text: data['herd']['address']
+      }
+    },
+    {
+      key: {
+        text: "Number of cattle"
+      },
+      value: {
+        text: data['herd']['cattle']
+      }
+    },
+    {
+      key: {
+        text: "Last TB test"
+      },
+      value: {
+        text: "Not recorded"
+      }
+    }
+  ]
+}) }}
+
+      <form action="/v1-0/report-activity-type" method="post" novalidate>
+        {{ govukRadios({
+          idPrefix: "reportType",
+          name: "reportType",
+          fieldset: {
+            legend: {
+              text: "What do you want to report?",
+              classes: "govuk-fieldset__legend--m"
+            }
+          },
+          value: data['reportType'],
+          errorMessage: { text: errors['reportType'].text } if errors and errors['reportType'],
+          items: [
+            { value: "vaccination", text: "Completed BCG vaccinations" },
+            { value: "tb-test", text: "Skin test results" },
+            { value: "both", text: "Both" }
+          ]
+        }) }}
+
+
+
+
+
+
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+    {% else %}
+      <p class="govuk-body">No herd details were found.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

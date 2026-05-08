@@ -1,0 +1,49 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Select cattle to update – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/add-a-note"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <form action="/v1-0/select-animals-not-vaccinated" method="post" novalidate>
+      <h1 class="govuk-heading-l">Select cattle to update</h1>
+
+      <p class="govuk-body">37 cattle</p>
+
+      {{ govukCheckboxes({
+        idPrefix: "remainingCattle",
+        name: "remainingCattle",
+        values: data['remainingCattle'],
+        fieldset: {
+          legend: {
+            text: "Select the cattle you want to update",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        errorMessage: { text: errors['remainingCattle'].text } if errors and errors['remainingCattle'],
+        items: [
+          { value: "UK123456005", text: "UK123456005 – Holstein Friesian – Female – 24 months" },
+          { value: "UK123456006", text: "UK123456006 – British Friesian – Female – 30 months" },
+          { value: "UK123456007", text: "UK123456007 – Angus Cross – Male – 18 months" },
+          { value: "UK123456008", text: "UK123456008 – Limousin – Female – 22 months" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+    </form>
+  </div>
+</div>
+{% endblock %}

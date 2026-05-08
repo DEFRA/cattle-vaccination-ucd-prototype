@@ -1,0 +1,137 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  {% if bothHasNextStep %}
+    {{ listTestLabel }} list is ready – GOV.UK
+  {% elif isBothJourney %}
+    Lists are ready – GOV.UK
+  {% else %}
+    {{ listTestLabel or 'Skin test' }} list is ready – GOV.UK
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+{% set isCsv = data['downloadFormat'] == 'csv' %}
+{% set otherTestLabel = 'DIVA' if listTestLabel == 'SICCT' else 'SICCT' %}
+{% set otherTestSubject = 'vaccinated cattle' if otherTestLabel == 'DIVA' else 'unvaccinated cattle' %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if bothHasNextStep %}
+      {# Halfway through the "Both" journey. The first list is saved,
+         the second one is up next. #}
+      <h1 class="govuk-heading-l">You can now print your list</h1>
+
+      <p class="govuk-body">
+        Next, format the {{ otherTestLabel }} list for {{ otherTestSubject }}.
+      </p>
+      <p class="govuk-body">
+        You can download or print both lists when you've finished.
+      </p>
+
+      <form method="post" action="/v1-1/prepare-skin-test-next">
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+
+    {% elif isBothJourney %}
+      {# End of the Both journey – both lists are saved. #}
+      <h1 class="govuk-heading-l">You can now print your list</h1>
+
+      <p class="govuk-body">
+        You can now download or print the SICCT and DIVA lists.
+      </p>
+
+      {% if isCsv %}
+        <ul class="govuk-list govuk-!-margin-bottom-6">
+          <li>
+            <a class="govuk-link" href="/v1-1/skin-test-list?sublist=sicct&download=csv">Download SICCT list (CSV)</a>
+          </li>
+          <li>
+            <a class="govuk-link" href="/v1-1/skin-test-list?sublist=diva&download=csv">Download DIVA list (CSV)</a>
+          </li>
+        </ul>
+      {% else %}
+        <ul class="govuk-list govuk-!-margin-bottom-6">
+          <li>
+            <a class="govuk-link" href="/v1-1/skin-test-list?sublist=sicct&print=1">Download your SICCT list (PDF)</a>
+          </li>
+          <li>
+            <a class="govuk-link" href="/v1-1/skin-test-list?sublist=diva&print=1">Download your DIVA list (PDF)</a>
+          </li>
+        </ul>
+      {% endif %}
+
+      {{ govukButton({
+        text: "Save lists to print later",
+        href: "/v1-1/dashboard"
+      }) }}
+
+      {# Onward journey – only shown on the final pages, not on the
+         mid-Both "SICCT saved, on to DIVA" step. #}
+      <h2 class="govuk-heading-m govuk-!-margin-top-6">What to do next</h2>
+      <ul class="govuk-list">
+        <li>
+          <a class="govuk-link" href="/v1-1/search">Prepare another list</a>
+        </li>
+        <li>
+          <form action="/v1-1/select-journey" method="post" style="display: inline;">
+            <input type="hidden" name="journey" value="report-skin-test">
+            <button type="submit"
+                    class="govuk-link"
+                    style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer; text-align: left;">
+              Report skin test results
+            </button>
+          </form>
+        </li>
+        <li>
+          <a class="govuk-link" href="/v1-1/dashboard">Exit the service</a>
+        </li>
+      </ul>
+
+    {% else %}
+      {# Single-test journey (SICCT only or DIVA only). #}
+      <h1 class="govuk-heading-l">You can now print your list</h1>
+
+      <p class="govuk-body">
+        You can now download or print the list.
+      </p>
+
+      {% if isCsv %}
+        <ul class="govuk-list govuk-!-margin-bottom-6">
+          <li>
+            <a class="govuk-link" href="/v1-1/skin-test-list?download=csv">Download CSV</a>
+          </li>
+        </ul>
+      {% else %}
+        <ul class="govuk-list govuk-!-margin-bottom-6">
+          <li>
+            <a class="govuk-link" href="/v1-1/skin-test-list?print=1">Download your {{ listTestLabel or 'skin test' }} list (PDF)</a>
+          </li>
+        </ul>
+      {% endif %}
+
+      {{ govukButton({
+        text: "Save list to print later",
+        href: "/v1-1/dashboard"
+      }) }}
+
+      {# Onward journey – only shown on the final page of a single-test
+         journey, not on the mid-Both "SICCT saved, on to DIVA" step. #}
+      <h2 class="govuk-heading-m govuk-!-margin-top-6">What to do next</h2>
+      <ul class="govuk-list">
+        <li>
+          <a class="govuk-link" href="/v1-1/search">Prepare another list</a>
+        </li>
+        <li>
+          <a class="govuk-link" href="/v1-1/dashboard">Exit the service</a>
+        </li>
+      </ul>
+
+    {% endif %}
+
+
+
+  </div>
+</div>
+{% endblock %}

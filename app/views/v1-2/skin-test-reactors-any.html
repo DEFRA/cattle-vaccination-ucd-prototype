@@ -1,0 +1,61 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Did any cattle react to the skin test? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-2/skin-test-type"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {# v1-2 asks the question once across both tests for the Both
+       journey, so the caption shows the farm name only and the
+       hidden legend uses generic wording. Single-test journeys keep
+       the SICCT / DIVA caption. #}
+    {% set captionLabel = currentTestLabel or data['skinTestType'] or 'Skin test' %}
+    {% if isCombinedBoth %}
+      <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    {% else %}
+      <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ captionLabel }}</span>
+    {% endif %}
+    <h1 class="govuk-heading-l">
+      Did any cattle show a positive reaction?
+    </h1>
+
+    <form action="/v1-2/skin-test-reactors-any" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "anyReactors",
+        name: "anyReactors",
+        errorMessage: { text: errors['anyReactors'].text } if errors and errors['anyReactors'],
+        fieldset: {
+          legend: {
+            text: "Did any cattle show a positive reaction?" if isCombinedBoth else ("Did any cattle react to the " + captionLabel + " test?"),
+            classes: "govuk-visually-hidden"
+          }
+        },
+        hint: { text: "Select 'Yes' if any animals showed a reaction. You should also select 'yes' if any animal showed an inconclusive result." },
+        items: [
+          { value: "yes", text: "Yes" },
+          { value: "no",  text: "No" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

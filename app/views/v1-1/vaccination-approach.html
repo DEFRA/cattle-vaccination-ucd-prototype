@@ -1,0 +1,76 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  How would you like to mark the cattle? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/enter-diluent-batch-details"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    <h1 class="govuk-heading-l">How would you like to mark the cattle?</h1>
+
+    <p class="govuk-body">
+      You can record what happened with each animal in whichever way
+      is quickest for you. Choose based on what happened on your visit:
+    </p>
+
+    <ul class="govuk-list govuk-list--bullet">
+      <li>
+        if you vaccinated most of the cattle on the farm,
+        <strong>mark the vaccinated cattle first</strong> and then add a reason for
+        any you could not vaccinate.
+      </li>
+      <li>
+        if you were only able to vaccinate a few of the cattle,
+        <strong>mark the cattle that were not vaccinated first</strong> (and why) and the
+        rest of the cattle will be marked as vaccinated.
+      </li>
+    </ul>
+
+    <form action="/v1-1/vaccination-approach" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "vaccinationApproach",
+        name: "vaccinationApproach",
+        value: data['vaccinationApproach'] or 'mark-vaccinated',
+        errorMessage: { text: errors['vaccinationApproach'].text } if errors and errors['vaccinationApproach'],
+        fieldset: {
+          legend: {
+            text: "How would you like to mark the cattle?",
+            classes: "govuk-visually-hidden"
+          }
+        },
+        items: [
+          {
+            value: "mark-vaccinated",
+            text: "Mark the vaccinated cattle first",
+            hint: { text: "Select the cattle you vaccinated, then add reasons for any you could not vaccinate." }
+          },
+          {
+            value: "mark-not-vaccinated",
+            text: "Mark the cattle that were not vaccinated first",
+            hint: { text: "Select the cattle you could not vaccinate and add reasons. The remaining cattle will be marked as vaccinated." }
+          }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

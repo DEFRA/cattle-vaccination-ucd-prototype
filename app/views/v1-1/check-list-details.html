@@ -1,0 +1,121 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check your answers before downloading your list – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/prepare-list-download"
+}) }}
+{% endblock %}
+
+{% block content %}
+{% set selectedHerdOrCattle = data['selectedCattleLabel'] or data['selectedCattle'] or "Selected herd" %}
+{% set selectedFormat = "Not selected" %}
+{% if data['downloadFormat'] == "pdf" %}
+  {% set selectedFormat = "Printable list (PDF)" %}
+{% elif data['downloadFormat'] == "csv" %}
+  {% set selectedFormat = "CSV" %}
+{% endif %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    <h1 class="govuk-heading-l">Check your answers before downloading your list</h1>
+
+    <p class="govuk-body">
+      Check everything looks right before you download the list.
+    </p>
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Herd or cattle" },
+          value: { text: selectedHerdOrCattle },
+          actions: {
+            items: [
+              {
+                href: "/v1-1/choose-cattle-results",
+                text: "Change",
+                visuallyHiddenText: "herd or cattle"
+              }
+            ]
+          }
+        },
+        {
+          key: { text: "Visit type" },
+          value: { text: data['listType'] or "Not selected" },
+          actions: {
+            items: [
+              {
+                href: "/v1-1/herd-details",
+                text: "Change",
+                visuallyHiddenText: "visit type"
+              }
+            ]
+          }
+        },
+        {
+          key: { text: "Download format" },
+          value: { text: selectedFormat },
+          actions: {
+            items: [
+              {
+                href: "/v1-1/prepare-list-download",
+                text: "Change",
+                visuallyHiddenText: "download format"
+              }
+            ]
+          }
+        },
+        {
+          key: { text: "Information to include" },
+          value: { html: (data['fields'] | join("<br>")) if data['fields'] else "Not selected" },
+          actions: {
+            items: [
+              {
+                href: "/v1-1/download-list",
+                text: "Change",
+                visuallyHiddenText: "information to include"
+              }
+            ]
+          }
+        },
+        {
+          key: { text: "Sort by" },
+          value: { text: data['sortBy'] or "Not selected" },
+          actions: {
+            items: [
+              {
+                href: "/v1-1/download-list",
+                text: "Change",
+                visuallyHiddenText: "sort order"
+              }
+            ]
+          }
+        },
+        {
+          key: { text: "Order" },
+          value: { text: "Descending" if data['sortDirection'] == "desc" else "Ascending" },
+          actions: {
+            items: [
+              {
+                href: "/v1-1/download-list",
+                text: "Change",
+                visuallyHiddenText: "order"
+              }
+            ]
+          }
+        }
+      ]
+    }) }}
+
+    <form action="/v1-1/download-list" method="post">
+      {{ govukButton({
+        text: "Continue"
+      }) }}
+    </form>
+  </div>
+</div>
+{% endblock %}

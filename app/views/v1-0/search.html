@@ -1,0 +1,43 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Search for a farm
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/dashboard"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <h1 class="govuk-heading-l">Prepare a list</h1>
+    <p class="govuk-body">
+      Before you visit a farm, prepare a list of cattle you plan to vaccinate or skin test.
+    </p>
+
+    <form action="/v1-0/search" method="post" novalidate>
+      {{ govukInput({
+        label: {
+          text: "Enter CPH number or farm name",
+          classes: "govuk-label--m"
+        },
+        hint: { text: "For example, 12/345/6789 or Hill Farm" },
+        id: "cattleSearch",
+        name: "cattleSearch",
+        value: data['cattleSearch'] or data['search'],
+        errorMessage: { text: errors['cattleSearch'].text } if errors and errors['cattleSearch']
+      }) }}
+
+      {{ govukButton({ text: "Search" }) }}
+    </form>
+  </div>
+</div>
+{% endblock %}

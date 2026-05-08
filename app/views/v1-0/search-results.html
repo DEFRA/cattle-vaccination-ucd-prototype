@@ -1,0 +1,50 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Search results – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/search-for-a-herd-or-animal"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if data['searchResults'] and data['searchResults'].length > 0 %}
+      {% if errorSummary %}
+        {{ govukErrorSummary(errorSummary) }}
+      {% endif %}
+
+      <form action="/v1-0/confirm-herd-or-animal" method="post" novalidate>
+        {{ govukRadios({
+          idPrefix: "selectedCattle",
+          name: "selectedCattle",
+          value: data['selectedCattle'],
+          fieldset: {
+            legend: {
+              text: "Select a farm",
+              classes: "govuk-fieldset__legend--l",
+              isPageHeading: true
+            }
+          },
+          hint: {
+            html: "Search results for <strong>" + (data['cattleSearch'] or "your search" + "</strong>")
+          },
+          errorMessage: { text: errors['selectedCattle'].text } if errors and errors['selectedCattle'],
+          items: data['searchResults']
+        }) }}
+
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+    {% else %}
+      <h1 class="govuk-heading-l">No results found</h1>
+      <p class="govuk-body">Check the CPH, farm name or ear tag and try again.</p>
+      <p class="govuk-body"><a href="/v1-0/search-for-a-herd-or-animal" class="govuk-link">Search again</a></p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,672 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  List of cattle for skin tests – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/prepare-skin-test-type"
+}) }}
+{% endblock %}
+
+{% block content %}
+{% set fieldColumns = previewColumns or [] %}
+{% set selectedPreviewOptions = previewOptions or [] %}
+{% set isCsv = downloadFormat == 'csv' %}
+
+{# One list at a time – either the SICCT list (unvaccinated cattle) or
+   the DIVA list (vaccinated cattle). For the "Both" journey the vet
+   formats SICCT first, confirms, then comes back through this page
+   with phase = 'diva' to format the DIVA list. #}
+{% set previewGroups = [] %}
+{% if prepareSkinTestPhase == 'diva' and divaPreviewRows %}
+  {% set previewGroups = previewGroups.concat([{
+    key: 'diva',
+    label: 'DIVA',
+    description: 'For the BCG vaccinated cattle on this farm.',
+    rows: divaPreviewRows,
+    count: divaPreviewCount
+  }]) %}
+{% elif sicctPreviewRows %}
+  {% set previewGroups = previewGroups.concat([{
+    key: 'sicct',
+    label: 'SICCT',
+    description: 'For the unvaccinated cattle on this farm.',
+    rows: sicctPreviewRows,
+    count: sicctPreviewCount
+  }]) %}
+{% endif %}
+
+<style>
+  .app-page-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 30px;
+    align-items: start;
+  }
+  .app-filter-panel {
+    border: 1px solid #b1b4b6;
+    background: #f8f8f8;
+    padding: 20px;
+    top: 20px;
+    font-family: "GDS Transport", arial, sans-serif;
+  }
+  .app-filter-panel .govuk-label,
+  .app-filter-panel .govuk-fieldset__legend,
+  .app-filter-panel .govuk-radios__label,
+  .app-filter-panel .govuk-checkboxes__label,
+  .app-filter-panel .govuk-button,
+  .app-filter-panel .govuk-link,
+  .app-filter-panel .govuk-body,
+  .app-filter-panel .govuk-body-s {
+    font-size: 19px;
+    line-height: 1.31579;
+  }
+  .app-filter-panel .govuk-heading-m {
+    font-family: "GDS Transport", arial, sans-serif;
+  }
+  .app-filter-panel .govuk-radios,
+  .app-filter-panel .govuk-checkboxes,
+  .app-filter-panel .govuk-form-group:last-child {
+    margin-bottom: 0;
+  }
+  .app-results-header {
+    margin-bottom: 20px;
+  }
+  .app-results-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .app-sheet, .app-sheet * { font-family: Arial, Helvetica, sans-serif; }
+  .app-sheet {
+    background: #ffffff;
+    border: 2px solid #0b0c0c;
+    padding: 18px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .app-sheet--portrait { max-width: 100%; }
+  .app-sheet--landscape { max-width: 100%; }
+  .app-sheet--text-small { font-size: 14px; }
+  .app-sheet--text-standard { font-size: 16px; }
+  .app-sheet--text-large { font-size: 19px; }
+
+  /* Default padding (also used for "standard" spacing). Cells always get at
+     least this much room so text never touches the border. */
+  .app-record-table th,
+  .app-record-table td {
+    padding: 10px 12px;
+  }
+  .app-sheet--spacing-tight .app-record-table th,
+  .app-sheet--spacing-tight .app-record-table td { padding: 6px 8px; }
+  .app-sheet--spacing-standard .app-record-table th,
+  .app-sheet--spacing-standard .app-record-table td { padding: 10px 12px; }
+  .app-sheet--spacing-spaced .app-record-table th,
+  .app-sheet--spacing-spaced .app-record-table td { padding: 14px 16px; }
+
+  .app-record-table {
+    width: 100%;
+    /* Force the table to keep its minimum usable width. When the viewport
+       is narrower, the wrapping .app-sheet will scroll horizontally. */
+    min-width: 900px;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .app-record-table th,
+  .app-record-table td {
+    border: 1px solid #0b0c0c;
+    vertical-align: middle;
+    box-sizing: border-box;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+  .app-record-table th {
+    background: #ffffff;
+    text-align: center;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .app-record-table td {
+    height: 2.4em;
+  }
+  /* Column widths are generous enough for every value (including padding) so
+     no text is squished against a border. */
+  .app-col-ear-tag { width: 12rem; }
+  .app-col-age      { width: 3.5rem; text-align: center !important; }
+  .app-col-sex      { width: 3.5rem; text-align: center !important; }
+  .app-col-breed    { width: 4.5rem; text-align: center !important; }
+  .app-col-dob      { width: 7rem;   text-align: center !important; }
+  .app-col-narrow   { width: 3.5rem; text-align: center !important; }
+  .app-col-label    { width: 2.75rem; text-align: center !important; font-weight: 700; background: #ffffff; }
+  .app-col-skin     { width: 3.5rem; text-align: center !important; }
+  .app-col-reaction { width: 4.5rem; text-align: center !important; }
+  .app-col-overall  { width: 3.5rem; text-align: center !important; }
+  .app-col-notes    { width: 6rem; }
+  /* Thicker border between animals (each animal = 2 rows wrapped in a tbody) */
+  .app-record-table tbody + tbody th,
+  .app-record-table tbody + tbody td {
+    border-top: 2px solid #0b0c0c;
+  }
+  /* The ear-tag value and its flags live in a single inline-grid column.
+     The column's width tracks whichever child is wider (normally the ear
+     tag), so the flags are right-aligned to the *right edge of the
+     last-5-digit individual box* – not the right edge of the whole cell. */
+  .app-ear-tag-wrapper {
+    display: inline-grid;
+    grid-template-columns: max-content;
+  }
+  /* Flags shown below the ear tag.
+     - Right-aligned within the wrapper's grid column.
+     - Each flag uses the darkest ink from the GDS palette with white text.
+     - Vaccinated sits first; DUP always sits furthest right when both are
+       present, with visible space between them. */
+  .app-ear-tag-flags {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 6px;
+    line-height: 1;
+  }
+  .app-tag-dark {
+    /* VAX / DUP flags: light-grey background, dark-grey text
+       (a shade lighter than the body black), matching the GDS
+       secondary text colour #505a5f. */
+    display: inline-block;
+    background-color: #f3f2f1;
+    color: #505a5f;
+    font-family: "GDS Transport", arial, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    text-transform: uppercase;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .app-vertical-heading {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    display: inline-block;
+    line-height: 1;
+    padding: 4px 0;
+  }
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  /* The ear tag is printed as a single continuous string so that it uses
+     only the font's natural letter spacing. The last-4 span gets its own
+     padding when the highlight is toggled on so the box doesn't collapse
+     onto the digits. */
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  /* No left/right padding when the highlight is off – we don't want a
+     visible gap before the last four digits unless the box is on. The
+     .border-toggle modifier below adds its own padding for the box. */
+  .app-ear-tag__part--last4 { padding: 0; }
+  .border-toggle { padding: 3px 6px; border: 2px solid #0b0c0c; }
+  @media (max-width: 900px) {
+    .app-page-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media print {
+    /* Hide the page chrome AND the on-screen-only headings/actions so only
+       the printable sheet ends up on the printed page. The H1 "List of
+       cattle for skin tests", the "Preview" heading + its intro paragraph,
+       and the "Print this list" button rows are all dropped. */
+    .govuk-back-link, .govuk-button, .govuk-link, .app-filter-panel,
+    .govuk-header, .govuk-footer, .govuk-phase-banner,
+    .govuk-breadcrumbs, .govuk-service-navigation,
+    h1, .app-results-header, .app-results-actions { display: none !important; }
+    body, .govuk-width-container, .govuk-main-wrapper {
+      margin: 0 !important;
+      padding: 0 !important;
+      max-width: none !important;
+    }
+    .app-sheet { margin: 0; border: 1px solid #0b0c0c; }
+    .app-record-table thead { display: table-header-group; }
+    /* Keep each animal's A + B rows together on the same printed page */
+    .app-record-table tbody { page-break-inside: avoid; break-inside: avoid; }
+    @page { size: A4 portrait; margin: 10mm; }
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    {# Caption shows the current list and, for "Both", the step
+       indicator so the vet sees there's a second list still to format. #}
+    <span class="govuk-caption-l">
+      {{ data['herd']['farm'] }} - {{ listTestLabel }}{% if bothStepText %} - {{ bothStepText }}{% endif %}
+    </span>
+    <h1 class="govuk-heading-l govuk-!-margin-bottom-4">
+      List of cattle for testing
+    </h1>
+
+    {% if isBothJourney and prepareSkinTestPhase == 'sicct' %}
+      {{ govukInsetText({
+        html: "This list is for SICCT only. You'll prepare a separate DIVA list for the vaccinated cattle after you confirm this one."
+      }) }}
+    {% elif isBothJourney and prepareSkinTestPhase == 'diva' %}
+      {{ govukInsetText({
+        html: "This list is for DIVA only. It includes the BCG vaccinated cattle on the farm."
+      }) }}
+    {% endif %}
+
+    <div class="app-page-grid">
+
+      <form method="post" action="/v1-1/skin-test-list" class="app-filter-panel">
+        <h2 class="govuk-heading-m govuk-!-margin-bottom-3">List settings</h2>
+        <p class="govuk-body govuk-!-margin-bottom-4">You will need to apply any changes you make to these settings.</p>
+
+        {{ govukRadios({
+          idPrefix: "downloadFormat",
+          name: "downloadFormat",
+          classes: "govuk-!-margin-bottom-4",
+          fieldset: { legend: { text: "File format", classes: "govuk-fieldset__legend--s" } },
+          items: [
+            { value: "pdf", text: "PDF to print", checked: (data['downloadFormat'] or 'pdf') == "pdf" },
+            { value: "csv", text: "CSV spreadsheet to download", checked: data['downloadFormat'] == "csv" }
+          ]
+        }) }}
+
+        {% if not isCsv %}
+        <div class="govuk-form-group govuk-!-margin-bottom-4">
+          <fieldset class="govuk-fieldset">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Preview options</legend>
+            <div class="govuk-checkboxes">
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input" id="show-last-five" name="previewOptions" type="checkbox" value="show-last-five" {% if 'show-last-five' in selectedPreviewOptions %}checked{% endif %}>
+                <label class="govuk-label govuk-checkboxes__label" for="show-last-five">Emphasise the last 4 digits of the ear tag</label>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+        {% endif %}
+
+        <div class="govuk-form-group govuk-!-margin-bottom-4">
+          <fieldset class="govuk-fieldset">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Columns</legend>
+            <div class="govuk-checkboxes">
+              {% for column in previewAllColumns %}
+                {% set optionLabel = 'Age' if column == 'Age (youngest to oldest)' else column %}
+                <div class="govuk-checkboxes__item">
+                  <input class="govuk-checkboxes__input" id="column-{{ loop.index }}" name="previewOptions" type="checkbox" value="{{ column }}" {% if column in selectedPreviewOptions %}checked{% endif %}>
+                  <label class="govuk-label govuk-checkboxes__label" for="column-{{ loop.index }}">{{ optionLabel }}</label>
+                </div>
+              {% endfor %}
+            </div>
+          </fieldset>
+        </div>
+
+        {{ govukRadios({
+          idPrefix: "sortBy",
+          name: "sortBy",
+          classes: "govuk-!-margin-bottom-4",
+          fieldset: { legend: { text: "Sort by", classes: "govuk-fieldset__legend--s" } },
+          items: [
+            { value: "Ear-tag number (last 5 digits)", text: "Ear tag number (last 4 digits)", checked: (data['skinTestSortBy'] or 'Ear-tag number (last 5 digits)') == "Ear-tag number (last 5 digits)" },
+            { value: "Ear-tag number", text: "Ear tag number (full)", checked: data['skinTestSortBy'] == "Ear-tag number" },
+            { value: "Age", text: "Age", checked: data['skinTestSortBy'] == "Age" },
+            { value: "Sex", text: "Sex", checked: data['skinTestSortBy'] == "Sex" },
+            { value: "Breed", text: "Breed", checked: data['skinTestSortBy'] == "Breed" },
+            { value: "DOB", text: "DOB", checked: data['skinTestSortBy'] == "DOB" }
+          ]
+        }) }}
+
+        {{ govukRadios({
+          idPrefix: "sortDirection",
+          name: "sortDirection",
+          classes: "govuk-!-margin-bottom-4",
+          fieldset: { legend: { text: "Order", classes: "govuk-fieldset__legend--s" } },
+          items: [
+            { value: "asc", text: "Ascending", checked: (data['skinTestSortDirection'] or 'asc') == "asc" },
+            { value: "desc", text: "Descending", checked: data['skinTestSortDirection'] == "desc" }
+          ]
+        }) }}
+
+        {% if not isCsv %}
+          {{ govukRadios({
+            idPrefix: "previewTextSize",
+            name: "previewTextSize",
+            classes: "govuk-!-margin-bottom-4",
+            fieldset: { legend: { text: "Text size", classes: "govuk-fieldset__legend--s" } },
+            items: [
+              { value: "small", text: "Smaller", checked: previewTextSize == "small" },
+              { value: "standard", text: "Standard", checked: previewTextSize == "standard" },
+              { value: "large", text: "Large", checked: previewTextSize == "large" }
+            ]
+          }) }}
+
+          {{ govukRadios({
+            idPrefix: "previewOrientation",
+            name: "previewOrientation",
+            classes: "govuk-!-margin-bottom-4",
+            fieldset: { legend: { text: "Page orientation", classes: "govuk-fieldset__legend--s" } },
+            items: [
+              { value: "portrait", text: "Portrait", checked: previewOrientation == "portrait" },
+              { value: "landscape", text: "Landscape", checked: previewOrientation == "landscape" }
+            ]
+          }) }}
+
+          {{ govukRadios({
+            idPrefix: "previewSpacing",
+            name: "previewSpacing",
+            classes: "govuk-!-margin-bottom-4",
+            fieldset: { legend: { text: "Line spacing", classes: "govuk-fieldset__legend--s" } },
+            items: [
+              { value: "tight", text: "Tight", checked: previewSpacing == "tight" },
+              { value: "standard", text: "Standard", checked: previewSpacing == "standard" },
+              { value: "spaced", text: "Spaced", checked: previewSpacing == "spaced" }
+            ]
+          }) }}
+        {% endif %}
+
+        <div class="govuk-button-group">
+          {{ govukButton({ text: "Apply changes" }) }}
+        </div>
+        <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">
+          <a class="govuk-link" href="/v1-1/skin-test-list/reset">Clear settings</a>
+        </p>
+      </form>
+
+      <div>
+        <div class="app-results-header">
+          <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Preview</h2>
+          <p class="govuk-body govuk-!-margin-bottom-0">You can adjust the list settings to create the list layout you want.</p>
+        </div>
+
+        {% for group in previewGroups %}
+          {% if group.count == 0 %}
+            <p class="govuk-body">There are no cattle on this farm for the {{ group.label }} list.</p>
+          {% elif isCsv %}
+            <div class="app-sheet">
+              <table class="app-record-table">
+                <thead>
+                  <tr>
+                    <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+                    <th scope="col">Flags</th>
+                    {% for column in fieldColumns %}
+                      {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
+                      <th scope="col">{{ headingText }}</th>
+                    {% endfor %}
+                    <th scope="col">Pre A (mm)</th>
+                    <th scope="col">Pre B (mm)</th>
+                    <th scope="col">Post A (mm)</th>
+                    <th scope="col">Post B (mm)</th>
+                    <th scope="col">Reaction desc. A</th>
+                    <th scope="col">Reaction desc. B</th>
+                    <th scope="col">Overall result</th>
+                    <th scope="col" class="app-col-notes">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in group.rows | slice(0, 25) %}
+                  <tr>
+                    <td>{{ row.officialId }}</td>
+                    <td>
+                      {% if row.isVaccinated %}VAX{% endif %}
+                      {% if row.isDuplicate and row.isVaccinated %} {% endif %}
+                      {% if row.isDuplicate %}DUP{% endif %}
+                    </td>
+                    {% for cell in row.cells %}
+                      <td>{{ cell.value }}</td>
+                    {% endfor %}
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="app-sheet app-sheet--{{ previewOrientation or 'portrait' }} app-sheet--text-{{ previewTextSize or 'standard' }} app-sheet--spacing-{{ previewSpacing or 'standard' }}">
+
+              {# Metadata table is the same min-width as the records
+                 table below so the two stay aligned when the sheet
+                 scrolls horizontally. #}
+              <table class="govuk-table govuk-!-margin-bottom-6"
+                     style="min-width: 900px; table-layout: fixed;">
+                <caption class="govuk-table__caption govuk-table__caption--m">
+                  {{ data['herd']['farm'] }} - {{ group.label }} list
+                </caption>
+                <tr class="govuk-table__row">
+                  <td class="govuk-table__cell">
+                    <strong>CPH:</strong><br/>{{ data['herd']['cph'] or data['selectedCattle'] }}
+                  </td>
+                  <td class="govuk-table__cell">
+                    <strong>Cattle on this list:</strong><br/>{{ group.count }}
+                  </td>
+                  <td class="govuk-table__cell">
+                    <strong>Date list was made;</strong><br/>
+                    <span class="js-date-printed"></span>
+                  </td>
+                  {% if group.key == 'diva' %}
+                    {# DIVA is a single-injection bovine test. The vet needs
+                       to record the DIVA antigen batch number once for the
+                       whole visit, so it sits in the header of the sheet. #}
+                    <td class="govuk-table__cell">
+                      <strong>DIVA batch number:</strong><br/>
+                      <span style="display: inline-block; min-width: 120px; border-bottom: 1px solid #0b0c0c; height: 1.2em;"></span>
+                    </td>
+                  {% endif %}
+                </tr>
+              </table>
+              <table class="govuk-table govuk-!-margin-bottom-6" style="min-width: 900px; table-layout: fixed;">
+                  <tr>
+                    <td>
+                        <strong>DUP</strong> shows the last 4 digits of ear tag number are duplicates<br>
+                        <strong>VAX</strong> shows the animal is BCG vaccinated
+                    </td>
+                  </tr>
+              </table>
+              <table class="app-record-table">
+                <thead>
+                  <tr>
+                    <th scope="col" class="app-col-ear-tag" rowspan="2">Ear tag number</th>
+                    {% for column in fieldColumns %}
+                      {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
+                      {% set columnClass = "app-col-narrow" %}
+                      {% if headingText == "Age" %}{% set columnClass = "app-col-age" %}{% endif %}
+                      {% if headingText == "DOB" %}{% set columnClass = "app-col-dob" %}{% endif %}
+                      {% if headingText == "Sex" %}{% set columnClass = "app-col-sex" %}{% endif %}
+                      {% if headingText == "Breed" %}{% set columnClass = "app-col-breed" %}{% endif %}
+                      <th scope="col" class="{{ columnClass }}" rowspan="2">
+                        <span class="app-vertical-heading">{{ headingText }}</span>
+                      </th>
+                    {% endfor %}
+                    <th scope="col" colspan="4">Skin measurement (mm)</th>
+                    <th scope="col" class="app-col-overall" rowspan="2">
+                      <span class="app-vertical-heading">Overall<br>result</span>
+                    </th>
+                    <th scope="col" class="app-col-notes" rowspan="2">Remarks</th>
+                  </tr>
+                  <tr>
+                    <th scope="col" class="app-col-label"><span class="govuk-visually-hidden">Site</span></th>
+                    <th scope="col" class="app-col-skin">
+                      <span class="app-vertical-heading">Pre</span>
+                    </th>
+                    <th scope="col" class="app-col-skin">
+                      <span class="app-vertical-heading">Post</span>
+                    </th>
+                    <th scope="col" class="app-col-reaction">
+                      <span class="app-vertical-heading">Reaction<br>desc.</span>
+                    </th>
+                  </tr>
+                </thead>
+                {% set isDivaGroup = group.key == 'diva' %}
+                {% for row in group.rows %}
+                <tbody class="{% if row.isVaccinated %}app-row--vaccinated{% endif %}">
+                  {% if isDivaGroup %}
+                    {# DIVA is bovine-only, so one row per animal – no Avian
+                       row, no rowspans. Pre / Post refer to the bovine
+                       injection (Day 1) and reading (Day 2). #}
+                    <tr>
+                      <td>
+                        <div class="app-ear-tag-wrapper">
+                          <div class="app-ear-tag">
+                            <span class="app-ear-tag__prefix">{{ row.earTagParts.prefix }}</span>
+                            <span class="app-ear-tag__part app-ear-tag__part--herd">{{ row.earTagParts.herd }}</span>
+                            <span class="app-ear-tag__part app-ear-tag__part--check">{{ row.earTagParts.check }}</span>
+                            <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ row.earTagParts.individualStart }}</span>
+                            <span class="app-ear-tag__part app-ear-tag__part--last4{% if emphasiseLastFive %} border-toggle{% endif %}">{{ row.earTagParts.last4 }}</span>
+                          </div>
+                          {% if row.isDuplicate or row.isVaccinated %}
+                            <div class="app-ear-tag-flags">
+                              {% if row.isVaccinated %}
+                                <strong class="app-tag-dark" title="BCG vaccinated">VAX</strong>
+                              {% endif %}
+                              {% if row.isDuplicate %}
+                                <strong class="app-tag-dark" title="Another animal on this farm shares the last digits of this ear tag">DUP</strong>
+                              {% endif %}
+                            </div>
+                          {% endif %}
+                        </div>
+                      </td>
+                      {% for cell in row.cells %}
+                        {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
+                        {% set cellClass = "app-col-narrow" %}
+                        {% if cellHeading == "Age" %}{% set cellClass = "app-col-age" %}{% endif %}
+                        {% if cellHeading == "DOB" %}{% set cellClass = "app-col-dob" %}{% endif %}
+                        {% if cellHeading == "Sex" %}{% set cellClass = "app-col-sex" %}{% endif %}
+                        {% if cellHeading == "Breed" %}{% set cellClass = "app-col-breed" %}{% endif %}
+                        <td class="{{ cellClass }}">{{ cell.value }}</td>
+                      {% endfor %}
+                      <th scope="row" class="app-col-label">B</th>
+                      <td class="app-col-skin"></td>
+                      <td class="app-col-skin"></td>
+                      <td class="app-col-reaction"></td>
+                      <td class="app-col-overall"></td>
+                      <td class="app-col-notes"></td>
+                    </tr>
+                  {% else %}
+                    <tr>
+                      <td rowspan="2">
+                        <div class="app-ear-tag-wrapper">
+                          <div class="app-ear-tag">
+                            <span class="app-ear-tag__prefix">{{ row.earTagParts.prefix }}</span>
+                            <span class="app-ear-tag__part app-ear-tag__part--herd">{{ row.earTagParts.herd }}</span>
+                            <span class="app-ear-tag__part app-ear-tag__part--check">{{ row.earTagParts.check }}</span>
+                            <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ row.earTagParts.individualStart }}</span>
+                            <span class="app-ear-tag__part app-ear-tag__part--last4{% if emphasiseLastFive %} border-toggle{% endif %}">{{ row.earTagParts.last4 }}</span>
+                          </div>
+                          {% if row.isDuplicate or row.isVaccinated %}
+                            <div class="app-ear-tag-flags">
+                              {% if row.isVaccinated %}
+                                <strong class="app-tag-dark" title="BCG vaccinated">VAX</strong>
+                              {% endif %}
+                              {% if row.isDuplicate %}
+                                <strong class="app-tag-dark" title="Another animal on this farm shares the last digits of this ear tag">DUP</strong>
+                              {% endif %}
+                            </div>
+                          {% endif %}
+                        </div>
+                      </td>
+                      {% for cell in row.cells %}
+                        {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
+                        {% set cellClass = "app-col-narrow" %}
+                        {% if cellHeading == "Age" %}{% set cellClass = "app-col-age" %}{% endif %}
+                        {% if cellHeading == "DOB" %}{% set cellClass = "app-col-dob" %}{% endif %}
+                        {% if cellHeading == "Sex" %}{% set cellClass = "app-col-sex" %}{% endif %}
+                        {% if cellHeading == "Breed" %}{% set cellClass = "app-col-breed" %}{% endif %}
+                        <td class="{{ cellClass }}" rowspan="2">{{ cell.value }}</td>
+                      {% endfor %}
+                      <th scope="row" class="app-col-label">A</th>
+                      <td class="app-col-skin"></td>
+                      <td class="app-col-skin"></td>
+                      <td class="app-col-reaction"></td>
+                      <td class="app-col-overall" rowspan="2"></td>
+                      <td class="app-col-notes" rowspan="2"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" class="app-col-label">B</th>
+                      <td class="app-col-skin"></td>
+                      <td class="app-col-skin"></td>
+                      <td class="app-col-reaction"></td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+                {% endfor %}
+              </table>
+
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        {# One shared script fills in the "date list was made" cell for
+           every preview sheet on the page. #}
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            var stamp = new Intl.DateTimeFormat('en-GB', {
+              weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+            }).format(new Date())
+            var nodes = document.querySelectorAll('.js-date-printed')
+            for (var i = 0; i < nodes.length; i++) nodes[i].textContent = stamp
+          })
+        </script>
+
+        {# Primary action moves the vet on to the confirmation / success
+           step. The "Change which cattle will not be tested" link sits
+           below it as a secondary navigation action. #}
+        <div class="app-results-actions govuk-!-margin-top-4">
+          {{ govukButton({
+            text: "Continue",
+            href: "/v1-1/skin-test-list-confirmed"
+          }) }}
+        </div>
+
+        <p class="govuk-body govuk-!-margin-top-2">
+          <a class="govuk-link" href="/v1-1/prepare-skin-test-untested">
+            Remove cattle from list
+          </a>
+        </p>
+
+        {# Edit assignments – only meaningful on the "Both" journey where
+           the herd has been split into separate SICCT and DIVA lists. #}
+        {% if isBothJourney %}
+          <p class="govuk-body govuk-!-margin-top-2">
+            <a class="govuk-link" href="/v1-1/prepare-skin-test-assign-cattle/edit/sicct">
+              Change cattle on the SICCT list
+            </a>
+          </p>
+          <p class="govuk-body govuk-!-margin-top-2">
+            <a class="govuk-link" href="/v1-1/prepare-skin-test-assign-cattle/edit/diva">
+              Change cattle on the DIVA list
+            </a>
+          </p>
+        {% endif %}
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // If the user arrived from the success page with ?print=1, open the
+  // print dialog automatically so they don't have to hunt for it.
+  (function () {
+    if (/[?&]print=1\b/.test(window.location.search)) {
+      window.setTimeout(function () { window.print() }, 200)
+    }
+  })()
+</script>
+{% endblock %}

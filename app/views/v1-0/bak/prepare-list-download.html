@@ -1,0 +1,44 @@
+{% extends "layouts/main.html" %}
+{% block pageTitle %}Choose how to download your list – GOV.UK{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/confirm-herd-or-animal"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <form action="/v1-0/prepare-list-download" method="post" novalidate>
+      {{ govukRadios({
+        idPrefix: "downloadFormat",
+        name: "downloadFormat",
+        fieldset: {
+          legend: {
+            text: "Choose how to download your list",
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        hint: {
+          text: "Choose the format that works best for this visit."
+        },
+        errorMessage: { text: errors['downloadFormat'].text } if errors and errors['downloadFormat'],
+        value: data['downloadFormat'],
+        items: [
+          { value: "pdf", text: "Printable list (PDF)" },
+          { value: "csv", text: "CSV (spreadsheet)" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+    </form>
+  </div>
+</div>
+{% endblock %}

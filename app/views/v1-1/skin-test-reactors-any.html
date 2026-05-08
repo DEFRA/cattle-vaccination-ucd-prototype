@@ -1,0 +1,58 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Did any cattle react to the skin test? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/skin-test-both-order" if data['skinTestType'] == 'Both' else "/v1-1/skin-test-type"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {# For Both, the page is rendered twice – once per test – so the
+       caption / heading shows the specific test the question is about
+       (SICCT or DIVA). Single-test journeys use that journey's name. #}
+    {% set captionLabel = currentTestLabel or data['skinTestType'] or 'Skin test' %}
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ captionLabel }}</span>
+    <h1 class="govuk-heading-l">
+      Did any cattle show a positive reaction?
+    </h1>
+
+
+
+    <form action="/v1-1/skin-test-reactors-any" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "anyReactors",
+        name: "anyReactors",
+        errorMessage: { text: errors['anyReactors'].text } if errors and errors['anyReactors'],
+        fieldset: {
+          legend: {
+            text: ("Did any cattle react to the " + captionLabel + " test?"),
+            classes: "govuk-visually-hidden"
+          }
+        },
+        hint: { text: "Select 'Yes' if any animals showed a reaction. You should also select 'yes' if any animal showed an inconclusive result." },
+        items: [
+          { value: "yes", text: "Yes" },
+          { value: "no",  text: "No" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

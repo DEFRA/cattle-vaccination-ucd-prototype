@@ -1,0 +1,513 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Record DIVA result – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref or "/v1-2/skin-test-type"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Progress summary – plain "Cattle X of N" line, no bar. */
+  .app-progress-summary { margin: 0 0 20px; }
+
+  /* ------------------------------------------------------------------
+     Animal identity – ear tag + VAX / DUP flags, then a compact
+     single-column key/value list for Age / DOB / Sex / Breed.
+  ------------------------------------------------------------------ */
+  .app-animal { margin: 0 0 25px; }
+  .app-animal__ear-tag-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 12px;
+  }
+  .app-animal__ear-tag {
+    font-size: 24px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+  /* No gap between "UK" and the number on the ear tag. */
+  .app-animal__ear-tag-prefix { margin-right: 0; }
+  .app-animal__ear-tag-last {
+    padding: 2px 8px;
+    margin-left: 2px;
+    border: 2px solid #0b0c0c;
+  }
+  /* VAX / DUP flags – same muted style as the printed list. */
+  .app-tag-dark {
+    display: inline-block;
+    background-color: #f3f2f1;
+    color: #505a5f;
+    font-family: "GDS Transport", arial, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    text-transform: uppercase;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  /* Compact single-column animal-details list. */
+  .app-animal__meta {
+    margin: 0;
+    line-height: 1.5;
+  }
+  .app-animal__meta-item {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 4px 0;
+  }
+  .app-animal__meta dt {
+    color: #505a5f;
+    margin: 0;
+    flex: 0 0 8rem;
+  }
+  .app-animal__meta dd {
+    color: #0b0c0c;
+    font-weight: 700;
+    margin: 0;
+    flex: 1 1 auto;
+    word-break: break-word;
+  }
+
+  /* ------------------------------------------------------------------
+     DIVA is a bovine-only test so the measurement grid is just one
+     row (Bovine) × two columns (Pre, Post).
+  ------------------------------------------------------------------ */
+  .app-measurement-form-table {
+    width: 100%;
+    max-width: 520px;
+    border-collapse: collapse;
+    font-family: "GDS Transport", arial, sans-serif;
+    margin: 0 0 15px;
+  }
+  .app-measurement-form-table th,
+  .app-measurement-form-table td {
+    border: 1px solid #b1b4b6;
+    padding: 16px;
+    vertical-align: middle;
+    text-align: center;
+  }
+  .app-measurement-form-table thead th {
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.3;
+    background: transparent;
+  }
+  .app-measurement-form-table thead .app-mf-day {
+    display: block;
+    font-size: 16px;
+    font-weight: 400;
+    color: #505a5f;
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .app-measurement-form-table tbody th {
+    background: transparent;
+    width: 5.5rem;
+    font-weight: 700;
+  }
+  .app-measurement-form-table tbody th .app-mf-letter {
+    display: block;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .app-measurement-form-table tbody th .app-mf-name {
+    display: block;
+    font-size: 16px;
+    font-weight: 400;
+    color: #505a5f;
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .app-measurement-form-table td .govuk-form-group {
+    margin: 0;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  .app-measurement-form-table .govuk-input {
+    font-size: 19px;
+    line-height: 1.3;
+  }
+
+  /* "Save and exit" is a submit styled as a link. */
+  .app-link-button {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    cursor: pointer;
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {% if isCombinedBoth %}
+      <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+      <h1 class="govuk-heading-l govuk-!-margin-bottom-3">Record measurements for cattle: {{ currentAnimal.earTagParts.last4 }}</h1>
+      <p class="govuk-body">
+        Choose which test you did on this animal, then record the measurements for that test.
+      </p>
+    {% else %}
+      <span class="govuk-caption-l">
+        {{ data['herd']['farm'] }} - DIVA{% if bothStepText %} - {{ bothStepText }}{% endif %}
+      </span>
+      <h1 class="govuk-heading-l govuk-!-margin-bottom-3">Record measurements for cattle: {{ currentAnimal.earTagParts.last4 }}</h1>
+      <p class="govuk-body">
+        DIVA is for the BCG vaccinated cattle on this farm. Record the bovine skin thickness at injection and 72 hours later.
+      </p>
+
+      {% if isBothJourney %}
+        {{ govukInsetText({
+          html: "When you've finished recording DIVA for every animal on this list, you'll move on to the SICCT measurements for the unvaccinated cattle." if bothStepText == 'Step 1 of 2' else "You've finished the SICCT measurements. Now record DIVA for the vaccinated cattle."
+        }) }}
+      {% endif %}
+    {% endif %}
+
+    <p class="govuk-body app-progress-summary"><strong>Cattle {{ currentPosition }} of {{ totalCattle }}</strong></p>
+
+    <form action="/v1-2/skin-test-diva/{{ currentIndex }}" method="post" novalidate>
+
+      {# Animal identity – ear tag + VAX / DUP flags, matching the list #}
+      <div class="app-animal" aria-label="Animal details">
+        <div class="app-animal__ear-tag-row">
+          <p class="app-animal__ear-tag">
+            <span class="app-animal__ear-tag-prefix">{{ currentAnimal.earTagParts.prefix }}</span>
+            <span>{{ currentAnimal.earTagParts.herd }}</span>
+            <span>{{ currentAnimal.earTagParts.check }}</span>
+            <span>{{ currentAnimal.earTagParts.individualStart }}</span>
+            <span class="app-animal__ear-tag-last">{{ currentAnimal.earTagParts.last4 }}</span>
+          </p>
+          {% if currentAnimal.isVaccinated %}
+            <strong class="app-tag-dark" title="BCG vaccinated">VAX</strong>
+          {% endif %}
+          {% if currentAnimal.isDuplicate %}
+            <strong class="app-tag-dark" title="Another animal on this farm shares the last 4 digits of this ear tag">DUP</strong>
+          {% endif %}
+        </div>
+        {# Compact single-column animal details. Order: Age, DOB, Sex,
+           Breed, then Expected test (combined Both only). The
+           Expected test row uses the same key/value layout so the
+           label column lines up with the rest. #}
+        <dl class="app-animal__meta govuk-body">
+          <div class="app-animal__meta-item">
+            <dt>Age</dt>
+            <dd>{{ currentAnimal.age }}</dd>
+          </div>
+          <div class="app-animal__meta-item">
+            <dt>DOB</dt>
+            <dd>{{ currentAnimal.dob }}</dd>
+          </div>
+          <div class="app-animal__meta-item">
+            <dt>Sex</dt>
+            <dd>{{ currentAnimal.sex }}</dd>
+          </div>
+          <div class="app-animal__meta-item">
+            <dt>Breed</dt>
+            <dd>{{ currentAnimal.breed }}</dd>
+          </div>
+          {% if isCombinedBoth %}
+            <div class="app-animal__meta-item">
+              <dt>Expected test</dt>
+              <dd>{{ recommendedTest }}</dd>
+            </div>
+          {% endif %}
+        </dl>
+      </div>
+
+      {# DIVA fields, used both for the DIVA-only flow and for the
+         "DIVA" branch of the v1-2 Both test-type radio. #}
+      {% set divaFieldsHtml %}
+        <fieldset class="govuk-fieldset" aria-describedby="diva-measurement-hint">
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
+            DIVA skin measurement
+          </legend>
+          <p id="diva-measurement-hint" class="govuk-hint">
+            Record the bovine skin thickness at injection and 72 hours later.
+          </p>
+
+          <div style="overflow-x: auto;">
+            <table class="app-measurement-form-table">
+              <thead>
+                <tr>
+                  <th scope="col">Site</th>
+                  <th scope="col">Pre <span class="app-mf-day">Day 1 (injection)</span></th>
+                  <th scope="col">Post <span class="app-mf-day">Day 2 (72 hours later)</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row"><span class="app-mf-letter">B</span><span class="app-mf-name">Bovine</span></th>
+                  <td>
+                    {{ govukInput({
+                      id: "divaBovineBeforeInjection",
+                      name: "divaBovineBeforeInjection",
+                      classes: "govuk-input--width-4",
+                      label: { text: "Bovine before injection in millimetres", classes: "govuk-visually-hidden" },
+                      suffix: { text: "mm" },
+                      attributes: { inputmode: "decimal" },
+                      value: formValues['divaBovineBeforeInjection'] or savedEntry.divaBovineBeforeInjection,
+                      errorMessage: { text: errors['divaBovineBeforeInjection'].text } if errors and errors['divaBovineBeforeInjection']
+                    }) }}
+                  </td>
+                  <td>
+                    {{ govukInput({
+                      id: "divaBovineAfter72Hours",
+                      name: "divaBovineAfter72Hours",
+                      classes: "govuk-input--width-4",
+                      label: { text: "Bovine after 72 hours in millimetres", classes: "govuk-visually-hidden" },
+                      suffix: { text: "mm" },
+                      attributes: { inputmode: "decimal" },
+                      value: formValues['divaBovineAfter72Hours'] or savedEntry.divaBovineAfter72Hours,
+                      errorMessage: { text: errors['divaBovineAfter72Hours'].text } if errors and errors['divaBovineAfter72Hours']
+                    }) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </fieldset>
+
+        {{ govukTextarea({
+          label: { text: "Description of reaction", classes: "govuk-label--m" },
+          id: "divaReactionDescription",
+          name: "divaReactionDescription",
+          rows: 3,
+          hint: { text: "Describe any visible reaction at the bovine injection site." },
+          value: formValues['divaReactionDescription'] or savedEntry.divaReactionDescription,
+          classes: "govuk-!-margin-top-6"
+        }) }}
+
+        {{ govukRadios({
+          idPrefix: "divaResult",
+          name: "divaResult",
+          classes: "govuk-!-margin-top-4",
+          value: formValues['divaResult'] or savedEntry.divaResult,
+          fieldset: { legend: { text: "DIVA result", classes: "govuk-fieldset__legend--m" } },
+          hint: { text: "Select the interpretation of the DIVA reading." },
+          errorMessage: { text: errors['divaResult'].text } if errors and errors['divaResult'],
+          items: [
+            { value: "positive",     text: "Positive",     hint: { text: "Reaction indicating infection." } },
+            { value: "inconclusive", text: "Inconclusive", hint: { text: "Reading is unclear and needs review." } }
+          ]
+        }) }}
+
+        {# Multiple DIVA batches → ask which one. #}
+        {% if divaBatches and divaBatches.length > 1 %}
+          {% set divaBatchItems = [] %}
+          {% for batch in divaBatches %}
+            {% set divaBatchItems = divaBatchItems.concat([{ value: batch, text: batch }]) %}
+          {% endfor %}
+          {{ govukRadios({
+            idPrefix: "divaBatchUsed",
+            name: "divaBatchUsed",
+            classes: "govuk-!-margin-top-6",
+            value: formValues['divaBatchUsed'] or savedEntry.divaBatchUsed,
+            fieldset: { legend: { text: "Which DIVA batch was used?", classes: "govuk-fieldset__legend--m" } },
+            hint: { text: "Select the batch the vaccine for this animal came from." },
+            errorMessage: { text: errors['divaBatchUsed'].text } if errors and errors['divaBatchUsed'],
+            items: divaBatchItems
+          }) }}
+        {% endif %}
+
+        {{ govukTextarea({
+          label: { text: "Remarks", classes: "govuk-label--m" },
+          id: "divaRemarks",
+          name: "divaRemarks",
+          rows: 3,
+          hint: { text: "Record anything else about the DIVA reading for this animal." },
+          value: formValues['divaRemarks'] or savedEntry.divaRemarks,
+          classes: "govuk-!-margin-top-6"
+        }) }}
+      {% endset %}
+
+      {# SICCT fields, only used inside the v1-2 Both test-type radio. #}
+      {% set sicctFieldsHtml %}
+        <fieldset class="govuk-fieldset" aria-describedby="sicct-measurement-hint">
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">SICCT skin measurement</legend>
+          <p id="sicct-measurement-hint" class="govuk-hint">
+            Row A is the Avian site, row B is the Bovine site.
+          </p>
+
+          <div style="overflow-x: auto;">
+            <table class="app-measurement-form-table">
+              <thead>
+                <tr>
+                  <th scope="col">Site</th>
+                  <th scope="col">Pre <span class="app-mf-day">Day 1 (injection)</span></th>
+                  <th scope="col">Post <span class="app-mf-day">Day 2 (72 hours later)</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row"><span class="app-mf-letter">A</span><span class="app-mf-name">Avian</span></th>
+                  <td>
+                    {{ govukInput({
+                      id: "avianBeforeInjection",
+                      name: "avianBeforeInjection",
+                      classes: "govuk-input--width-4",
+                      label: { text: "Avian Pre (Day 1) in millimetres", classes: "govuk-visually-hidden" },
+                      suffix: { text: "mm" },
+                      attributes: { inputmode: "decimal" },
+                      value: formValues['avianBeforeInjection'] or savedEntry.avianBeforeInjection
+                    }) }}
+                  </td>
+                  <td>
+                    {{ govukInput({
+                      id: "avianAfter72Hours",
+                      name: "avianAfter72Hours",
+                      classes: "govuk-input--width-4",
+                      label: { text: "Avian Post (Day 2) in millimetres", classes: "govuk-visually-hidden" },
+                      suffix: { text: "mm" },
+                      attributes: { inputmode: "decimal" },
+                      value: formValues['avianAfter72Hours'] or savedEntry.avianAfter72Hours
+                    }) }}
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row"><span class="app-mf-letter">B</span><span class="app-mf-name">Bovine</span></th>
+                  <td>
+                    {{ govukInput({
+                      id: "bovineBeforeInjection",
+                      name: "bovineBeforeInjection",
+                      classes: "govuk-input--width-4",
+                      label: { text: "Bovine Pre (Day 1) in millimetres", classes: "govuk-visually-hidden" },
+                      suffix: { text: "mm" },
+                      attributes: { inputmode: "decimal" },
+                      value: formValues['bovineBeforeInjection'] or savedEntry.bovineBeforeInjection
+                    }) }}
+                  </td>
+                  <td>
+                    {{ govukInput({
+                      id: "bovineAfter72Hours",
+                      name: "bovineAfter72Hours",
+                      classes: "govuk-input--width-4",
+                      label: { text: "Bovine Post (Day 2) in millimetres", classes: "govuk-visually-hidden" },
+                      suffix: { text: "mm" },
+                      attributes: { inputmode: "decimal" },
+                      value: formValues['bovineAfter72Hours'] or savedEntry.bovineAfter72Hours
+                    }) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </fieldset>
+
+        {{ govukTextarea({
+          label: { text: "Reaction description", classes: "govuk-label--m" },
+          id: "reactionDescription",
+          name: "reactionDescription",
+          rows: 3,
+          hint: { text: "Describe any visible reaction at the injection sites." },
+          value: formValues['reactionDescription'] or savedEntry.reactionDescription,
+          classes: "govuk-!-margin-top-6"
+        }) }}
+
+        {{ govukRadios({
+          idPrefix: "overallResult",
+          name: "overallResult",
+          classes: "govuk-!-margin-top-4",
+          value: formValues['overallResult'] or savedEntry.overallResult,
+          fieldset: { legend: { text: "Overall SICCT result", classes: "govuk-fieldset__legend--m" } },
+          hint: { text: "Select the overall interpretation of the SICCT skin test for this animal." },
+          items: [
+            { value: "positive",     text: "Positive" },
+            { value: "inconclusive", text: "Inconclusive" }
+          ]
+        }) }}
+
+        {# Multiple SICCT batches → ask which one. #}
+        {% if sicctBatches and sicctBatches.length > 1 %}
+          {% set sicctBatchItems = [] %}
+          {% for batch in sicctBatches %}
+            {% set sicctBatchItems = sicctBatchItems.concat([{ value: batch, text: batch }]) %}
+          {% endfor %}
+          {{ govukRadios({
+            idPrefix: "sicctBatchUsed",
+            name: "sicctBatchUsed",
+            classes: "govuk-!-margin-top-6",
+            value: formValues['sicctBatchUsed'] or savedEntry.sicctBatchUsed,
+            fieldset: { legend: { text: "Which SICCT batch was used?", classes: "govuk-fieldset__legend--m" } },
+            hint: { text: "Select the batch the tuberculin for this animal came from." },
+            errorMessage: { text: errors['sicctBatchUsed'].text } if errors and errors['sicctBatchUsed'],
+            items: sicctBatchItems
+          }) }}
+        {% endif %}
+      {% endset %}
+
+      <div id="diva-panel">
+        {% if isCombinedBoth %}
+          {# v1-2 Both: pick which test was performed on this animal,
+             then fill in the matching measurement form. The default
+             selection follows the recommended test (DIVA for
+             vaccinated cattle, SICCT for everyone else) so the vet
+             only has to switch when reality differs from the plan. #}
+          {% set selectedPerformedTest = formValues['performedTest'] or savedEntry.performedTest or recommendedTest %}
+
+          {{ govukRadios({
+            idPrefix: "performedTest",
+            name: "performedTest",
+            classes: "govuk-!-margin-bottom-4",
+            value: selectedPerformedTest,
+            fieldset: {
+              legend: {
+                text: "Which test did you do on this animal?",
+                classes: "govuk-fieldset__legend--m"
+              }
+            },
+            hint: { text: "The expected test is pre-selected based on whether this animal is BCG vaccinated. Change it if you actually performed the other test." },
+            errorMessage: { text: errors['performedTest'].text } if errors and errors['performedTest'],
+            items: [
+              { value: "SICCT", text: "SICCT", conditional: { html: sicctFieldsHtml } },
+              { value: "DIVA",  text: "DIVA",  conditional: { html: divaFieldsHtml } }
+            ]
+          }) }}
+        {% else %}
+          {{ divaFieldsHtml | safe }}
+        {% endif %}
+      </div>
+
+      {# Actions – primary button + link-styled save/skip #}
+      <div class="govuk-button-group govuk-!-margin-top-6">
+        {{ govukButton({ text: "Save and continue", name: "loopAction", value: "next" }) }}
+      </div>
+
+      <p class="govuk-body">
+        <button type="submit" name="loopAction" value="save-exit" class="govuk-link app-link-button">
+          Save and exit
+        </button>
+      </p>
+      <p class="govuk-body">
+        <a class="govuk-link" href="/v1-2/skin-test-confirmation">
+          Skip to review progress
+        </a>
+      </p>
+
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}

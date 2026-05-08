@@ -1,0 +1,47 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Search for a farm
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/dashboard"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <h1 class="govuk-heading-l">Prepare a list</h1>
+    <p class="govuk-body">
+      You're preparing a list of cattle for vaccination or skin testing.
+    </p>
+
+
+
+    <form action="/v1-1/search" method="post" novalidate>
+      {{ govukInput({
+        label: {
+          text: "Enter a CPH, farm name, postcode or ear tag",
+          classes: "govuk-label--m"
+        },
+        hint: {
+          text: "For example, 12/345/6789, Hill Farm, HG4 1BC, or UK341234400156"
+        },
+        id: "cattleSearch",
+        name: "cattleSearch",
+        value: data['cattleSearch'] or data['search'],
+        errorMessage: { text: errors['cattleSearch'].text } if errors and errors['cattleSearch']
+      }) }}
+
+      {{ govukButton({ text: "Search" }) }}
+    </form>
+  </div>
+</div>
+{% endblock %}

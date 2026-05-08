@@ -1,0 +1,62 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Enter the vaccination date – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/workorder-tasks"
+}) }}
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <form action="/v1-0/schedule-vaccination" method="post">
+
+      <span class="govuk-caption-l">ID: WS-76867</span>
+      <h1 class="govuk-heading-l">Enter the vaccination date</h1>
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Livestock owner details" },
+            value: { html: "Hill Farm<br>Hill Farm, York, YO1 1AA" }
+          }
+        ]
+      }) }}
+
+      {{ govukDateInput({
+        id: "vaccinationDate",
+        namePrefix: "vaccinationDate",
+        values: {
+          day: data['vaccinationDateDay'],
+          month: data['vaccinationDateMonth'],
+          year: data['vaccinationDateYear']
+        },
+        fieldset: {
+          legend: {
+            text: "Vaccination date",
+            classes: "govuk-fieldset__legend--m"
+          }
+        }
+      }) }}
+
+      {{ govukButton({
+        text: "Continue"
+      }) }}
+
+    </form>
+
+    <p class="govuk-body">
+      <a href="/v1-0/dashboard" class="govuk-link">Save and exit</a>
+    </p>
+
+  </div>
+</div>
+
+{% endblock %}

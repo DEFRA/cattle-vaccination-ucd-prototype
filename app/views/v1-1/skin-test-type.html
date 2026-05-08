@@ -1,0 +1,112 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Which test did you do? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-1/skin-test-date"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {# Selected tests + per-test batch numbers come from session so the
+       "Add another batch" button can grow each list across re-renders.
+       Each test starts with a single empty batch input when the
+       checkbox is first ticked. #}
+    {% set selectedTests = data['skinTestTests'] or [] %}
+    {% set sicctChecked = "SICCT" in selectedTests %}
+    {% set divaChecked  = "DIVA"  in selectedTests %}
+    {% set sicctBatches = data['skinTestSicctBatches'] if data['skinTestSicctBatches'] and data['skinTestSicctBatches'].length else [''] %}
+    {% set divaBatches  = data['skinTestDivaBatches']  if data['skinTestDivaBatches']  and data['skinTestDivaBatches'].length  else [''] %}
+
+    <form action="/v1-1/skin-test-type" method="post" novalidate>
+
+      {# ---- SICCT conditional content (batch number list + add link) ---- #}
+      {% set sicctConditionalHtml %}
+        {% for batch in sicctBatches %}
+          {{ govukInput({
+            label: { text: "SICCT batch number" },
+            id: "sicctBatch-" + loop.index|string,
+            name: "sicctBatches",
+            classes: "govuk-input--width-20",
+            value: batch
+          }) }}
+        {% endfor %}
+        <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">
+          <button type="submit"
+                  name="addBatch"
+                  value="sicct"
+                  class="govuk-link"
+                  style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
+            Add another SICCT batch
+          </button>
+        </p>
+      {% endset %}
+
+      {# ---- DIVA conditional content (batch number list + add link) ---- #}
+      {% set divaConditionalHtml %}
+        {% for batch in divaBatches %}
+          {{ govukInput({
+            label: { text: "DIVA batch number" },
+            id: "divaBatch-" + loop.index|string,
+            name: "divaBatches",
+            classes: "govuk-input--width-20",
+            value: batch
+          }) }}
+        {% endfor %}
+        <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">
+          <button type="submit"
+                  name="addBatch"
+                  value="diva"
+                  class="govuk-link"
+                  style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
+            Add another DIVA batch
+          </button>
+        </p>
+      {% endset %}
+
+      {{ govukCheckboxes({
+        idPrefix: "tests",
+        name: "tests",
+        fieldset: {
+          legend: {
+            text: "Which test did you do?",
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        hint: { text: "Select all that apply." },
+        errorMessage: { text: errors['tests'].text } if errors and errors['tests'],
+        items: [
+          {
+            value: "SICCT",
+            text: "SICCT test",
+            checked: sicctChecked,
+            conditional: { html: sicctConditionalHtml }
+          },
+          {
+            value: "DIVA",
+            text: "DIVA test",
+            checked: divaChecked,
+            conditional: { html: divaConditionalHtml }
+          }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

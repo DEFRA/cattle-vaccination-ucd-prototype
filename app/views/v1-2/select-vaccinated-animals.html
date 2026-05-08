@@ -1,0 +1,433 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Select and mark cattle – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-2/enter-diluent-batch-details"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  .app-marking-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 30px;
+    align-items: start;
+  }
+  .app-panel {
+    border: 1px solid #b1b4b6;
+    padding: 20px;
+    background: #f8f8f8;
+  }
+  .app-table-wrap {
+    margin-bottom: 20px;
+  }
+  /* v1-2: matches /v1-2/skin-test-list and the other v1-2 skin-test
+     pages – Arial, black 1px borders, fixed table layout, with the
+     ear tag's last-4 digits highlighted in a tight bordered box. */
+  .app-record-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .app-record-table th,
+  .app-record-table td {
+    border: 1px solid #0b0c0c;
+    padding: 6px 8px;
+    vertical-align: middle;
+    box-sizing: border-box;
+  }
+  .app-record-table th {
+    background: #ffffff;
+    text-align: center;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .app-record-table td {
+    height: 2.4em;
+  }
+
+  /* Column widths mirror the other v1-2 skin-test pages so the table
+     reads the same on screen. The Select column is left-aligned so
+     the checkbox sits flush with the column header rather than
+     centred. */
+  .app-col-select   { width: 4.5rem; text-align: left !important; }
+  .app-col-select .govuk-checkboxes__item { padding-left: 28px; }
+  .app-col-ear-tag  { width: 8.5rem; }
+  .app-col-dob      { width: 7rem;   text-align: center !important; }
+  .app-col-sex      { width: 3.5rem; text-align: center !important; }
+  .app-col-breed    { width: 4.5rem; text-align: center !important; }
+
+  /* Ear tag rendering – matches the skin-test-list table.
+     The last-4 digits sit in a tight bordered box so the vet can
+     spot the animal at a glance. */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 {
+    padding: 2px 3px;
+    border: 2px solid #b1b4b6;
+  }
+  .app-summary-card {
+    border: 1px solid #b1b4b6;
+    padding: 16px;
+    margin-bottom: 16px;
+    background: #fff;
+  }
+  .app-selected-list {
+    max-height: 180px;
+    overflow: auto;
+    margin-top: 10px;
+  }
+  .app-link-button {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: #1d70b8;
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+  }
+  .app-link-button:hover {
+    color: #003078;
+  }
+  .app-link-button:focus {
+    outline: 3px solid #ffdd00;
+    background: #ffdd00;
+    box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
+    text-decoration: none;
+  }
+  @media (max-width: 1200px) {
+    .app-marking-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 640px) {
+    .app-record-table th,
+    .app-record-table td {
+      padding: 10px 12px;
+    }
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {% set isMarkNotVax = data['vaccinationApproach'] == 'mark-not-vaccinated' %}
+
+    {% if markingPhase == 'vaccinated' %}
+      <h1 class="govuk-heading-l govuk-!-margin-bottom-3">Select vaccinated cattle for {{ herd.farm or data['selectedCattleLabel'] or data['selectedCattle'] }}</h1>
+      {% if isMarkNotVax %}
+        <p class="govuk-body govuk-!-margin-bottom-6">You've marked the cattle that were not vaccinated. Now confirm the remaining cattle are vaccinated and continue.</p>
+      {% else %}
+        <p class="govuk-body govuk-!-margin-bottom-6">Select the cattle that were vaccinated. They will be banked into the summary. When you have marked the vaccinated cattle, continue to mark the remaining cattle with a reason.</p>
+      {% endif %}
+    {% else %}
+      {% if isMarkNotVax %}
+        <h1 class="govuk-heading-l govuk-!-margin-bottom-3">Select cattle that were not vaccinated for {{ herd.farm or data['selectedCattleLabel'] or data['selectedCattle'] }}</h1>
+        <p class="govuk-body govuk-!-margin-bottom-6">Select the cattle that were not vaccinated and add a reason. When you have finished, the remaining cattle will be marked as vaccinated.</p>
+      {% else %}
+        <h1 class="govuk-heading-l govuk-!-margin-bottom-3">Mark the remaining cattle for {{ herd.farm or data['selectedCattleLabel'] or data['selectedCattle'] }}</h1>
+        <p class="govuk-body govuk-!-margin-bottom-6">Add a reason for the cattle that were not vaccinated.</p>
+      {% endif %}
+    {% endif %}
+
+    <div class="app-marking-layout">
+      <div>
+        <form action="/v1-2/select-vaccinated-animals" method="post" novalidate>
+          <div class="app-panel govuk-!-margin-bottom-4">
+            <h2 class="govuk-heading-m govuk-!-margin-bottom-2">{{ activeReviewGroupLabel }}</h2>
+            {% if activeReviewGroup == 'remaining' %}
+              <p class="govuk-body govuk-!-margin-bottom-2">{{ totalRemaining }} of {{ totalAnimals }} cattle still need a decision.</p>
+              {% if totalRemaining > 0 %}
+                <p class="govuk-body govuk-!-margin-bottom-0">
+                  {% if markingPhase == 'vaccinated' %}
+                    Select cattle from the table and mark them as vaccinated.
+                  {% else %}
+                    Select cattle from the table, then choose how to mark them.
+                  {% endif %}
+                </p>
+              {% else %}
+                <p class="govuk-body govuk-!-margin-bottom-0">All cattle have been marked. Review the summary or continue.</p>
+              {% endif %}
+            {% else %}
+              <p class="govuk-body govuk-!-margin-bottom-0">These cattle have been banked in this group. Select any cattle you want to move back to the remaining list and change.</p>
+            {% endif %}
+          </div>
+
+          {% if errors and errors['selectedAnimals'] %}
+            <p id="selected-animals" class="govuk-error-message">
+              <span class="govuk-visually-hidden">Error:</span> {{ errors['selectedAnimals'].text }}
+            </p>
+          {% endif %}
+
+          {% if activeRows.length %}
+            <div class="app-table-wrap" id="selected-animals">
+              <table class="app-record-table">
+                <thead>
+                  <tr>
+                    <th scope="col" class="app-col-select">
+                      <div class="govuk-checkboxes govuk-checkboxes--small">
+                        <div class="govuk-checkboxes__item govuk-!-margin-bottom-0">
+                          <input class="govuk-checkboxes__input" id="select-all-active" type="checkbox">
+                          <label class="govuk-label govuk-checkboxes__label" for="select-all-active">All</label>
+                        </div>
+                      </div>
+                    </th>
+                    <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+                    <th scope="col" class="app-col-dob">DOB</th>
+                    <th scope="col" class="app-col-sex">Sex</th>
+                    <th scope="col" class="app-col-breed">Breed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in activeRows %}
+                    <tr>
+                      <td class="app-col-select">
+                        <div class="govuk-checkboxes govuk-checkboxes--small">
+                          <div class="govuk-checkboxes__item govuk-!-margin-bottom-0">
+                            <input class="govuk-checkboxes__input js-animal-checkbox" id="animal-{{ loop.index }}" name="selectedAnimals" type="checkbox" value="{{ row.id }}" {% if row.id in selectedIds %}checked{% endif %}>
+                            <label class="govuk-label govuk-checkboxes__label" for="animal-{{ loop.index }}">
+                              <span class="govuk-visually-hidden">Select {{ row.officialId }}</span>
+                            </label>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="app-col-ear-tag">
+                        <div class="app-ear-tag">
+                          <span class="app-ear-tag__prefix">{{ row.earTagParts.prefix }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--herd">{{ row.earTagParts.herd }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--check">{{ row.earTagParts.check }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ row.earTagParts.individualStart }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--last4">{{ row.earTagParts.last4 }}</span>
+                        </div>
+                      </td>
+                      <td class="app-col-dob">{{ row.dob }}</td>
+                      <td class="app-col-sex">{{ row.sex }}</td>
+                      <td class="app-col-breed">{{ row.breed }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            {% if activeReviewGroup == 'remaining' %}
+              {% if markingPhase == 'reasons' %}
+                {{ govukRadios({
+                  idPrefix: "selectedStatus",
+                  name: "selectedStatus",
+                  value: formValues['selectedStatus'],
+                  fieldset: {
+                    legend: {
+                      text: "Mark selected cattle as",
+                      classes: "govuk-fieldset__legend--m"
+                    }
+                  },
+                  errorMessage: { text: errors['selectedStatus'].text } if errors and errors['selectedStatus'],
+                  items: [
+                    {
+                      value: "not-found",
+                      text: "Cattle not found"
+                    },
+                    {
+                      value: "deceased",
+                      text: "Cattle deceased"
+                    },
+                    {
+                      value: "withdrawn-export",
+                      text: "Cattle withdrawn for export purposes"
+                    },
+                    {
+                      value: "withdrawn-slaughter",
+                      text: "Cattle withdrawn for slaughter"
+                    },
+                    {
+                      value: "withdrawn-owner",
+                      text: "Cattle withdrawn by the livestock owner"
+                    },
+                    {
+                      value: "other",
+                      text: "Other reason",
+                      conditional: {
+                        html: govukInput({
+                          label: {
+                            text: "Type a reason"
+                          },
+                          id: "otherReason",
+                          name: "otherReason",
+                          value: formValues['otherReason'],
+                          errorMessage: { text: errors['otherReason'].text } if errors and errors['otherReason']
+                        })
+                      }
+                    }
+                  ]
+                }) }}
+              {% endif %}
+
+              <div class="govuk-button-group govuk-!-margin-bottom-8">
+                {% if markingPhase == 'vaccinated' %}
+                  {{ govukButton({
+                    text: "Mark selected as vaccinated",
+                    name: "markAction",
+                    value: "mark"
+                  }) }}
+                  {% if totalMarked > 0 %}
+                    {{ govukButton({
+                      text: "Continue to remaining cattle",
+                      classes: "govuk-button--secondary",
+                      name: "markAction",
+                      value: "continue-to-reasons"
+                    }) }}
+                  {% endif %}
+                {% else %}
+                  {{ govukButton({
+                    text: "Mark selected cattle",
+                    name: "markAction",
+                    value: "mark"
+                  }) }}
+                  {# Inverse flow: once the vet has marked the cattle
+                     that were NOT vaccinated, this shortcut bulk-marks
+                     the remaining cattle as vaccinated and moves on
+                     to the confirmation step. Only shown when the vet
+                     chose the "mark not-vaccinated first" approach. #}
+                  {% if isMarkNotVax and totalRemaining > 0 %}
+                    {{ govukButton({
+                      text: "I'm done - mark the rest as vaccinated",
+                      classes: "govuk-button--secondary",
+                      name: "markAction",
+                      value: "bulk-vaccinate-remaining"
+                    }) }}
+                  {% endif %}
+                {% endif %}
+              </div>
+            {% else %}
+              <div class="govuk-button-group govuk-!-margin-bottom-8">
+                {{ govukButton({
+                  text: "Move selected back to remaining cattle",
+                  classes: "govuk-button--secondary",
+                  name: "markAction",
+                  value: "reset"
+                }) }}
+              </div>
+            {% endif %}
+          {% else %}
+            <p class="govuk-body">There are no cattle in this group.</p>
+          {% endif %}
+
+          {% if allComplete %}
+            <div class="govuk-button-group">
+              {{ govukButton({
+                text: "Confirm and continue",
+                name: "markAction",
+                value: "continue"
+              }) }}
+            </div>
+          {% endif %}
+        </form>
+      </div>
+
+      <aside>
+        <div class="app-summary-card">
+          <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Summary</h2>
+          <dl class="govuk-summary-list govuk-summary-list--no-border">
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Total cattle</dt>
+              <dd class="govuk-summary-list__value">{{ totalAnimals }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Still to mark</dt>
+              <dd class="govuk-summary-list__value">{{ totalRemaining }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Marked</dt>
+              <dd class="govuk-summary-list__value">{{ totalMarked }}</dd>
+            </div>
+          </dl>
+
+          <ul class="govuk-list govuk-!-margin-bottom-0">
+            <li class="govuk-!-margin-bottom-2">
+              <form action="/v1-2/select-vaccinated-animals" method="post">
+                <input type="hidden" name="markAction" value="view-group">
+                <button class="app-link-button" type="submit" name="reviewGroup" value="remaining">
+                  Still to be marked ({{ totalRemaining }})
+                </button>
+              </form>
+            </li>
+
+            {% for bucket in summaryBuckets %}
+              <li class="govuk-!-margin-bottom-2">
+                <form action="/v1-2/select-vaccinated-animals" method="post">
+                  <input type="hidden" name="markAction" value="view-group">
+                  <button class="app-link-button" type="submit" name="reviewGroup" value="{{ bucket.key }}">
+                    {{ bucket.label }} ({{ bucket.count }})
+                  </button>
+                </form>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% if selectedAnimalSummary.length %}
+          <div class="app-summary-card">
+            <h2 class="govuk-heading-s govuk-!-margin-bottom-2">Currently selected</h2>
+            <p class="govuk-body govuk-!-margin-bottom-2">{{ selectedAnimalSummary.length }} cattle selected.</p>
+            <div class="app-selected-list">
+              <ul class="govuk-list govuk-list--bullet govuk-!-font-size-16 govuk-!-margin-bottom-0">
+                {% for item in selectedAnimalSummary %}
+                  <li>{{ item }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var selectAll = document.getElementById('select-all-active')
+    var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-animal-checkbox'))
+
+    if (!selectAll || !checkboxes.length) {
+      return
+    }
+
+    function syncSelectAll() {
+      var checkedCount = checkboxes.filter(function (checkbox) { return checkbox.checked }).length
+      selectAll.checked = checkedCount === checkboxes.length
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length
+    }
+
+    selectAll.addEventListener('change', function () {
+      checkboxes.forEach(function (checkbox) {
+        checkbox.checked = selectAll.checked
+      })
+      syncSelectAll()
+    })
+
+    checkboxes.forEach(function (checkbox) {
+      checkbox.addEventListener('change', syncSelectAll)
+    })
+
+    syncSelectAll()
+  })
+</script>
+{% endblock %}

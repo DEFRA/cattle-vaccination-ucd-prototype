@@ -1,0 +1,110 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Your work – GOV.UK
+{% endblock %}
+
+{% block content %}
+<style>
+  .app-dashboard-section {
+    margin-bottom: 40px;
+  }
+  /* Task-list styled rows. The farm name is a heading-shaped link.
+     Below it sits "List prepared on … by …" and a "To do: <task>"
+     line. After a blank line, CPH appears as supporting metadata.
+     No tags, no right-hand status column. */
+  .app-task-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-top: 1px solid #b1b4b6;
+  }
+  .app-task-list__item {
+    border-bottom: 1px solid #b1b4b6;
+    padding: 20px 0;
+  }
+  .app-task-list__farm {
+    margin-top: 0;
+    margin-bottom: 4px;
+  }
+  .app-task-list__line {
+    margin: 0 0 4px;
+  }
+  .app-task-list__cph {
+    color: #505a5f;
+    margin: 16px 0 0;
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if data['savedBanner'] == 'skin-test-report' %}
+      {# Standard GOV.UK success banner. `type: "success"` supplies the
+         "Success" title and the green header bar automatically. We set
+         role="region" + aria-live="polite" because this is a
+         confirmation, not a time-sensitive alert. #}
+      {{ govukNotificationBanner({
+        type: "success",
+        role: "region",
+        attributes: { "aria-live": "polite" },
+        html: "<h3 class='govuk-notification-banner__heading'>Your progress has been saved</h3><p class='govuk-body'>You can carry on this task in the &lsquo;Continue existing work&rsquo; section.</p>"
+      }) }}
+    {% endif %}
+
+    <h1 class="govuk-heading-xl">Your work</h1>
+
+    {# ------------------------------------------------------------------
+       Start new work
+    ------------------------------------------------------------------ #}
+    <section class="app-dashboard-section">
+      <p class="govuk-body">
+        Finish work in progress or prepare a new list of cattle for vaccination or skin testing.
+      </p>
+
+      {{ govukButton({
+        text: "Start new list",
+        href: "/v1-1/search"
+      }) }}
+    </section>
+
+    {# ------------------------------------------------------------------
+       Work in progress – grouped by farm. The farm name itself is the
+       link to the per-farm tasks page; the open-task summary sits
+       directly underneath it. CPH and "Worked on by" sit below as
+       supporting metadata.
+    ------------------------------------------------------------------ #}
+    <section class="app-dashboard-section">
+      <h2 class="govuk-heading-m">Work in progress</h2>
+
+      {% if farmsInProgress and farmsInProgress.length > 0 %}
+        <ul class="app-task-list">
+          {% for farm in farmsInProgress %}
+            <li class="app-task-list__item">
+              <h3 class="govuk-heading-s app-task-list__farm">
+                <a class="govuk-link" href="{{ farm.href }}">{{ farm.farm }}</a>
+              </h3>
+              {% if farm.preparedAtLabel %}
+                <p class="govuk-body app-task-list__line">
+                  List prepared on {{ farm.preparedAtLabel }} by {{ farm.user }}
+                </p>
+              {% endif %}
+              {% if farm.todoTitle %}
+                <p class="govuk-body app-task-list__line">
+                  To do: <strong>{{ farm.todoTitle }}</strong>
+                </p>
+              {% endif %}
+              <p class="govuk-body-s app-task-list__cph">
+                CPH {{ farm.cph }}
+              </p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="govuk-body">You have no work in progress.</p>
+      {% endif %}
+    </section>
+
+  </div>
+</div>
+{% endblock %}

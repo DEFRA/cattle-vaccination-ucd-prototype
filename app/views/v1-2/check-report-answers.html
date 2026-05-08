@@ -1,0 +1,120 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check your answers – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-2/select-vaccinated-animals"
+}) }}
+{% endblock %}
+
+{% block content %}
+{% set diluentExpiryDate = "No diluent expiry date added" %}
+{% if data['diluentBatchExpiryDateDay'] and data['diluentBatchExpiryDateMonth'] and data['diluentBatchExpiryDateYear'] %}
+  {% set diluentExpiryDate = data['diluentBatchExpiryDateDay'] + "/" + data['diluentBatchExpiryDateMonth'] + "/" + data['diluentBatchExpiryDateYear'] %}
+{% endif %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">Check your answers</h1>
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: {
+            text: "Vaccinated cattle"
+          },
+          value: {
+            text: (data['vaccinatedCattle'] | length) + " cattle marked as vaccinated"
+          },
+          actions: {
+            items: [
+              {
+                href: "/v1-2/select-vaccinated-animals",
+                text: "Change",
+                visuallyHiddenText: "vaccinated cattle"
+              }
+            ]
+          }
+        },
+
+        {
+          key: {
+            text: "Diluent batch number"
+          },
+          value: {
+            text: data['diluentBatchNumber'] or "No diluent batch number added"
+          }
+        },
+        {
+          key: {
+            text: "Diluent expiry date"
+          },
+          value: {
+            text: diluentExpiryDate
+          }
+        }
+      ]
+    }) }}
+
+    {% if data['remainingCattleUpdates'] %}
+      <h2 class="govuk-heading-m">Other cattle outcomes</h2>
+      <ul class="govuk-list">
+        {% for update in data['remainingCattleUpdates'] %}
+          <li class="govuk-!-margin-bottom-2">
+            <a class="govuk-link" href="/v1-2/select-vaccinated-animals">
+              {{ update.cattle | length }} cattle –
+              {% if update.status == "not-found" %}
+                Cattle not found
+              {% elseif update.status == "deceased" %}
+                Cattle deceased
+              {% elseif update.status == "withdrawn-export" %}
+                Cattle withdrawn for export purposes
+              {% elseif update.status == "withdrawn-slaughter" %}
+                Cattle withdrawn for slaughter
+              {% elseif update.status == "withdrawn-owner" %}
+                Cattle withdrawn by the livestock owner
+              {% elseif update.status == "other" %}
+                Other reason recorded
+              {% else %}
+                Status recorded
+              {% endif %}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <h2 class="govuk-heading-m">Add a note</h2>
+    <form action="/v1-2/add-a-note" method="post" class="govuk-!-margin-bottom-6">
+      {{ govukTextarea({
+        name: "vaccinationNote",
+        id: "vaccinationNote",
+        label: {
+          text: "Add a note"
+        },
+        hint: {
+          text: "Add any useful detail for this vaccination report."
+        },
+        value: data['vaccinationNote']
+      }) }}
+
+      {{ govukButton({
+        text: "Save note",
+        classes: "govuk-button--secondary"
+      }) }}
+    </form>
+
+    <form action="/v1-2/submit-vaccination-report" method="post">
+      {{ govukButton({
+        text: "Submit vaccination report"
+      }) }}
+    </form>
+
+  </div>
+</div>
+{% endblock %}

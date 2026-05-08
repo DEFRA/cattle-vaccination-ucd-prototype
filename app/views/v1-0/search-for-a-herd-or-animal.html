@@ -1,0 +1,46 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Search for a herd or animal – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{% set backHref = "/v1-0/dashboard" %}
+{% if data['prepareListBackLink'] == 'workorder' %}
+  {% set backHref = "/v1-0/workorder-tasks" %}
+{% endif %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <h1 class="govuk-heading-l">Search for a herd or animal</h1>
+
+    <form action="/v1-0/search-for-a-herd-or-animal" method="post" novalidate>
+      {{ govukInput({
+        label: {
+          text: "Enter a CPH, farm name or ear tag",
+          classes: "govuk-label--m"
+        },
+        hint: {
+          text: "For example, 12/345/6789 or Hill Farm"
+        },
+        id: "cattleSearch",
+        name: "cattleSearch",
+        value: data['cattleSearch'],
+        errorMessage: { text: errors['cattleSearch'].text } if errors and errors['cattleSearch']
+      }) }}
+
+      {{ govukButton({ text: "Search" }) }}
+    </form>
+  </div>
+</div>
+{% endblock %}

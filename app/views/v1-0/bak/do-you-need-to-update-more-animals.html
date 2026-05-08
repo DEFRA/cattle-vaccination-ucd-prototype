@@ -1,0 +1,56 @@
+
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Do you want to update more cattle? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/why-were-animals-not-vaccinated"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <form action="/v1-0/do-you-need-to-update-more-animals" method="post" novalidate>
+
+      {{ govukRadios({
+        name: "updateMoreCattle",
+        fieldset: {
+          legend: {
+            text: "Do you want to update more cattle?",
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        value: data['updateMoreCattle'],
+        errorMessage: { text: errors['updateMoreCattle'].text } if errors and errors['updateMoreCattle'],
+        items: [
+          {
+            value: "yes",
+            text: "Yes"
+          },
+          {
+            value: "no",
+            text: "No"
+          }
+        ]
+      }) }}
+
+      {{ govukButton({
+        text: "Continue"
+      }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

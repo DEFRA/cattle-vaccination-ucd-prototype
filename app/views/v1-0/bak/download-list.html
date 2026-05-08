@@ -1,0 +1,393 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Download list – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/check-list-details"
+}) }}
+{% endblock %}
+
+{% block content %}
+{% set selectedHerdOrCattle = data['selectedCattleLabel'] or data['selectedCattle'] or "Selected herd" %}
+{% set totalCattle = previewRows | length %}
+{% set fieldColumns = previewColumns or [] %}
+
+<style>
+  .app-preview-shell { margin-top: 30px; }
+
+  .app-print-controls {
+    border: 1px solid #b1b4b6;
+    background: #f3f2f1;
+    padding: 15px;
+    margin-bottom: 20px;
+  }
+
+  .app-print-controls .govuk-radios,
+  .app-print-controls .govuk-checkboxes {
+    margin-bottom: 0;
+  }
+
+  .app-sheet {
+    background: #ffffff;
+    border: 2px solid #0b0c0c;
+    padding: 18px;
+  }
+
+  .app-sheet, .app-sheet * { font-family: Arial, Helvetica, sans-serif; }
+  .app-sheet--portrait { max-width: 980px; }
+  .app-sheet--landscape { max-width: 1280px; }
+  .app-sheet--text-small { font-size: 14px; }
+  .app-sheet--text-standard { font-size: 16px; }
+  .app-sheet--text-large { font-size: 19px; }
+
+  .app-sheet--spacing-tight .app-record-table th,
+  .app-sheet--spacing-tight .app-record-table td { padding: 5px 6px; }
+
+  .app-sheet--spacing-standard .app-record-table th,
+  .app-sheet--spacing-standard .app-record-table td { padding: 8px; }
+
+  .app-sheet--spacing-spaced .app-record-table th,
+  .app-sheet--spacing-spaced .app-record-table td { padding: 12px 10px; }
+
+  .app-record-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .app-record-table th,
+  .app-record-table td {
+    border: 1px solid #0b0c0c;
+    vertical-align: middle;
+  }
+
+  .app-record-table th {
+    background: #f3f2f1;
+    text-align: left;
+    font-weight: 700;
+  }
+
+  .app-col-ear-tag { width: 30ch; }
+  .app-col-notes { width: 20%; }
+
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+
+  .app-ear-tag__prefix {
+    font-size: 1.1em;
+    min-width: 2ch;
+  }
+
+  .app-ear-tag__boxes {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  .app-ear-tag__part {
+    display: inline-block;
+    border: 2px solid #0b0c0c;
+    padding: 6px 10px;
+    text-align: center;
+    background: #ffffff;
+    min-width: 6ch;
+  }
+
+  .app-ear-tag__part--check {
+    min-width: 2.5ch;
+  }
+
+  .app-ear-tag__part--individual {
+    min-width: 7ch;
+  }
+
+  .app-ear-tag--no-emphasis .app-ear-tag__part--individual {
+    border-width: 1px;
+  }
+
+  .app-cell-hidden { display: none; }
+
+  @media print {
+    .govuk-back-link,
+    .govuk-button,
+    .govuk-link,
+    .app-print-controls,
+    .govuk-header,
+    .govuk-footer,
+    .govuk-phase-banner,
+    .govuk-breadcrumbs,
+    .govuk-service-navigation { display: none !important; }
+
+    body,
+    .govuk-width-container,
+    .govuk-main-wrapper {
+      margin: 0 !important;
+      padding: 0 !important;
+      max-width: none !important;
+    }
+
+    .app-sheet { margin: 0; border: 1px solid #0b0c0c; }
+    .app-record-table thead { display: table-header-group; }
+
+    @page {
+      size: A4 portrait;
+      margin: 10mm;
+    }
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    <h1 class="govuk-heading-l govuk-!-margin-bottom-4">Download your list</h1>
+
+    {{ govukSummaryList({
+      rows: [
+        { key: { text: "Herd or cattle" }, value: { text: selectedHerdOrCattle } },
+        { key: { text: "Information to include" }, value: { text: fieldColumns | join(', ') or "Not selected" } },
+        { key: { text: "Sort by" }, value: { text: data['sortBy'] or "Ear-tag number" } },
+        { key: { text: "Order" }, value: { text: sortDirectionLabel or "Ascending" } },
+        { key: { text: "Date printed" }, value: { text: printedDate or "" } }
+      ]
+    }) }}
+
+    <div class="app-preview-shell">
+      <div class="app-print-controls">
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-third">
+            {{ govukRadios({
+              idPrefix: "previewTextSize",
+              name: "previewTextSize",
+              classes: "govuk-radios--small",
+              fieldset: {
+                legend: {
+                  text: "Text size",
+                  classes: "govuk-fieldset__legend--s"
+                }
+              },
+              items: [
+                { value: "small", text: "Smaller" },
+                { value: "standard", text: "Standard", checked: true },
+                { value: "large", text: "Large" }
+              ]
+            }) }}
+          </div>
+
+          <div class="govuk-grid-column-one-third">
+            {{ govukRadios({
+              idPrefix: "previewOrientation",
+              name: "previewOrientation",
+              classes: "govuk-radios--small",
+              fieldset: {
+                legend: {
+                  text: "Page orientation",
+                  classes: "govuk-fieldset__legend--s"
+                }
+              },
+              items: [
+                { value: "portrait", text: "Portrait", checked: true },
+                { value: "landscape", text: "Landscape" }
+              ]
+            }) }}
+          </div>
+
+          <div class="govuk-grid-column-one-third">
+            {{ govukRadios({
+              idPrefix: "previewSpacing",
+              name: "previewSpacing",
+              classes: "govuk-radios--small",
+              fieldset: {
+                legend: {
+                  text: "Line spacing",
+                  classes: "govuk-fieldset__legend--s"
+                }
+              },
+              items: [
+                { value: "tight", text: "Tight layout" },
+                { value: "standard", text: "Standard spacing", checked: true },
+                { value: "spaced", text: "Spaced lines" }
+              ]
+            }) }}
+          </div>
+        </div>
+
+        <div class="govuk-grid-row govuk-!-margin-top-4">
+          <div class="govuk-grid-column-two-thirds">
+            {{ govukCheckboxes({
+              idPrefix: "previewOptions",
+              name: "previewOptions",
+              classes: "govuk-checkboxes--small",
+              fieldset: {
+                legend: {
+                  text: "Show or hide information",
+                  classes: "govuk-fieldset__legend--s"
+                }
+              },
+              items: [
+                {
+                  value: "show-last-five",
+                  text: "Emphasise the last 5 digits",
+                  checked: true
+                }
+              ]
+            }) }}
+          </div>
+
+          <div class="govuk-grid-column-one-third govuk-!-text-align-right">
+            {{ govukButton({
+              text: "Print this list",
+              classes: "govuk-button--secondary govuk-!-margin-top-5",
+              attributes: {
+                type: "button",
+                onclick: "window.print()"
+              }
+            }) }}
+          </div>
+        </div>
+      </div>
+
+      <div class="app-sheet app-sheet--portrait app-sheet--text-standard app-sheet--spacing-standard" data-preview-sheet>
+        <table class="app-record-table">
+          <thead>
+            <tr>
+              <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+              {% for column in fieldColumns %}
+                <th scope="col" data-column-header="{{ loop.index0 }}">{{ column }}</th>
+              {% endfor %}
+              <th scope="col" class="app-col-notes">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in previewRows %}
+            <tr>
+              <td>
+                <div class="app-ear-tag" data-ear-tag>
+                  <span class="app-ear-tag__prefix">{{ row.earTagParts.prefix }}</span>
+                  <span class="app-ear-tag__boxes">
+                    <span class="app-ear-tag__part">{{ row.earTagParts.herd }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--check">{{ row.earTagParts.check }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--individual">{{ row.earTagParts.individual }}</span>
+                  </span>
+                </div>
+              </td>
+              {% for cell in row.cells %}
+                <td data-column-cell="{{ loop.index0 }}">{{ cell.value }}</td>
+              {% endfor %}
+              <td>{{ row.notes }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="govuk-body govuk-!-margin-top-7">
+      <a href="/v1-0/customise-list" class="govuk-link">Change list settings</a>
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-0/dashboard" class="govuk-link">Return to your work</a>
+    </p>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const previewSheet = document.querySelector('[data-preview-sheet]')
+    const textSizeInputs = document.querySelectorAll('input[name="previewTextSize"]')
+    const orientationInputs = document.querySelectorAll('input[name="previewOrientation"]')
+    const spacingInputs = document.querySelectorAll('input[name="previewSpacing"]')
+    let lastFiveCheckbox = document.querySelector('input[value="show-last-five"]')
+    const earTags = document.querySelectorAll('[data-ear-tag]')
+
+    const columnToggles = [
+      {% for column in fieldColumns %}
+      {
+        value: 'column-{{ loop.index0 }}',
+        label: {{ column | dump }}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]
+
+    const controlsFieldset = document.querySelector('.govuk-checkboxes')
+    if (controlsFieldset && columnToggles.length) {
+      columnToggles.forEach(function (column) {
+        const item = document.createElement('div')
+        item.className = 'govuk-checkboxes__item'
+        item.innerHTML = `
+          <input class="govuk-checkboxes__input" id="${column.value}" name="previewOptions" type="checkbox" value="${column.value}" checked>
+          <label class="govuk-label govuk-checkboxes__label" for="${column.value}">${column.label}</label>
+        `
+        controlsFieldset.appendChild(item)
+      })
+    }
+
+    function updateClassGroup(name, values, prefix) {
+      if (!previewSheet) return
+      values.forEach(function (value) {
+        previewSheet.classList.remove(prefix + value)
+      })
+      const selected = document.querySelector('input[name="' + name + '"]:checked')
+      if (selected) previewSheet.classList.add(prefix + selected.value)
+    }
+
+    function updateLastFiveEmphasis() {
+      const emphasise = lastFiveCheckbox && lastFiveCheckbox.checked
+      earTags.forEach(function (item) {
+        item.classList.toggle('app-ear-tag--no-emphasis', !emphasise)
+      })
+    }
+
+    function updateVisibleColumns() {
+      columnToggles.forEach(function (column, index) {
+        const isVisible = !!document.querySelector('input[value="' + column.value + '"]:checked')
+        document.querySelectorAll('[data-column-header="' + index + '"]').forEach(function (cell) {
+          cell.classList.toggle('app-cell-hidden', !isVisible)
+        })
+        document.querySelectorAll('[data-column-cell="' + index + '"]').forEach(function (cell) {
+          cell.classList.toggle('app-cell-hidden', !isVisible)
+        })
+      })
+    }
+
+    textSizeInputs.forEach(function (input) {
+      input.addEventListener('change', function () {
+        updateClassGroup('previewTextSize', ['small', 'standard', 'large'], 'app-sheet--text-')
+      })
+    })
+
+    orientationInputs.forEach(function (input) {
+      input.addEventListener('change', function () {
+        updateClassGroup('previewOrientation', ['portrait', 'landscape'], 'app-sheet--')
+      })
+    })
+
+    spacingInputs.forEach(function (input) {
+      input.addEventListener('change', function () {
+        updateClassGroup('previewSpacing', ['tight', 'standard', 'spaced'], 'app-sheet--spacing-')
+      })
+    })
+
+    document.addEventListener('change', function (event) {
+      if (event.target && event.target.name === 'previewOptions') {
+        lastFiveCheckbox = document.querySelector('input[value="show-last-five"]')
+        updateLastFiveEmphasis()
+        updateVisibleColumns()
+      }
+    })
+
+    updateLastFiveEmphasis()
+    updateVisibleColumns()
+  })()
+</script>
+{% endblock %}

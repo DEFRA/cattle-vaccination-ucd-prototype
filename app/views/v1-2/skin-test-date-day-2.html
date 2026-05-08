@@ -1,0 +1,79 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  When was Day 2 of the test? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-2/skin-test-date"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - Day 2 of 2</span>
+    <h1 class="govuk-heading-l">When was Day 2 of the test?</h1>
+
+
+    <form action="/v1-2/skin-test-date-day-2" method="post" novalidate>
+
+      {{ govukDateInput({
+        id: "skinTestDay2",
+        namePrefix: "skinTestDay2",
+        errorMessage: { text: errors['skinTestDay2'].text } if errors and errors['skinTestDay2'],
+        fieldset: {
+          legend: {
+            text: "Day 2 (interpretation at 72 hour interval)",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        hint: {
+          text: "For example, 23 4 2026"
+        },
+        items: [
+          {
+            name: "day",
+            classes: "govuk-input--width-2",
+            value: data['skinTestDay2Day']
+          },
+          {
+            name: "month",
+            classes: "govuk-input--width-2",
+            value: data['skinTestDay2Month']
+          },
+          {
+            name: "year",
+            classes: "govuk-input--width-4",
+            value: data['skinTestDay2Year']
+          }
+        ]
+      }) }}
+
+      {{ govukCheckboxes({
+        idPrefix: "skinTestDay2OverMultipleDays",
+        name: "skinTestDay2OverMultipleDays",
+        classes: "govuk-checkboxes--small",
+        items: [
+          {
+            value: "yes",
+            text: "Select if Day 2 took more than a single day to complete",
+            checked: data['skinTestDay2OverMultipleDays'] == "yes"
+          }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

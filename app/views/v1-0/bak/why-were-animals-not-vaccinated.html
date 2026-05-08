@@ -1,0 +1,87 @@
+
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Update the status of these cattle – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-0/select-animals-not-vaccinated"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% set notVaccinatedReasonHtml %}
+      {{ govukRadios({
+        name: "notVaccinatedReason",
+        fieldset: {
+          legend: {
+            text: "Why these cattle were not vaccinated",
+            classes: "govuk-fieldset__legend--s"
+          }
+        },
+        value: data['notVaccinatedReason'],
+        errorMessage: { text: errors['notVaccinatedReason'].text } if errors and errors['notVaccinatedReason'],
+        items: [
+          {
+            value: "deceased",
+            text: "They died"
+          },
+          {
+            value: "withdrawn",
+            text: "The livestock owner withdrew them"
+          }
+        ]
+      }) }}
+    {% endset %}
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <form action="/v1-0/why-were-animals-not-vaccinated" method="post" novalidate>
+
+      {% for cow in data['remainingCattle'] %}
+        <input type="hidden" name="remainingCattle" value="{{ cow }}">
+      {% endfor %}
+
+      {{ govukRadios({
+        name: "remainingStatus",
+        fieldset: {
+          legend: {
+            text: "What is the status of these cattle?",
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        value: data['remainingStatus'],
+        errorMessage: { text: errors['remainingStatus'].text } if errors and errors['remainingStatus'],
+        items: [
+          {
+            value: "not-found",
+            text: "Cattle not found"
+          },
+          {
+            value: "not-vaccinated",
+            text: "Why these cattle were not vaccinated",
+            conditional: {
+              html: notVaccinatedReasonHtml
+            }
+          }
+        ]
+      }) }}
+
+      {{ govukButton({
+        text: "Continue"
+      }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}
