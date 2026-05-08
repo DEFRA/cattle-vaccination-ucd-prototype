@@ -237,6 +237,22 @@
   .app-sheet--spacing-spaced .app-record-table th,
   .app-sheet--spacing-spaced .app-record-table td { padding: 6px 8px; }
 
+  /* DIVA rows render as a single line per animal (no Avian/Bovine
+     split) so they sit shorter than SICCT or Either rows. Double the
+     vertical padding to give each DIVA row a similar visual weight to
+     the 2-row layouts around it. The horizontal padding stays the
+     same as the table's spacing variant. */
+  .app-record-table tbody.app-row--diva th,
+  .app-record-table tbody.app-row--diva td { padding-top: 8px; padding-bottom: 8px; }
+  .app-sheet--spacing-xtight .app-record-table tbody.app-row--diva th,
+  .app-sheet--spacing-xtight .app-record-table tbody.app-row--diva td { padding-top: 4px; padding-bottom: 4px; }
+  .app-sheet--spacing-tight .app-record-table tbody.app-row--diva th,
+  .app-sheet--spacing-tight .app-record-table tbody.app-row--diva td { padding-top: 6px; padding-bottom: 6px; }
+  .app-sheet--spacing-standard .app-record-table tbody.app-row--diva th,
+  .app-sheet--spacing-standard .app-record-table tbody.app-row--diva td { padding-top: 8px; padding-bottom: 8px; }
+  .app-sheet--spacing-spaced .app-record-table tbody.app-row--diva th,
+  .app-sheet--spacing-spaced .app-record-table tbody.app-row--diva td { padding-top: 12px; padding-bottom: 12px; }
+
   .app-record-table {
     width: 100%;
     /* Force the table to keep its minimum usable width. When the viewport
@@ -329,17 +345,17 @@
      room for an inline DUP badge after the last-4 box without
      overflowing into the next column, but stays tight so non-DUP
      rows don't leave a wide gap to the right of the digits. */
-  .app-col-ear-tag { width: 10.5rem; }
+  .app-col-ear-tag { width: 10.5rem; text-align: right !important; }
   .app-col-age      { width: 3.5rem; text-align: center !important; }
   .app-col-sex      { width: 3.5rem; text-align: center !important; }
-  .app-col-breed    { width: 4.5rem; text-align: center !important; }
-  .app-col-dob      { width: 7rem;   text-align: center !important; }
+  .app-col-breed    { width: 4.5rem; text-align: left !important; }
+  .app-col-dob      { width: 7rem;   text-align: right !important; font-variant-numeric: tabular-nums; }
   .app-col-narrow   { width: 3.5rem; text-align: center !important; }
   /* "Test" column on the combined SICCT/DIVA list. Width is tuned
-     to fit "SICCT" / "DIVA" comfortably; horizontal padding is
-     inherited from the table so it lines up with every other column
-     instead of looking chunkier. */
-  .app-col-test     { width: 4rem; text-align: center !important; }
+     to fit "SICCT" / "DIVA" plus the pen-tick checkboxes used on
+     "Either" rows, with the same horizontal padding on each side so
+     the words sit clear of both column borders. */
+  .app-col-test     { width: 5.5rem; text-align: left !important; padding-left: 8px !important; padding-right: 8px !important; }
   /* VAX column – shows the month/year (MM/YY) the animal was BCG
      vaccinated, or empty for unvaccinated. Wide enough to fit a
      5-character date string (e.g. "01/25") at every text size, with
@@ -362,6 +378,58 @@
   .app-record-table tbody + tbody th,
   .app-record-table tbody + tbody td {
     border-top: 2px solid #0b0c0c;
+  }
+
+  /* "Either" rows on the combined SICCT/DIVA list. The vet can choose
+     either DIVA (single Bovine line) or SICCT (Avian + Bovine), so we
+     soften the visual separation between the A and B rows: the A / B
+     letters are rendered in light grey, and the divider line between
+     them (across the A/B label cell, the Pre and Post boxes, and the
+     Reaction desc. cell) is drawn in #cccccc so the row still reads
+     as one unit even though it's printed with the SICCT 2-row
+     scaffolding. The outer borders and the thick tbody+tbody border
+     between different animals are unaffected. Regular SICCT rows
+     keep the default solid black divider. */
+  .app-row--either .app-col-label {
+    color: #b1b4b6;
+  }
+
+  /* Pen-tick checkboxes used in the Test column for "Either" rows so
+     the vet can mark which test (SICCT or DIVA) they actually used
+     on the printed sheet. Two stacked rows fit inside the rowspan=2
+     Test cell. The box is a small empty square sized to take a clean
+     pen tick. Recommendation labels for SICCT / DIVA / Either rows
+     stay in <strong>; only the Either rows show this pair of boxes. */
+  .app-test-choice {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    margin: 2px 0;
+  }
+  .app-test-choice__box {
+    display: inline-block;
+    width: 0.95em;
+    height: 0.95em;
+    border: 1.5px solid #0b0c0c;
+    flex: 0 0 auto;
+  }
+  .app-row--either tr:first-child .app-col-label,
+  .app-row--either tr:first-child .app-col-skin,
+  .app-row--either tr:first-child .app-col-reaction {
+    border-bottom-color: #cccccc;
+  }
+  /* Border-collapse means the divider between A and B is shared
+     between the bottom of the A row's cells and the top of the B
+     row's cells – set both so the grey colour wins regardless of
+     which side the renderer prefers. */
+  .app-row--either tr:last-child .app-col-label,
+  .app-row--either tr:last-child .app-col-skin,
+  .app-row--either tr:last-child .app-col-reaction {
+    border-top-color: #cccccc;
   }
   /* The ear-tag value and its flags live in a single inline-grid column.
      The column's width tracks whichever child is wider (normally the ear
@@ -486,10 +554,12 @@
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
-    {# Caption shows the current list and, for "Both", the step
-       indicator so the vet sees there's a second list still to format. #}
+    {# Caption shows the farm name. The combined list now covers both
+       SICCT and DIVA in one printable list so the per-test label is
+       no longer added here – the Test column on each row tells the
+       vet which test applies. #}
     <span class="govuk-caption-l">
-      {{ data['herd']['farm'] }} - {{ listTestLabel }}{% if bothStepText %} - {{ bothStepText }}{% endif %}
+      {{ data['herd']['farm'] }}
     </span>
     <h1 class="govuk-heading-l govuk-!-margin-bottom-4">
       List of cattle for testing
@@ -497,7 +567,7 @@
 
     {% if isCombinedBoth %}
       {{ govukInsetText({
-        html: "This single list covers both SICCT and DIVA. The Test column shows which test is recommended for each animal."
+        html: "This list allows you to do both SICCT and DIVA tests."
       }) }}
     {% elif isBothJourney and prepareSkinTestPhase == 'sicct' %}
       {{ govukInsetText({
@@ -532,11 +602,12 @@
             idPrefix: "listLook",
             name: "listLook",
             classes: "govuk-radios--small",
-            fieldset: { legend: { text: "How would you like the list to look?", classes: "govuk-fieldset__legend--s" } },
-            hint: { text: "Choose how much detail to show on each page." },
+            fieldset: { legend: { text: "Cattle on each page", classes: "govuk-fieldset__legend--s" } },
+            hint: { text: "Decide how many cattle you want to see on each page." },
             items: [
-              { value: "easy",    text: "Easy to read (around 20 cattle per page)", checked: (listLook or 'easy') == 'easy' },
-              { value: "compact", text: "Compact (around 40 cattle per page)",      checked: listLook == 'compact' }
+              { value: "easy",    text: "20", checked: (listLook or 'easy') == 'easy' },
+              { value: "medium",    text: "30", checked: (listLook or 'medium') == 'medium' },
+              { value: "compact", text: "40",      checked: listLook == 'compact' }
             ]
           }) }}
 
@@ -544,7 +615,7 @@
             idPrefix: "sortBy",
             name: "sortBy",
             classes: "govuk-radios--small govuk-!-margin-top-4",
-            fieldset: { legend: { text: "Sort the list by", classes: "govuk-fieldset__legend--s" } },
+            fieldset: { legend: { text: "Sort the list by", classes: "govuk-fieldset__legend--s govuk-!-margin-bottom-0" } },
             items: [
               { value: "Ear-tag number (last 5 digits)", text: "Ear tag (last 4 digits)", hint: { text: "Default" }, checked: (data['skinTestSortBy'] or 'Ear-tag number (last 5 digits)') == "Ear-tag number (last 5 digits)" },
               { value: "Age", text: "Age", checked: data['skinTestSortBy'] == "Age" },
@@ -554,7 +625,7 @@
 
           <div class="govuk-button-group govuk-!-margin-top-4">
             {{ govukButton({ text: "Apply changes", classes: "govuk-!-margin-bottom-0" }) }}
-            <a class="govuk-link" href="/v1-2/skin-test-list/reset">Reset to default</a>
+            <a class="govuk-link" href="/v1-2/skin-test-list/reset">Clear my settings</a>
           </div>
         </form>
       </div>
@@ -719,21 +790,28 @@
                 <table class="app-entry-table">
                   <thead>
                     <tr>
-                      {% if group.key == 'diva' or group.key == 'combined' %}
-                        {# Day 1 and Day 2 each take half their previous
-                           share of the row (1/6th of the table); DIVA
-                           batch number takes the remaining 2/3rds so
+                      {% if group.key == 'combined' %}
+                        {# Combined SICCT + DIVA list: four equal columns
+                           – Day 1, Day 2, SICCT batch number and DIVA
+                           batch number sit side by side at 25% each. #}
+                        <th scope="col" style="width: 25%;">Day 1 date:</th>
+                        <th scope="col" style="width: 25%;">Day 2 date:</th>
+                        <th scope="col" style="width: 25%;">SICCT batch number:</th>
+                        <th scope="col" style="width: 25%;">DIVA batch number:</th>
+                      {% elif group.key == 'diva' %}
+                        {# DIVA-only: Day 1 / Day 2 take 25% each and
+                           DIVA batch number takes the remaining 50% so
                            the vet has plenty of room to write a long
-                           batch reference. The total still adds up to
-                           100% so the table width is unchanged. #}
+                           batch reference. #}
                         <th scope="col" style="width: 25%;">Day 1 date:</th>
                         <th scope="col" style="width: 25%;">Day 2 date:</th>
                         <th scope="col" style="width: 50%;">DIVA batch number:</th>
                       {% else %}
-                        {# SICCT-only: no DIVA batch, so Day 1 and Day 2
-                           split the row 50/50 (the previous behaviour). #}
-                        <th scope="col" style="width: 50%;">Day 1 date:</th>
-                        <th scope="col" style="width: 50%;">Day 2 date:</th>
+                        {# SICCT-only: Day 1 / Day 2 take 25% each and
+                           SICCT batch number takes the remaining 50%. #}
+                        <th scope="col" style="width: 25%;">Day 1 date:</th>
+                        <th scope="col" style="width: 25%;">Day 2 date:</th>
+                        <th scope="col" style="width: 50%;">SICCT batch number:</th>
                       {% endif %}
                     </tr>
                   </thead>
@@ -741,7 +819,8 @@
                     <tr>
                       <td></td>
                       <td></td>
-                      {% if group.key == 'diva' or group.key == 'combined' %}
+                      <td></td>
+                      {% if group.key == 'combined' %}
                         <td></td>
                       {% endif %}
                     </tr>
@@ -802,7 +881,7 @@
                      as the existing 2-row Avian/Bovine layout. In the
                      combined list the choice is made per animal. #}
                   {% set rowIsDiva = isDivaGroup or (isCombinedGroup and row.assignedTest == 'DIVA') %}
-                <tbody class="{% if row.isVaccinated %}app-row--vaccinated{% endif %}">
+                <tbody class="{% if row.isVaccinated %}app-row--vaccinated{% endif %}{% if isCombinedGroup and row.assignedTest == 'Either' %} app-row--either{% endif %}{% if rowIsDiva %} app-row--diva{% endif %}">
                   {% if rowIsDiva %}
                     <tr>
                       <td>
@@ -857,7 +936,22 @@
                       </td>
                       <td class="app-col-vax" rowspan="2">{{ row.vaccinationDate or '-' }}</td>
                       {% if isCombinedGroup %}
-                        <td class="app-col-test" rowspan="2"><strong>{{ row.assignedTest }}</strong></td>
+                        <td class="app-col-test" rowspan="2">
+                          {% if row.assignedTest == 'Either' %}
+                            {# Vet ticks the box on the printed sheet to
+                               record which test was actually used. The
+                               checkbox is drawn as a small empty square
+                               so a pen tick reads cleanly on the page. #}
+                            <span class="app-test-choice">
+                              <span class="app-test-choice__box" aria-hidden="true"></span>SICCT
+                            </span>
+                            <span class="app-test-choice">
+                              <span class="app-test-choice__box" aria-hidden="true"></span>DIVA
+                            </span>
+                          {% else %}
+                            <strong>{{ row.assignedTest }}</strong>
+                          {% endif %}
+                        </td>
                       {% endif %}
                       {% for cell in row.cells %}
                         {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
@@ -868,7 +962,14 @@
                         {% if cellHeading == "Breed" %}{% set cellClass = "app-col-breed" %}{% endif %}
                         <td class="{{ cellClass }}" rowspan="2">{{ cell.value }}</td>
                       {% endfor %}
-                      <th scope="row" class="app-col-label">A</th>
+                      {# "Either" rows are rendered with the SICCT 2-row
+                         scaffolding so the vet has space to record
+                         either test, but the A / B labels are dropped
+                         because the vet may only fill in one of the
+                         two rows. Regular SICCT rows keep the A / B
+                         markers. #}
+                      {% set isEitherRow = isCombinedGroup and row.assignedTest == 'Either' %}
+                      <th scope="row" class="app-col-label">{% if not isEitherRow %}A{% endif %}</th>
                       <td class="app-col-skin"></td>
                       <td class="app-col-skin"></td>
                       <td class="app-col-reaction"></td>
@@ -876,7 +977,7 @@
                       <td class="app-col-notes" rowspan="2">{% if row.isUnderTestAge %}Check age{% endif %}</td>
                     </tr>
                     <tr>
-                      <th scope="row" class="app-col-label">B</th>
+                      <th scope="row" class="app-col-label">{% if not isEitherRow %}B{% endif %}</th>
                       <td class="app-col-skin"></td>
                       <td class="app-col-skin"></td>
                       <td class="app-col-reaction"></td>

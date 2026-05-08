@@ -711,16 +711,35 @@ const v11AnimalsByCph = buildV11Dataset()
 const v12AnimalsByCph = Object.assign({}, v11AnimalsByCph)
 if (v12AnimalsByCph['12/312/6802']) {
   const millHouse = v11AnimalsByCph['12/312/6802']
-  // 0094 and 0102 deliberately have vaccination dates inside the last
-  // 12 months from the demo date (May 2026). The vaccination list will
-  // flag these animals with a "Check last vaccination date" remark so
-  // the vet doesn't accidentally re-vaccinate within the booster window.
+  // Hand-picked vaccinations by ear-tag last 4. 0094 and 0102 are
+  // recent enough to fall inside the 6-month "DIVA only" window from
+  // the demo date (May 2026); the others are older so they're free to
+  // be tested with either DIVA or SICCT. The vaccination flow also
+  // uses 0094 / 0102 to flag "Check last vaccination date" so the vet
+  // doesn't accidentally re-vaccinate inside the booster window.
   const vaccinationDatesByLast4 = {
-    '0075': '01/25',
-    '0081': '03/24',
-    '0082': '11/24',
-    '0094': '02/26',
-    '0102': '11/25'
+    '0075': '01/25', // ~16 months — DIVA or SICCT
+    '0081': '03/24', // ~26 months — DIVA or SICCT
+    '0082': '11/24', // ~18 months — DIVA or SICCT
+    '0094': '02/26', // ~3 months  — DIVA only
+    '0102': '11/25'  // ~6 months  — DIVA only
+  }
+  // Index-based supplemental vaccinations applied to whichever animals
+  // land at these positions in the deterministically-generated herd
+  // list. They guarantee the v1-2 demo always shows a clear mix of
+  // "DIVA only" (vaccinated within the last 6 months) and "DIVA or
+  // SICCT" (vaccinated 6+ months ago) cattle on the combined skin-test
+  // list, even if the seed-generated ear tags drift. Indices start at 4
+  // to leave the first three unvaccinated animals free for the calf
+  // DOB override below.
+  const supplementalVaxByIndex = {
+    4:  '03/26', // ~2 months  — DIVA only
+    7:  '04/26', // ~1 month   — DIVA only
+    10: '12/25', // ~5 months  — DIVA only
+    14: '07/25', // ~10 months — DIVA or SICCT
+    18: '04/25', // ~13 months — DIVA or SICCT
+    22: '09/24', // ~20 months — DIVA or SICCT
+    26: '06/24'  // ~23 months — DIVA or SICCT
   }
   // DOBs that put each animal at well under 44 days old at the demo
   // date (Thursday 7 May 2026). The remark column on the printed list
@@ -731,9 +750,12 @@ if (v12AnimalsByCph['12/312/6802']) {
     '28/03/2026'  // ~40 days old
   ]
   let youngIdx = 0
-  v12AnimalsByCph['12/312/6802'] = millHouse.map(function (a) {
+  v12AnimalsByCph['12/312/6802'] = millHouse.map(function (a, idx) {
     const last4 = String(a.officialId || '').slice(-4)
-    const vaxDate = vaccinationDatesByLast4[last4]
+    let vaxDate = vaccinationDatesByLast4[last4]
+    if (!vaxDate && supplementalVaxByIndex[idx]) {
+      vaxDate = supplementalVaxByIndex[idx]
+    }
     const isVaccinated = !!vaxDate
     const animal = Object.assign({}, a, {
       vaccinationStatus: isVaccinated ? 'Vaccinated' : 'Not vaccinated',
@@ -748,6 +770,21 @@ if (v12AnimalsByCph['12/312/6802']) {
     }
     return animal
   })
+}
+
+// Helper: parse an MM/YY vaccination date string and return how many
+// whole months ago it was, relative to a reference date (defaults to
+// today). Returns null if the input is missing or unparseable.
+function monthsSinceVaxDate(mmYY, referenceDate) {
+  if (!mmYY || typeof mmYY !== 'string') return null
+  const parts = mmYY.split('/')
+  if (parts.length !== 2) return null
+  const month = parseInt(parts[0], 10)
+  const year2 = parseInt(parts[1], 10)
+  if (isNaN(month) || isNaN(year2)) return null
+  const fullYear = year2 < 100 ? 2000 + year2 : year2
+  const ref = referenceDate || new Date()
+  return (ref.getFullYear() - fullYear) * 12 + ((ref.getMonth() + 1) - month)
 }
 
 function getAnimalsForSelection(selectedCattle, version) {
@@ -3680,17 +3717,24 @@ function registerSkinTestRoutes(version) {
         if (!rowById[r.officialId]) rowById[r.officialId] = r
       })
       const combinedRows = []
+      const todayForVax = new Date()
       baseAnimals.forEach(function (a) {
         const id = a.officialId
         const row = rowById[id]
         if (!row) return
-        let assignedTest = ''
+        // Test recommendation rules:
+        //   - Unvaccinated → SICCT only
+        //   - Vaccinated <6 months ago → must use DIVA (DIVA only)
+        //   - Vaccinated ≥6 months ago → either DIVA or SICCT works
+        // For the combined list we surface the third case as "Either"
+        // so the vet sees at a glance that they have a choice on
+        // those animals.
+        let assignedTest = 'SICCT'
         if (sicctIds.has(id) && divaIds.has(id)) {
-          assignedTest = 'Both'
+          assignedTest = 'Either'
         } else if (divaIds.has(id)) {
-          assignedTest = 'DIVA'
-        } else {
-          assignedTest = 'SICCT'
+          const monthsSinceVax = monthsSinceVaxDate(row.vaccinationDate, todayForVax)
+          assignedTest = (monthsSinceVax !== null && monthsSinceVax < 6) ? 'DIVA' : 'Either'
         }
         combinedRows.push(Object.assign({}, row, { assignedTest: assignedTest }))
       })

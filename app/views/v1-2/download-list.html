@@ -306,11 +306,11 @@
      room for an inline DUP badge after the last-4 box without
      overflowing into the next column, but stays tight so non-DUP
      rows don't leave a wide gap to the right of the digits. */
-  .app-col-ear-tag { width: 10.5rem; }
+  .app-col-ear-tag { width: 10.5rem; text-align: right !important; }
   .app-col-age      { width: 3.5rem; text-align: center !important; }
   .app-col-sex      { width: 3.5rem; text-align: center !important; }
-  .app-col-breed    { width: 4.5rem; text-align: center !important; }
-  .app-col-dob      { width: 7rem;   text-align: center !important; }
+  .app-col-breed    { width: 4.5rem; text-align: left !important; }
+  .app-col-dob      { width: 7rem;   text-align: right !important; font-variant-numeric: tabular-nums; }
   .app-col-narrow   { width: 3.5rem; text-align: center !important; }
   /* "Test" column on the combined SICCT/DIVA list. Width is tuned
      to fit "SICCT" / "DIVA" comfortably; horizontal padding is
