@@ -1,0 +1,76 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Spreadsheet is ready – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-2/list-format"
+}) }}
+{% endblock %}
+
+{% block content %}
+{% set isSkinTest = data['journey'] == 'prepare-skin-test' %}
+{% set listKind = "skin test" if isSkinTest else "vaccination" %}
+{% set downloadUrl = "/v1-2/skin-test-list?download=csv" if isSkinTest else "/v1-2/download-list?download=csv" %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">You can now download your spreadsheet</h1>
+
+    <p class="govuk-body">
+      You can now download the {{ listKind }} list as a spreadsheet.
+    </p>
+
+    <ul class="govuk-list govuk-!-margin-bottom-6">
+      <li>
+        <a class="govuk-link" href="{{ downloadUrl }}">Download your {{ listKind }} list (CSV)</a>
+      </li>
+    </ul>
+
+    {{ govukButton({
+      text: "Save spreadsheet to download later",
+      href: "/v1-2/dashboard"
+    }) }}
+
+    {# Onward journey – mirror of download-list-confirmed but with
+       wording adapted for the spreadsheet flow. #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-6">What to do next</h2>
+    <ul class="govuk-list">
+      <li>
+        <a class="govuk-link" href="/v1-2/search">Prepare another list</a>
+      </li>
+      {% if isSkinTest %}
+        <li>
+          <form action="/v1-2/select-journey" method="post" style="display: inline;">
+            <input type="hidden" name="journey" value="report-skin-test">
+            <button type="submit"
+                    class="govuk-link"
+                    style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer; text-align: left;">
+              Report skin test results
+            </button>
+          </form>
+        </li>
+      {% else %}
+        <li>
+          <form action="/v1-2/select-journey" method="post" style="display: inline;">
+            <input type="hidden" name="journey" value="report-vaccination">
+            <button type="submit"
+                    class="govuk-link"
+                    style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer; text-align: left;">
+              Report BCG vaccinations
+            </button>
+          </form>
+        </li>
+      {% endif %}
+      <li>
+        <a class="govuk-link" href="/v1-2/dashboard">Exit the service</a>
+      </li>
+    </ul>
+
+  </div>
+</div>
+{% endblock %}

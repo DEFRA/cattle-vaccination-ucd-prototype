@@ -7,7 +7,7 @@
 {% block beforeContent %}
 {{ govukBackLink({
   text: "Back",
-  href: "/v1-2/who-gave-the-vaccine"
+  href: "/v1-2/enter-vaccination-date"
 }) }}
 {% endblock %}
 
@@ -25,6 +25,9 @@
         label: {
           text: "Vaccine batch number",
           classes: "govuk-label--m"
+        },
+        hint: {
+          text: "For example, 125007G"
         },
         id: "batchNumber",
         name: "batchNumber",

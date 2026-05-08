@@ -25,62 +25,63 @@
     background: #f8f8f8;
   }
   .app-table-wrap {
-    font-family: "GDS Transport", arial, sans-serif;
-    border: 1px solid #b1b4b6;
-    overflow-x: auto;
-    overflow-y: hidden;
     margin-bottom: 20px;
-    background: #fff;
   }
+  /* v1-2: matches /v1-2/skin-test-list and the other v1-2 skin-test
+     pages – Arial, black 1px borders, fixed table layout, with the
+     ear tag's last-4 digits highlighted in a tight bordered box. */
   .app-record-table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: auto;
+    table-layout: fixed;
+    font-family: Arial, Helvetica, sans-serif;
   }
   .app-record-table th,
   .app-record-table td {
-    border: 1px solid #b1b4b6;
-    padding: 8px;
+    border: 1px solid #0b0c0c;
+    padding: 6px 8px;
     vertical-align: middle;
-    overflow-wrap: normal;
-    word-break: normal;
+    box-sizing: border-box;
   }
   .app-record-table th {
-    background: #f3f2f1;
-    text-align: left;
-    white-space: nowrap;
-    vertical-align: middle;
+    background: #ffffff;
+    text-align: center;
+    font-weight: 700;
+    line-height: 1.2;
   }
-  .app-record-table td:nth-child(3),
-  .app-record-table td:nth-child(4),
-  .app-record-table td:nth-child(5) {
-    white-space: nowrap;
+  .app-record-table td {
+    height: 2.4em;
   }
-  .app-col-select { width: 88px; }
-  .app-col-ear-tag { width: 240px; }
-  .app-col-vertical {
-    width: 56px;
-    min-width: 56px;
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    text-align: left;
-    white-space: nowrap;
-    padding: 12px 6px !important;
-  }
+
+  /* Column widths mirror the other v1-2 skin-test pages so the table
+     reads the same on screen. The Select column is left-aligned so
+     the checkbox sits flush with the column header rather than
+     centred. */
+  .app-col-select   { width: 4.5rem; text-align: left !important; }
+  .app-col-select .govuk-checkboxes__item { padding-left: 28px; }
+  .app-col-ear-tag  { width: 8.5rem; }
+  .app-col-dob      { width: 7rem;   text-align: center !important; }
+  .app-col-sex      { width: 3.5rem; text-align: center !important; }
+  .app-col-breed    { width: 4.5rem; text-align: center !important; }
+
+  /* Ear tag rendering – matches the skin-test-list table.
+     The last-4 digits sit in a tight bordered box so the vet can
+     spot the animal at a glance. */
   .app-ear-tag {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
     max-width: 100%;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    line-height: 1.2;
+    line-height: 1.1;
     white-space: nowrap;
   }
-  .app-ear-tag__prefix { min-width: 2ch; }
-  .app-ear-tag__part--herd { min-width: 6ch; }
-  .app-ear-tag__part--check { min-width: 1ch; }
-  .app-ear-tag__part--individual { min-width: 5ch; padding: 3px 6px; border: 2px solid #0b0c0c; }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 {
+    padding: 2px 3px;
+    border: 2px solid #b1b4b6;
+  }
   .app-summary-card {
     border: 1px solid #b1b4b6;
     padding: 16px;
@@ -191,16 +192,15 @@
                       </div>
                     </th>
                     <th scope="col" class="app-col-ear-tag">Ear tag number</th>
-                    <th scope="col" class="app-col-vertical">Age</th>
-                    <th scope="col" class="app-col-vertical">DOB</th>
-                    <th scope="col" class="app-col-vertical">Sex</th>
-                    <th scope="col" class="app-col-vertical">Breed</th>
+                    <th scope="col" class="app-col-dob">DOB</th>
+                    <th scope="col" class="app-col-sex">Sex</th>
+                    <th scope="col" class="app-col-breed">Breed</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for row in activeRows %}
                     <tr>
-                      <td>
+                      <td class="app-col-select">
                         <div class="govuk-checkboxes govuk-checkboxes--small">
                           <div class="govuk-checkboxes__item govuk-!-margin-bottom-0">
                             <input class="govuk-checkboxes__input js-animal-checkbox" id="animal-{{ loop.index }}" name="selectedAnimals" type="checkbox" value="{{ row.id }}" {% if row.id in selectedIds %}checked{% endif %}>
@@ -210,18 +210,18 @@
                           </div>
                         </div>
                       </td>
-                      <td>
+                      <td class="app-col-ear-tag">
                         <div class="app-ear-tag">
                           <span class="app-ear-tag__prefix">{{ row.earTagParts.prefix }}</span>
-                          <span class="app-ear-tag__part--herd">{{ row.earTagParts.herd }}</span>
-                          <span class="app-ear-tag__part--check">{{ row.earTagParts.check }}</span>
-                          <span class="app-ear-tag__part--individual">{{ row.earTagParts.individual }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--herd">{{ row.earTagParts.herd }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--check">{{ row.earTagParts.check }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ row.earTagParts.individualStart }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--last4">{{ row.earTagParts.last4 }}</span>
                         </div>
                       </td>
-                      <td>{{ row.age }}</td>
-                      <td>{{ row.dob }}</td>
-                      <td>{{ row.sex }}</td>
-                      <td>{{ row.breed }}</td>
+                      <td class="app-col-dob">{{ row.dob }}</td>
+                      <td class="app-col-sex">{{ row.sex }}</td>
+                      <td class="app-col-breed">{{ row.breed }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>

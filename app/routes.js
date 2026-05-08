@@ -699,16 +699,54 @@ const v11AnimalsByCph = buildV11Dataset()
 // cattle as BCG vaccinated (so they land on the DIVA list); every
 // other animal on the farm is unvaccinated and goes on the SICCT list.
 // Match is by the visible last-4 digits of the ear tag, which is what
-// the demo notes refer to.
+// the demo notes refer to. Each vaccinated animal also gets a
+// month/year (MM/YY) for when it was BCG-vaccinated, spread across
+// 2024 and 2025 so the vet sees a realistic mix on the printed list.
+//
+// A few unvaccinated animals also have their DOB overridden to be
+// under 44 days old so the "Check age" remark on the printed
+// skin-test list has something to flag. The dates below are anchored
+// to the prototype's demo date (early May 2026); update them if the
+// demo is moved on.
 const v12AnimalsByCph = Object.assign({}, v11AnimalsByCph)
 if (v12AnimalsByCph['12/312/6802']) {
   const millHouse = v11AnimalsByCph['12/312/6802']
-  const vaccinatedLast4 = new Set(['0075', '0081', '0082', '0094', '0102'])
+  // 0094 and 0102 deliberately have vaccination dates inside the last
+  // 12 months from the demo date (May 2026). The vaccination list will
+  // flag these animals with a "Check last vaccination date" remark so
+  // the vet doesn't accidentally re-vaccinate within the booster window.
+  const vaccinationDatesByLast4 = {
+    '0075': '01/25',
+    '0081': '03/24',
+    '0082': '11/24',
+    '0094': '02/26',
+    '0102': '11/25'
+  }
+  // DOBs that put each animal at well under 44 days old at the demo
+  // date (Thursday 7 May 2026). The remark column on the printed list
+  // will show "Check age" for each of these animals.
+  const youngCalfDobs = [
+    '17/04/2026', // ~20 days old
+    '07/04/2026', // ~30 days old
+    '28/03/2026'  // ~40 days old
+  ]
+  let youngIdx = 0
   v12AnimalsByCph['12/312/6802'] = millHouse.map(function (a) {
     const last4 = String(a.officialId || '').slice(-4)
-    return Object.assign({}, a, {
-      vaccinationStatus: vaccinatedLast4.has(last4) ? 'Vaccinated' : 'Not vaccinated'
+    const vaxDate = vaccinationDatesByLast4[last4]
+    const isVaccinated = !!vaxDate
+    const animal = Object.assign({}, a, {
+      vaccinationStatus: isVaccinated ? 'Vaccinated' : 'Not vaccinated',
+      vaccinationDate: vaxDate || ''
     })
+    // Force the first three unvaccinated animals to young calf DOBs
+    // so the "Check age" remark always has something to highlight on
+    // the SICCT side of the combined list.
+    if (!isVaccinated && youngIdx < youngCalfDobs.length) {
+      animal.dob = youngCalfDobs[youngIdx]
+      youngIdx++
+    }
+    return animal
   })
 }
 
@@ -789,6 +827,31 @@ function ageInMonthsFromDob(dob) {
   // ascending, the opposite when descending).
   const msPerDay = 1000 * 60 * 60 * 24
   return Math.floor((today - birthDate) / msPerDay)
+}
+
+// True when a "MM/YY" vaccination date is within the last 12 months
+// of the demo's "today" – used by the v1-2 vaccination list to flag
+// animals whose existing vaccination is still inside the annual
+// booster window so the vet checks the date before vaccinating again.
+function isVaccinationWithinOneYear(vaxDateMmYy) {
+  if (!vaxDateMmYy || typeof vaxDateMmYy !== 'string') return false
+  const parts = vaxDateMmYy.split('/')
+  if (parts.length !== 2) return false
+  const month = parseInt(parts[0], 10)
+  const year = 2000 + parseInt(parts[1], 10)
+  if (Number.isNaN(month) || Number.isNaN(year)) return false
+  if (month < 1 || month > 12) return false
+  // Use the first day of the vaccination month so a vaccination given
+  // in (e.g.) Feb 2026 still reads as "given in February" right up to
+  // the end of February.
+  const vaxDate = new Date(year, month - 1, 1)
+  const today = new Date()
+  const oneYearAgo = new Date(
+    today.getFullYear() - 1,
+    today.getMonth(),
+    today.getDate()
+  )
+  return vaxDate >= oneYearAgo
 }
 
 function sortAnimals(animals, sortBy, sortDirection) {
@@ -1128,6 +1191,54 @@ function buildActivePreviewTags(options) {
 }
 
 // -----------------------------------------------------------------------------
+// v1-2 removes the manual "Are the cattle vaccinated?" page and derives
+// the skin-test type from the herd's vaccination status instead. This
+// helper sets all of the session state that the prepare-skin-test-type
+// POST handler used to set, so the rest of the journey – mark-untested,
+// the assignment split, and the combined skin-test list – continues to
+// work without any other code changes.
+// -----------------------------------------------------------------------------
+function autoSetupSkinTestForV12(req, version) {
+  const selectedCattle = req.session.data.selectedCattle
+  const animals = getAnimalsForSelection(selectedCattle, version)
+  const hasVaccinated = animals.some(function (a) {
+    return a.vaccinationStatus === 'Vaccinated'
+  })
+  const hasUnvaccinated = animals.some(function (a) {
+    return a.vaccinationStatus !== 'Vaccinated'
+  })
+
+  let type = 'SICCT'
+  if (hasVaccinated && hasUnvaccinated) type = 'Both'
+  else if (hasVaccinated) type = 'DIVA'
+
+  req.session.data.prepareSkinTestType = type
+  req.session.data.prepareSkinTestUntested = []
+  req.session.data.prepareSkinTestUntestedReasons = {}
+  req.session.data.prepareSkinTestUntestedReasonOthers = {}
+  req.session.data.currentPrepareUntestedIndex = 0
+  req.session.data.prepareAssignMode = null
+  req.session.data.prepareAssignFirstTest = null
+  req.session.data.prepareAssignCurrentTest = null
+
+  if (type === 'Both') {
+    const sicct = animals
+      .filter(function (a) { return a.vaccinationStatus !== 'Vaccinated' })
+      .map(function (a) { return a.officialId })
+    const diva = animals
+      .filter(function (a) { return a.vaccinationStatus === 'Vaccinated' })
+      .map(function (a) { return a.officialId })
+    req.session.data.prepareSkinTestAssignments = { sicct: sicct, diva: diva }
+    req.session.data.prepareAssignCompletedTests = ['sicct', 'diva']
+    req.session.data.prepareSkinTestPhase = 'sicct'
+  } else {
+    req.session.data.prepareSkinTestAssignments = null
+    req.session.data.prepareAssignCompletedTests = []
+    req.session.data.prepareSkinTestPhase = type === 'SICCT' ? 'sicct' : 'diva'
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Register routes for a given prototype version (e.g. 'v1-0', 'v1-1').
 // All route paths and template paths are prefixed with the version.
 // -----------------------------------------------------------------------------
@@ -1350,7 +1461,9 @@ function registerVersionRoutes(version) {
     if (isTbTest) {
       return res.redirect(`/${version}/skin-test-date`)
     }
-    return res.redirect(`/${version}/enter-vaccine-batch-details`)
+    // Vaccination report: ask for the date the vaccination was given
+    // before collecting batch / diluent details.
+    return res.redirect(`/${version}/enter-vaccination-date`)
   })
 
   router.post(`/${version}/enter-vaccination-date`, (req, res) => {
@@ -1860,6 +1973,34 @@ function registerVersionRoutes(version) {
   })
 
   router.post(`/${version}/download-list`, function (req, res) {
+    // v1-2 vaccination list mirrors the v1-2 skin-test-list settings:
+    // a "look" radio (easy / compact) that drives page size and visual
+    // density, and a sort key. Everything else is fixed for v1-2.
+    if (version === 'v1-2') {
+      const listLook = req.body.listLook === 'compact' ? 'compact' : 'easy'
+      const cattlePerPage = listLook === 'compact' ? 40 : 20
+      let textSize = 'standard'
+      let spacing = 'standard'
+      if (listLook === 'compact') { textSize = 'small'; spacing = 'tight' }
+      const allowedSorts = [
+        'Ear-tag number (last 5 digits)',
+        'Age',
+        'Sex'
+      ]
+      const submittedSort = req.body.sortBy
+      const sortBy = allowedSorts.indexOf(submittedSort) !== -1
+        ? submittedSort
+        : 'Ear-tag number (last 5 digits)'
+
+      req.session.data.vaccinationListLook = listLook
+      req.session.data.vaccinationCattlePerPage = cattlePerPage
+      req.session.data.previewTextSize = textSize
+      req.session.data.previewSpacing = spacing
+      req.session.data.previewOrientation = 'portrait'
+      req.session.data.vaccinationSortBy = sortBy
+      return res.redirect(`/${version}/download-list`)
+    }
+
     const downloadFormat = req.body.downloadFormat || req.session.data.downloadFormat || 'pdf'
     const selectedOptions = normalisePreviewOptions(req.body.previewOptions || [], req.session.data.fields)
     const selectedFields = availableListColumns.filter(field => selectedOptions.includes(field))
@@ -1876,7 +2017,40 @@ function registerVersionRoutes(version) {
     res.redirect(`/${version}/download-list`)
   })
 
+  // Confirmation / success page after the v1-2 vaccination list is
+  // formatted. Mirrors /v1-2/skin-test-list-confirmed but with text
+  // and onward-journey links relevant to a vaccination visit.
+  router.get(`/${version}/download-list-confirmed`, function (req, res) {
+    if (version !== 'v1-2') {
+      return res.redirect(`/${version}/download-list`)
+    }
+    // Track that a vaccination list has been prepared for this farm
+    // so the dashboard / farm-tasks page can offer "Report BCG
+    // vaccinations" as the natural next task.
+    const cph = req.session.data.selectedCattle
+    if (cph) {
+      const prepared = Array.isArray(req.session.data.vaccinationListPrepared)
+        ? req.session.data.vaccinationListPrepared
+        : []
+      if (!prepared.find(function (r) { return r && r.cph === cph })) {
+        prepared.push({ cph: cph })
+        req.session.data.vaccinationListPrepared = prepared
+      }
+    }
+    res.render(`${version}/download-list-confirmed`)
+  })
+
   router.get(`/${version}/download-list/reset`, function (req, res) {
+    if (version === 'v1-2') {
+      req.session.data.vaccinationListLook = 'easy'
+      req.session.data.vaccinationCattlePerPage = 20
+      req.session.data.previewTextSize = 'standard'
+      req.session.data.previewSpacing = 'standard'
+      req.session.data.previewOrientation = 'portrait'
+      req.session.data.vaccinationSortBy = 'Ear-tag number (last 5 digits)'
+      return res.redirect(`/${version}/download-list`)
+    }
+
     const fields = normaliseFields(req.session.data.fields)
 
     req.session.data.downloadFormat = req.session.data.downloadFormat || 'pdf'
@@ -1889,6 +2063,86 @@ function registerVersionRoutes(version) {
   })
 
   router.get(`/${version}/download-list`, function (req, res) {
+    // v1-2 vaccination list mirrors the v1-2 skin-test-list page:
+    // paginated A4 sheets, boxed last-4 ear tag, "list look" disclosure,
+    // blank "Additional cattle" page at the end. Render the v1-2-only
+    // template with enriched rows (earTagParts, isDuplicate,
+    // isVaccinated, vaccinationDate) and the same paging variables.
+    if (version === 'v1-2') {
+      const selectedCattleV12 = req.session.data.selectedCattle
+      const sortByV12 = req.session.data.vaccinationSortBy
+        || 'Ear-tag number (last 5 digits)'
+      const baseAnimalsV12 = (function () {
+        const animalsList = getAnimalsForSelection(selectedCattleV12, version)
+        // Mirror getSkinTestAnimals's v1-2 sort: last-4 then full last-5
+        // so duplicate boxed-last-4 animals always sit together.
+        if (sortByV12 === 'Ear-tag number (last 5 digits)') {
+          return [...animalsList].sort(function (a, b) {
+            const aId = String(a.earTagNumber || '')
+            const bId = String(b.earTagNumber || '')
+            const aKey = aId.slice(-4) + ':' + aId.slice(-5)
+            const bKey = bId.slice(-4) + ':' + bId.slice(-5)
+            return aKey.localeCompare(bKey)
+          })
+        }
+        return sortAnimals(animalsList, sortByV12, 'asc')
+      })()
+
+      // Enrich each animal with the flags the v1-2 list template uses.
+      const last4Counts = {}
+      baseAnimalsV12.forEach(function (a) {
+        const last4 = String(a.officialId || '').slice(-4)
+        last4Counts[last4] = (last4Counts[last4] || 0) + 1
+      })
+      const enrichedV12 = baseAnimalsV12.map(function (a) {
+        const last4 = String(a.officialId || '').slice(-4)
+        const vaxDate = a.vaccinationDate || ''
+        return Object.assign({}, a, {
+          isDuplicate: last4Counts[last4] > 1,
+          isVaccinated: a.vaccinationStatus === 'Vaccinated',
+          vaccinationDate: vaxDate,
+          // Flagged on the printed list with "Check last vaccination
+          // date" so the vet doesn't double-vaccinate inside the
+          // 12-month booster window.
+          isRecentlyVaccinated: isVaccinationWithinOneYear(vaxDate)
+        })
+      })
+
+      const visibleColumnsV12 = ['DOB', 'Sex', 'Breed']
+      const previewRowsV12 = buildPreviewRows(enrichedV12, visibleColumnsV12)
+        .map(function (row, idx) {
+          return Object.assign({}, row, {
+            isDuplicate: enrichedV12[idx].isDuplicate,
+            isVaccinated: enrichedV12[idx].isVaccinated,
+            vaccinationDate: enrichedV12[idx].vaccinationDate,
+            isRecentlyVaccinated: enrichedV12[idx].isRecentlyVaccinated
+          })
+        })
+
+      return res.render(`${version}/download-list`, {
+        previewRows: previewRowsV12,
+        previewCount: previewRowsV12.length,
+        previewColumns: visibleColumnsV12,
+        previewOptions: ['show-last-five'].concat(visibleColumnsV12),
+        emphasiseLastFive: true,
+        previewTextSize: req.session.data.previewTextSize || 'standard',
+        previewOrientation: req.session.data.previewOrientation || 'portrait',
+        previewSpacing: req.session.data.previewSpacing || 'standard',
+        downloadFormat: req.session.data.downloadFormat || 'pdf',
+        pageSize: req.session.data.vaccinationCattlePerPage || 20,
+        cattlePerPage: req.session.data.vaccinationCattlePerPage || 20,
+        listLook: req.session.data.vaccinationListLook || 'easy',
+        totalCattle: previewRowsV12.length,
+        sortByLabel: (function () {
+          const s = sortByV12
+          if (s === 'Age') return 'age'
+          if (s === 'Sex') return 'sex'
+          return 'ear tag'
+        })(),
+        currentPage: Math.max(1, parseInt((req.query && req.query.page) || '1', 10) || 1)
+      })
+    }
+
     const selectedCattle = req.session.data.selectedCattle
     const fields = normaliseFields(req.session.data.fields)
     const sortBy = req.session.data.sortBy || 'Ear-tag number'
@@ -2229,6 +2483,12 @@ function registerVersionRoutes(version) {
         req.session.data.listType = 'Give skin test'
         req.session.data.prepareSkinTestType = null
         req.session.data.prepareSkinTestPhase = null
+        // v1-2 inserts the "How would you like to view your list?"
+        // step before doing the auto-setup, so the vet can pick PDF /
+        // Spreadsheet / Handheld first.
+        if (version === 'v1-2') {
+          return res.redirect(`/${version}/list-format`)
+        }
         return res.redirect(`/${version}/prepare-skin-test-type`)
 
       case 'report-skin-test':
@@ -2293,6 +2553,13 @@ function registerVersionRoutes(version) {
         req.session.data.sortDirection = req.session.data.sortDirection || 'asc'
         req.session.data.previewOptions = req.session.data.previewOptions
           || ['show-last-five', ...availableListColumns]
+        // v1-2 inserts a "How would you like to view your list?" step
+        // (PDF / Spreadsheet / Handheld) before either the filter page
+        // or a direct download. Other versions skip straight to the
+        // download/list page.
+        if (version === 'v1-2') {
+          return res.redirect(`/${version}/list-format`)
+        }
         return res.redirect(`/${version}/download-list`)
 
       case 'prepare-skin-test':
@@ -2303,6 +2570,13 @@ function registerVersionRoutes(version) {
         // state so a new journey always starts clean.
         req.session.data.prepareSkinTestType = null
         req.session.data.prepareSkinTestPhase = null
+        // v1-2 has no manual "which test" page – the type is derived
+        // from the herd's vaccination status. The auto-setup happens
+        // after the vet picks an output format on /v1-2/list-format,
+        // so we redirect there instead of going straight to the list.
+        if (version === 'v1-2') {
+          return res.redirect(`/${version}/list-format`)
+        }
         return res.redirect(`/${version}/prepare-skin-test-type`)
 
       case 'report-vaccination':
@@ -2329,6 +2603,119 @@ function registerVersionRoutes(version) {
     // Unknown journey – send back to the confirm page
     return res.redirect(`/${version}/confirm-herd-or-animal`)
   })
+
+  // ---------------------------------------------------------------------------
+  // v1-2 only: "How would you like to view your list?" – PDF /
+  // Spreadsheet / Handheld – inserted after /select-visit-task for the
+  // two list-prep journeys (prepare-vaccinate and prepare-skin-test).
+  // ---------------------------------------------------------------------------
+  router.get(`/${version}/list-format`, function (req, res) {
+    if (version !== 'v1-2') {
+      return res.redirect(`/${version}/select-visit-task`)
+    }
+    res.render(`${version}/list-format`)
+  })
+
+  router.post(`/${version}/list-format`, function (req, res) {
+    if (version !== 'v1-2') {
+      return res.redirect(`/${version}/select-visit-task`)
+    }
+    const listFormat = req.body.listFormat
+    const journey = req.session.data.journey
+    req.session.data.listFormat = listFormat
+
+    if (!listFormat) {
+      return res.render(`${version}/list-format`, {
+        errors: { listFormat: { text: 'Select how you want to view your list' } },
+        errorSummary: {
+          titleText: 'There is a problem',
+          errorList: [{ text: 'Select how you want to view your list', href: '#listFormat' }]
+        }
+      })
+    }
+
+    // Handheld – information page only (no list rendered yet). The
+    // page itself offers a "Choose another option" button back here.
+    if (listFormat === 'handheld') {
+      return res.redirect(`/${version}/handheld-info`)
+    }
+
+    // PDF or Spreadsheet – record the chosen download format and
+    // route into the matching list flow. Spreadsheet skips the
+    // filtering step and lands on the *-confirmed page where the CSV
+    // download link sits; PDF goes to the filter / preview page so
+    // the vet can format the list before printing.
+    const downloadFormat = listFormat === 'spreadsheet' ? 'csv' : 'pdf'
+    req.session.data.downloadFormat = downloadFormat
+
+    if (journey === 'prepare-skin-test') {
+      // Run the v1-2 auto-setup (derive type from vaccination status,
+      // pre-populate the SICCT/DIVA split). Without this, the list
+      // page bounces back to /select-visit-task because the test type
+      // hasn't been set.
+      autoSetupSkinTestForV12(req, version)
+      if (downloadFormat === 'csv') {
+        // Spreadsheet flow lands on a dedicated download page that
+        // mirrors the PDF confirmation step but is framed around
+        // downloading a CSV (now or later from the dashboard).
+        return res.redirect(`/${version}/list-spreadsheet`)
+      }
+      return res.redirect(`/${version}/skin-test-list`)
+    }
+
+    if (journey === 'prepare-vaccinate') {
+      if (downloadFormat === 'csv') {
+        return res.redirect(`/${version}/list-spreadsheet`)
+      }
+      return res.redirect(`/${version}/download-list`)
+    }
+
+    // Unknown journey – send back to the visit-task picker.
+    return res.redirect(`/${version}/select-visit-task`)
+  })
+
+  router.get(`/${version}/handheld-info`, function (req, res) {
+    if (version !== 'v1-2') {
+      return res.redirect(`/${version}/select-visit-task`)
+    }
+    res.render(`${version}/handheld-info`)
+  })
+
+  // Spreadsheet download page – mirrors the PDF confirmation step
+  // (download now / save for later) but framed around a CSV download.
+  // Records the prepared list against the current farm so the
+  // dashboard can offer the matching report task as a follow-up.
+  router.get(`/${version}/list-spreadsheet`, function (req, res) {
+    if (version !== 'v1-2') {
+      return res.redirect(`/${version}/select-visit-task`)
+    }
+    const cph = req.session.data.selectedCattle
+    const journey = req.session.data.journey
+    if (cph) {
+      if (journey === 'prepare-skin-test') {
+        const prepared = Array.isArray(req.session.data.skinTestListPrepared)
+          ? req.session.data.skinTestListPrepared.filter(function (r) {
+              return r && r.cph !== cph
+            })
+          : []
+        const prepareSkinTestType = req.session.data.prepareSkinTestType || 'SICCT'
+        const types = prepareSkinTestType === 'Both'
+          ? ['SICCT', 'DIVA']
+          : [prepareSkinTestType]
+        prepared.push({ cph: cph, types: types, preparedAt: new Date().toISOString() })
+        req.session.data.skinTestListPrepared = prepared
+      } else if (journey === 'prepare-vaccinate') {
+        const prepared = Array.isArray(req.session.data.vaccinationListPrepared)
+          ? req.session.data.vaccinationListPrepared
+          : []
+        if (!prepared.find(function (r) { return r && r.cph === cph })) {
+          prepared.push({ cph: cph })
+          req.session.data.vaccinationListPrepared = prepared
+        }
+      }
+    }
+    res.render(`${version}/list-spreadsheet`)
+  })
 }
 
 // Register routes for each supported prototype version
@@ -2340,7 +2727,12 @@ registerVersionRoutes('v1-2')
 // Skin test journey routes (V1-1 only)
 // -----------------------------------------------------------------------------
 function registerSkinTestRoutes(version) {
-  const skinTestListColumns = ['Age', 'DOB', 'Sex', 'Breed']
+  // v1-2 drops the Age column from the printable skin-test list – the
+  // vet works from DOB instead, which is the canonical reference on
+  // ear-tag passports.
+  const skinTestListColumns = version === 'v1-2'
+    ? ['DOB', 'Sex', 'Breed']
+    : ['Age', 'DOB', 'Sex', 'Breed']
 
   // Helpers --------------------------------------------------------------------
 
@@ -2351,7 +2743,28 @@ function registerSkinTestRoutes(version) {
     // registerSkinTestRoutes is registered per version – use the
     // closure's version so v1-1 and v1-2 each pull from the right
     // dataset.
-    return sortAnimals(getAnimalsForSelection(selectedCattle, version), sortBy, sortDirection)
+    const animals = getAnimalsForSelection(selectedCattle, version)
+
+    // v1-2 only: sort the default ear-tag list by the boxed last-4
+    // digits first, then the full last-5 (the individual number) to
+    // break ties. The vet reads cattle off the printed list by the
+    // boxed last-4, so animals that share that value must sit
+    // together – without the last-4 prefix, a bought-in animal with
+    // individual number 10075 (last-4 0075) sorted after 06237 and
+    // broke up the 0074 / 0075 sequence on Mill House Farm. v1-1
+    // keeps the original last-5-only sort.
+    if (version === 'v1-2' && sortBy === 'Ear-tag number (last 5 digits)') {
+      const direction = sortDirection === 'desc' ? -1 : 1
+      return [...animals].sort(function (a, b) {
+        const aId = String(a.earTagNumber || '')
+        const bId = String(b.earTagNumber || '')
+        const aKey = aId.slice(-4) + ':' + aId.slice(-5)
+        const bKey = bId.slice(-4) + ':' + bId.slice(-5)
+        return aKey.localeCompare(bKey) * direction
+      })
+    }
+
+    return sortAnimals(animals, sortBy, sortDirection)
   }
 
   function blankEntry() {
@@ -2573,11 +2986,24 @@ function registerSkinTestRoutes(version) {
   // Pre-list step: pick which test the list is for (SICCT / DIVA / Both).
   // The vet then marks any cattle that won't be tested on the next step –
   // there's no separate vaccination-status mismatch warning.
+  // v1-2 has no manual "which test" page; the type is derived from the
+  // herd's vaccination status. If anyone lands here directly we send
+  // them back to the journey selector instead of rendering a missing
+  // template.
   router.get(`/${version}/prepare-skin-test-type`, function (req, res) {
+    if (version === 'v1-2') {
+      return res.redirect(`/${version}/select-visit-task`)
+    }
     res.render(`${version}/prepare-skin-test-type`)
   })
 
   router.post(`/${version}/prepare-skin-test-type`, function (req, res) {
+    if (version === 'v1-2') {
+      // Defensive: the v1-2 flow never POSTs here, but if a stale
+      // form somehow does, skip into the auto-setup path.
+      autoSetupSkinTestForV12(req, version)
+      return res.redirect(`/${version}/skin-test-list`)
+    }
     // The "mixed herd" radio submits the value "DIVA and SICCT". The
     // rest of the journey keys off the canonical "Both" value, so
     // normalise here once.
@@ -2654,6 +3080,12 @@ function registerSkinTestRoutes(version) {
   // the system do it automatically (vaccinated → DIVA, unvaccinated →
   // SICCT) or pick the cattle for each test by hand.
   router.get(`/${version}/prepare-skin-test-assign`, function (req, res) {
+    // v1-2 doesn't use this page – the SICCT/DIVA split is derived
+    // automatically by autoSetupSkinTestForV12. Drop straight onto
+    // the combined list if anyone hits this URL.
+    if (version === 'v1-2') {
+      return res.redirect(`/${version}/skin-test-list`)
+    }
     if (req.session.data.prepareSkinTestType !== 'Both') {
       return res.redirect(`/${version}/prepare-skin-test-type`)
     }
@@ -2905,6 +3337,11 @@ function registerSkinTestRoutes(version) {
 
   router.get(`/${version}/prepare-skin-test-untested`, function (req, res) {
     if (!req.session.data.prepareSkinTestType) {
+      // v1-2: the type page no longer exists – send them back to the
+      // journey picker so the auto-setup runs again.
+      if (version === 'v1-2') {
+        return res.redirect(`/${version}/select-visit-task`)
+      }
       return res.redirect(`/${version}/prepare-skin-test-type`)
     }
     // The "Skip — every animal will be tested" link points here with
@@ -3177,16 +3614,27 @@ function registerSkinTestRoutes(version) {
       })
       const enriched = filtered.map(function (a) {
         const last4 = String(a.officialId || '').slice(-4)
+        // Days-since-DOB is used to flag calves below the minimum
+        // skin-test age (44 days). The vet keeps these on the printed
+        // list but is prompted to "Check age" before testing.
+        const daysOld = ageInMonthsFromDob(a.dob)
+        const isUnderTestAge = typeof daysOld === 'number'
+          && daysOld >= 0
+          && daysOld < 44
         return Object.assign({}, a, {
           isDuplicate: counts[last4] > 1,
-          isVaccinated: a.vaccinationStatus === 'Vaccinated'
+          isVaccinated: a.vaccinationStatus === 'Vaccinated',
+          isUnderTestAge: isUnderTestAge,
+          vaccinationDate: a.vaccinationDate || ''
         })
       })
       const rows = buildPreviewRows(enriched, settings.visibleColumns)
         .map(function (row, idx) {
           return Object.assign({}, row, {
             isDuplicate: enriched[idx].isDuplicate,
-            isVaccinated: enriched[idx].isVaccinated
+            isVaccinated: enriched[idx].isVaccinated,
+            isUnderTestAge: enriched[idx].isUnderTestAge,
+            vaccinationDate: enriched[idx].vaccinationDate
           })
         })
       return { rows, count: enriched.length }
@@ -3208,6 +3656,13 @@ function registerSkinTestRoutes(version) {
     // the Both journey. Each row carries an `assignedTest` field so the
     // template can show one extra column telling the vet which test
     // applies to that animal.
+    //
+    // Sort order: walk `baseAnimals` (already sorted by the vet's
+    // chosen sort) and pick up each animal's preview row from whichever
+    // phase produced it. This interleaves SICCT and DIVA cattle in a
+    // single ear-tag-ordered sequence so the vet doesn't see DIVA
+    // animals bunched at the end after SICCT – they sit wherever their
+    // ear tag falls in the herd-wide sort.
     const isCombinedBoth = isBoth && version === 'v1-2'
     let combinedPreview = null
     if (isCombinedBoth) {
@@ -3215,24 +3670,29 @@ function registerSkinTestRoutes(version) {
         .map(function (r) { return r.officialId }))
       const divaIds = new Set((divaPreview && divaPreview.rows || [])
         .map(function (r) { return r.officialId }))
+      const rowById = {}
+      ;((sicctPreview && sicctPreview.rows) || []).forEach(function (r) {
+        rowById[r.officialId] = r
+      })
+      ;((divaPreview && divaPreview.rows) || []).forEach(function (r) {
+        // SICCT row wins the slot if an animal somehow appears on both
+        // (shouldn't happen with the auto-split but guard anyway).
+        if (!rowById[r.officialId]) rowById[r.officialId] = r
+      })
       const combinedRows = []
-      const seen = new Set()
-      // Take the SICCT rows first, then any DIVA-only rows, so the
-      // ordering still matches the vet's chosen sort.
-      const sourceRows = ((sicctPreview && sicctPreview.rows) || [])
-        .concat((divaPreview && divaPreview.rows) || [])
-      sourceRows.forEach(function (r) {
-        if (seen.has(r.officialId)) return
-        seen.add(r.officialId)
+      baseAnimals.forEach(function (a) {
+        const id = a.officialId
+        const row = rowById[id]
+        if (!row) return
         let assignedTest = ''
-        if (sicctIds.has(r.officialId) && divaIds.has(r.officialId)) {
+        if (sicctIds.has(id) && divaIds.has(id)) {
           assignedTest = 'Both'
-        } else if (divaIds.has(r.officialId)) {
+        } else if (divaIds.has(id)) {
           assignedTest = 'DIVA'
         } else {
           assignedTest = 'SICCT'
         }
-        combinedRows.push(Object.assign({}, r, { assignedTest }))
+        combinedRows.push(Object.assign({}, row, { assignedTest: assignedTest }))
       })
       combinedPreview = { rows: combinedRows, count: combinedRows.length }
     }
@@ -3959,11 +4419,15 @@ function registerSkinTestRoutes(version) {
     const sortDirection = req.session.data.skinTestSortDirection
       || req.session.data.prepareSkinTestUntestedSortDirection
       || 'asc'
+    const pageSize = 25
+    const currentPage = Math.max(1, parseInt(req.query.page, 10) || 1)
     res.render(`${version}/skin-test-all-tested`, {
       animals,
       totalCattle: animals.length,
       sortBy,
-      sortDirection
+      sortDirection,
+      pageSize,
+      currentPage
     })
   })
 
@@ -4002,11 +4466,15 @@ function registerSkinTestRoutes(version) {
       const sortDirection = req.session.data.skinTestSortDirection
         || req.session.data.prepareSkinTestUntestedSortDirection
         || 'asc'
+      const pageSize = 25
+      const currentPage = Math.max(1, parseInt(req.query.page, 10) || 1)
       return res.render(`${version}/skin-test-all-tested`, {
         animals,
         totalCattle: animals.length,
         sortBy,
         sortDirection,
+        pageSize,
+        currentPage,
         errors: { allCattleTestedReport: { text: 'Select yes if all cattle were tested, or no if some were not' } },
         errorSummary: {
           titleText: 'There is a problem',

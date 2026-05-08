@@ -1,0 +1,64 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  How would you like to view your list? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-2/select-visit-task"
+}) }}
+{% endblock %}
+
+{% block content %}
+{% set isSkinTest = data['journey'] == 'prepare-skin-test' %}
+{% set listKind = "skin test" if isSkinTest else "vaccination" %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <form action="/v1-2/list-format" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "listFormat",
+        name: "listFormat",
+        fieldset: {
+          legend: {
+            html: '<span class="govuk-caption-l">' + (data['herd']['farm'] or 'Selected farm') + '</span>How would you like to view your ' + listKind + ' list?',
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        value: data['listFormat'],
+        errorMessage: { text: errors['listFormat'].text } if errors and errors['listFormat'],
+        items: [
+          {
+            value: "pdf",
+            text: "PDF to print",
+            hint: { text: "Format the list, preview it, and print it for the visit." }
+          },
+          {
+            value: "spreadsheet",
+            text: "Spreadsheet",
+            hint: { text: "Download a CSV file you can open in Excel or another spreadsheet app." }
+          },
+          {
+            value: "handheld",
+            text: "Handheld device",
+            hint: { text: "Learn more about using a handheld reader." }
+          }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

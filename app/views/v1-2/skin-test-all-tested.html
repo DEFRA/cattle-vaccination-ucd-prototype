@@ -13,82 +13,67 @@
 
 {% block content %}
 <style>
-  /* Two-column layout: filter panel on the left, the cattle table on
-     the right. Same pattern used on skin-test-untested and
-     skin-test-reactors. */
-  .app-page-grid {
-    display: grid;
-    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-    gap: 30px;
-    align-items: start;
-  }
-  .app-filter-panel {
-    border: 1px solid #b1b4b6;
-    background: #f8f8f8;
-    padding: 20px;
-    top: 20px;
-    font-family: "GDS Transport", arial, sans-serif;
-  }
-  .app-filter-panel .govuk-fieldset__legend,
-  .app-filter-panel .govuk-radios__label,
-  .app-filter-panel .govuk-button,
-  .app-filter-panel .govuk-link,
-  .app-filter-panel .govuk-body {
-    font-size: 19px;
-    line-height: 1.31579;
-  }
-  .app-filter-panel .govuk-heading-m {
-    font-family: "GDS Transport", arial, sans-serif;
-  }
-  .app-filter-panel .govuk-radios,
-  .app-filter-panel .govuk-form-group:last-child {
-    margin-bottom: 0;
-  }
-  @media (max-width: 900px) {
-    .app-page-grid { grid-template-columns: 1fr; }
-  }
-
-  .app-tested-table {
+  /* v1-2: the all-tested check page now uses the same printable-list
+     look as /v1-2/skin-test-list and /v1-2/skin-test-reactors so the
+     vet sees a familiar table. The list settings panel has been
+     removed entirely – the order matches the skin-test-list order so
+     no separate sort UI is needed here. */
+  .app-record-table {
     width: 100%;
     border-collapse: collapse;
-    font-family: "GDS Transport", arial, sans-serif;
+    table-layout: fixed;
     margin: 0 0 20px;
+    font-family: Arial, Helvetica, sans-serif;
   }
-  .app-tested-table th,
-  .app-tested-table td {
-    border-bottom: 1px solid #b1b4b6;
-    padding: 10px 12px;
+  .app-record-table th,
+  .app-record-table td {
+    border: 1px solid #0b0c0c;
+    padding: 6px 8px;
     vertical-align: middle;
-    text-align: left;
+    box-sizing: border-box;
   }
-  .app-tested-table thead th {
-    border-bottom: 2px solid #0b0c0c;
+  .app-record-table th {
+    background: #ffffff;
+    text-align: center;
     font-weight: 700;
-  }
-  .app-tested-table__flag {
-    display: inline-block;
-    background: #f3f2f1;
-    color: #505a5f;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    padding: 3px 8px;
-    margin-left: 8px;
     line-height: 1.2;
-    white-space: nowrap;
   }
+  .app-record-table td {
+    height: 2.4em;
+  }
+
+  /* Column widths mirror /v1-2/skin-test-list and
+     /v1-2/skin-test-reactors so the three tables read the same on
+     screen. */
+  .app-col-ear-tag  { width: 8.5rem; }
+  .app-col-vax      { width: 4.5rem; text-align: center !important; font-variant-numeric: tabular-nums; }
+  .app-col-dob      { width: 7rem;   text-align: center !important; }
+  .app-col-sex      { width: 3.5rem; text-align: center !important; }
+  .app-col-breed    { width: 4.5rem; text-align: center !important; }
+
+  /* Ear tag rendering – matches the skin-test-list table.
+     The last-4 digits sit in a tight bordered box so the vet can
+     spot the animal at a glance; duplicates invert the box. */
   .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
+    line-height: 1.1;
     white-space: nowrap;
   }
-  .app-ear-tag__last4 {
-    padding: 2px 6px;
-    border: 2px solid #0b0c0c;
-    margin-left: 2px;
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 {
+    padding: 2px 3px;
+    border: 2px solid #b1b4b6;
   }
-  .app-ear-tag__prefix { margin-right: 0; }
+  .app-ear-tag__part--last4--duplicate {
+    background-color: #0b0c0c;
+    color: #ffffff;
+    border-color: #0b0c0c;
+  }
 </style>
 
 <div class="govuk-grid-row">
@@ -111,108 +96,96 @@
 </div>
 
 <div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
-    <div class="app-page-grid">
+  <div class="govuk-grid-column-two-thirds">
 
-      {# ---- List settings panel (sort) – submits to a separate
-             route so applying a new sort doesn't disturb the radio
-             selection on the main form. #}
-      <form method="post" action="/v1-2/skin-test-all-tested/settings" class="app-filter-panel">
-        <h2 class="govuk-heading-m govuk-!-margin-bottom-3">List settings</h2>
-        <p class="govuk-body govuk-!-margin-bottom-4">Reorder the cattle below to suit how you'll work through them.</p>
+    {# Pagination – slice the full animal list down to the current
+       page so long herds don't make the gate page scroll forever.
+       Defaults match /v1-2/skin-test-list: 25 rows per page, page
+       1 unless ?page=N is set. #}
+    {% set _pageSize = pageSize or 25 %}
+    {% set _currentPage = currentPage or 1 %}
+    {% set _totalAnimals = animals.length %}
+    {% set _totalPages = ((_totalAnimals + _pageSize - 1) / _pageSize) | int %}
+    {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+    {% set _currentPageClamped = _currentPage %}
+    {% if _currentPageClamped > _totalPages %}{% set _currentPageClamped = _totalPages %}{% endif %}
+    {% set _start = (_currentPageClamped - 1) * _pageSize %}
+    {% set _end = _start + _pageSize %}
+    {% set pagedAnimals = animals.slice(_start, _end) %}
 
-        {{ govukRadios({
-          idPrefix: "sortBy",
-          name: "sortBy",
-          classes: "govuk-!-margin-bottom-4",
-          fieldset: { legend: { text: "Sort by", classes: "govuk-fieldset__legend--s" } },
-          items: [
-            { value: "Ear-tag number (last 5 digits)", text: "Ear tag number (last 4 digits)", checked: (sortBy or 'Ear-tag number (last 5 digits)') == "Ear-tag number (last 5 digits)" },
-            { value: "Ear-tag number",                 text: "Ear tag number (full)",          checked: sortBy == "Ear-tag number" },
-            { value: "Age",                            text: "Age",                            checked: sortBy == "Age" },
-            { value: "Sex",                            text: "Sex",                            checked: sortBy == "Sex" },
-            { value: "Breed",                          text: "Breed",                          checked: sortBy == "Breed" },
-            { value: "DOB",                            text: "DOB",                            checked: sortBy == "DOB" }
-          ]
-        }) }}
+    <table class="app-record-table">
+      <thead>
+        <tr>
+          <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+          <th scope="col" class="app-col-vax">TB Vax</th>
+          <th scope="col" class="app-col-dob">DOB</th>
+          <th scope="col" class="app-col-sex">Sex</th>
+          <th scope="col" class="app-col-breed">Breed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for animal in pagedAnimals %}
+          <tr>
+            <td class="app-col-ear-tag">
+              <div class="app-ear-tag">
+                <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
+                <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
+                <span class="app-ear-tag__part app-ear-tag__part--check">{{ animal.earTagParts.check }}</span>
+                <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ animal.earTagParts.individualStart }}</span>
+                <span class="app-ear-tag__part app-ear-tag__part--last4{% if animal.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                      {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
+              </div>
+            </td>
+            <td class="app-col-vax">{{ animal.vaccinationDate or '-' }}</td>
+            <td class="app-col-dob">{{ animal.dob }}</td>
+            <td class="app-col-sex">{{ animal.sex }}</td>
+            <td class="app-col-breed">{{ animal.breed }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
 
-        {{ govukRadios({
-          idPrefix: "sortDirection",
-          name: "sortDirection",
-          classes: "govuk-!-margin-bottom-4",
-          fieldset: { legend: { text: "Order", classes: "govuk-fieldset__legend--s" } },
-          items: [
-            { value: "asc",  text: "Ascending",  checked: (sortDirection or 'asc') == "asc" },
-            { value: "desc", text: "Descending", checked: sortDirection == "desc" }
-          ]
-        }) }}
+    {# GOV.UK pagination – only shown when there's more than one page. #}
+    {% if _totalPages > 1 %}
+      {% set _paginationItems = [] %}
+      {% for _p in range(1, _totalPages + 1) %}
+        {% set _paginationItems = _paginationItems.concat([{
+          number: _p,
+          href: "?page=" + _p|string,
+          current: _p == _currentPageClamped
+        }]) %}
+      {% endfor %}
+      {{ govukPagination({
+        classes: "govuk-!-margin-top-2 govuk-!-margin-bottom-6",
+        previous: { href: "?page=" + (_currentPageClamped - 1)|string } if _currentPageClamped > 1 else null,
+        next: { href: "?page=" + (_currentPageClamped + 1)|string } if _currentPageClamped < _totalPages else null,
+        items: _paginationItems
+      }) }}
+    {% endif %}
 
-        <div class="govuk-button-group">
-          {{ govukButton({ text: "Apply changes" }) }}
-        </div>
-        <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">
-          <a class="govuk-link" href="/v1-2/skin-test-all-tested/settings/reset">Clear settings</a>
-        </p>
-      </form>
+    <form action="/v1-2/skin-test-all-tested" method="post" novalidate>
 
-      {# ---- Main column: cattle list + the yes/no question -------- #}
-      <div>
+      {{ govukRadios({
+        idPrefix: "allCattleTestedReport",
+        name: "allCattleTestedReport",
+        value: data['allCattleTestedReport'],
+        errorMessage: { text: errors['allCattleTestedReport'].text } if errors and errors['allCattleTestedReport'],
+        fieldset: {
+          legend: {
+            text: "Were all of the cattle tested?",
+            classes: "govuk-visually-hidden"
+          }
+        },
+        items: [
+          { value: "yes", text: "Yes, all cattle were tested" },
+          { value: "no",  text: "No, some cattle were not tested" }
+        ]
+      }) }}
 
-        <table class="app-tested-table">
-          <thead>
-            <tr>
-              <th scope="col">Ear tag</th>
-              <th scope="col">Age</th>
-              <th scope="col">DOB</th>
-              <th scope="col">Sex</th>
-              <th scope="col">Breed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for animal in animals %}
-              <tr>
-                <td>
-                  <span class="app-ear-tag">
-                    <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span><span>{{ animal.earTagParts.herd }}</span><span>{{ animal.earTagParts.check }}</span><span>{{ animal.earTagParts.individualStart }}</span><span class="app-ear-tag__last4">{{ animal.earTagParts.last4 }}</span>
-                  </span>
-                  {% if animal.isVaccinated %}<strong class="app-tested-table__flag" title="BCG vaccinated">VAX</strong>{% endif %}
-                  {% if animal.isDuplicate %}<strong class="app-tested-table__flag" title="Another animal on this farm shares the last 4 digits of this ear tag">DUP</strong>{% endif %}
-                </td>
-                <td>{{ animal.age }}</td>
-                <td>{{ animal.dob }}</td>
-                <td>{{ animal.sex }}</td>
-                <td>{{ animal.breed }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      {{ govukButton({ text: "Continue" }) }}
 
-        <form action="/v1-2/skin-test-all-tested" method="post" novalidate>
+    </form>
 
-          {{ govukRadios({
-            idPrefix: "allCattleTestedReport",
-            name: "allCattleTestedReport",
-            value: data['allCattleTestedReport'],
-            errorMessage: { text: errors['allCattleTestedReport'].text } if errors and errors['allCattleTestedReport'],
-            fieldset: {
-              legend: {
-                text: "Were all of the cattle tested?",
-                classes: "govuk-visually-hidden"
-              }
-            },
-            items: [
-              { value: "yes", text: "Yes, all cattle were tested" },
-              { value: "no",  text: "No, some cattle were not tested" }
-            ]
-          }) }}
-
-          {{ govukButton({ text: "Continue" }) }}
-
-        </form>
-
-      </div>
-
-    </div>
   </div>
 </div>
 {% endblock %}

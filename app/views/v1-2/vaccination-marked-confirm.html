@@ -55,24 +55,31 @@
     }) }}
 
     <form action="/v1-2/vaccination-marked-confirm" method="post" novalidate>
-      <div class="govuk-button-group">
-        {% if countRemaining > 0 %}
-          {{ govukButton({
-            text: ("Continue to remaining cattle" if isMarkVaxFirst else "Continue to confirm vaccinated cattle"),
-            name: "confirmAction",
-            value: "continue"
-          }) }}
-        {% else %}
-          {{ govukButton({
-            text: "Continue",
-            name: "confirmAction",
-            value: "continue"
-          }) }}
-        {% endif %}
-        <button type="submit" name="confirmAction" value="back" class="govuk-link app-link-button" style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
+      {% if countRemaining > 0 %}
+        {{ govukButton({
+          text: ("Continue to remaining cattle" if isMarkVaxFirst else "Continue to confirm vaccinated cattle"),
+          name: "confirmAction",
+          value: "continue"
+        }) }}
+      {% else %}
+        {{ govukButton({
+          text: "Continue",
+          name: "confirmAction",
+          value: "continue"
+        }) }}
+      {% endif %}
+
+      {# "Go back and change what I marked" sits beneath the Continue
+         button as a regular GOV.UK link. It still has to submit the
+         form (with confirmAction=back) so the route handler knows
+         which action to take, hence the styled <button>. #}
+      <p class="govuk-body">
+        <button type="submit" name="confirmAction" value="back"
+                class="govuk-link"
+                style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
           Go back and change what I marked
         </button>
-      </div>
+      </p>
     </form>
 
   </div>

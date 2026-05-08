@@ -2,7 +2,7 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  When did the vaccination happen? – GOV.UK
+  When was the vaccination given? – GOV.UK
 {% endblock %}
 
 {% block beforeContent %}
@@ -26,9 +26,12 @@
         id: "vaccinationDate",
         namePrefix: "vaccinationDate",
         errorMessage: { text: errors['vaccinationDate'].text } if errors and errors['vaccinationDate'],
+        hint: {
+          text: "For example, 27 4 2026"
+        },
         fieldset: {
           legend: {
-            text: "When was day 1 of the test?",
+            text: "When was the vaccination given?",
             isPageHeading: true,
             classes: "govuk-fieldset__legend--l"
           }
