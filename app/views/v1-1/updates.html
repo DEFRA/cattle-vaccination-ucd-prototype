@@ -1,0 +1,103 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  What's new in this version – V2 – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back to all versions",
+  href: "/"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">V2</span>
+    <h1 class="govuk-heading-l">Skin tests – prepare a list and reporting</h1>
+
+    <p class="govuk-body-l">
+      Adds the bovine TB skin test journey alongside the V1 vaccination flow.
+      Vets can prepare a list of cattle to test, record measurements during the visit and report results back to APHA.
+    </p>
+
+    <h2 class="govuk-heading-m">Everything in V1 is still here</h2>
+    <p class="govuk-body">
+      The vaccination journey from V1 is still available: find a farm, prepare a list, record vaccinations and submit a report.
+    </p>
+
+    <h2 class="govuk-heading-m">What's new in V2</h2>
+
+    <h3 class="govuk-heading-s">Choose what you want to do on the visit</h3>
+    <p class="govuk-body">
+      After confirming the farm, you pick the task for the visit: prepare a vaccination list, report a vaccination, prepare a skin test list, or report skin test results.
+    </p>
+
+    <h3 class="govuk-heading-s">Pick which skin test you want to prepare for</h3>
+    <p class="govuk-body">
+      Choose between the SICCT test, the DIVA test, or both. If you choose both, the herd is split into a separate SICCT list (for unvaccinated cattle) and a DIVA list (for BCG-vaccinated cattle).
+    </p>
+
+    <h3 class="govuk-heading-s">Assign cattle to each test</h3>
+    <p class="govuk-body">
+      For the "Both" journey, you can review and edit which animals go on each list before you print. You can also decide the order – SICCT first or DIVA first.
+    </p>
+
+    <h3 class="govuk-heading-s">Mark cattle that will not be tested</h3>
+    <p class="govuk-body">
+      Before printing the list, mark any animals that won't be tested (for example because they're too young or have been moved off the farm). Each animal gets a reason and you confirm the choices on a summary page.
+    </p>
+
+    <h3 class="govuk-heading-s">Prepare a printable skin test list</h3>
+    <p class="govuk-body">
+      Format the list for printing on A4 with empty boxes for Day 1 and Day 2 measurements, reaction descriptions and an overall result. You can change the sort order and the page size before you print.
+    </p>
+
+    <h3 class="govuk-heading-s">Record Day 1 and Day 2 dates</h3>
+    <p class="govuk-body">
+      Capture the date the tuberculin was injected (Day 1) and the date the reading was taken (Day 2). Each date has a checkbox to flag visits that ran over more than one day.
+    </p>
+
+    <h3 class="govuk-heading-s">Record measurements one animal at a time</h3>
+    <p class="govuk-body">
+      Step through each reactor on its own screen. For SICCT you enter pre-injection and 72-hour readings at both the avian and bovine sites, plus a description of any reaction and the overall result. For DIVA you enter the bovine readings only.
+    </p>
+
+    <h3 class="govuk-heading-s">Identify reactors and untested cattle</h3>
+    <p class="govuk-body">
+      Use the "Did any cattle react?" gate to skip the reactor list when nothing reacted, or tick the cattle that did. After that, mark any cattle that weren't tested at all and add a reason.
+    </p>
+
+    <h3 class="govuk-heading-s">Add unlisted cattle</h3>
+    <p class="govuk-body">
+      Add an animal to the report that wasn't on the original list – for example a newly tagged calf that you tested on the visit.
+    </p>
+
+    <h3 class="govuk-heading-s">Submit the skin test report</h3>
+    <p class="govuk-body">
+      Review every animal's result, the test dates, and the batch numbers before sending the report. A confirmation page summarises what was submitted.
+    </p>
+
+    {# ------------------------------------------------------------ #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">Updates based on research</h2>
+
+    <p class="govuk-body">
+      Round 1 of alpha research (April 2026) tested the V1 vaccination prototype with five vets in 45–50 minute semi-structured interviews. The findings shaped what's in V2.
+    </p>
+    <p class="govuk-body">
+      <a class="govuk-link" href="/v1-1/research-updates">Read how research findings shaped V2</a>
+    </p>
+
+    <div class="govuk-button-group govuk-!-margin-top-6">
+      {{ govukButton({
+        text: "Start V2",
+        href: "/v1-1/start"
+      }) }}
+      <a class="govuk-link" href="/">Back to all versions</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

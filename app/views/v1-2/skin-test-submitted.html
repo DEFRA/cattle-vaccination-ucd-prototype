@@ -33,7 +33,9 @@
         },
         {
           key: { text: "Day 2" },
-          value: { text: day2Formatted or 'Not recorded' }
+          value: {
+            html: (day2Formatted or 'Not recorded') + ('<br><span class="govuk-hint govuk-!-margin-bottom-0">Calculated as 72 hours after Day 1</span>' if day2Calculated and day2Formatted else '')
+          }
         },
         {
           key: { text: "Test type" },

@@ -306,11 +306,11 @@
      room for an inline DUP badge after the last-4 box without
      overflowing into the next column, but stays tight so non-DUP
      rows don't leave a wide gap to the right of the digits. */
-  .app-col-ear-tag { width: 10.5rem; }
+  .app-col-ear-tag { width: 10.5rem; text-align: right !important; }
   .app-col-age      { width: 3.5rem; text-align: center !important; }
   .app-col-sex      { width: 3.5rem; text-align: center !important; }
-  .app-col-breed    { width: 4.5rem; text-align: center !important; }
-  .app-col-dob      { width: 7rem;   text-align: center !important; }
+  .app-col-breed    { width: 4.5rem; text-align: left !important; }
+  .app-col-dob      { width: 7rem;   text-align: right !important; font-variant-numeric: tabular-nums; }
   .app-col-narrow   { width: 3.5rem; text-align: center !important; }
   /* "Test" column on the combined SICCT/DIVA list. Width is tuned
      to fit "SICCT" / "DIVA" comfortably; horizontal padding is
@@ -399,42 +399,38 @@
     line-height: 1;
     padding: 4px 0;
   }
+  /* Ear tag rendering – matches /v1-2/skin-test-list and the rest of
+     the v1-2 data-entry tables. The wrapper prints at the regular
+     weight; only the last 4 digits are bold so the vet's eye lands
+     on the individual number. There's no surrounding box – the
+     bolder weight alone makes them stand out. Duplicates underline
+     the last-4 segment; recently-vaccinated animals underline the
+     DOB value (this is the equivalent of the skin-test list's
+     "under-test-age" flag for the vaccination journey). */
   .app-ear-tag {
     display: inline-flex;
     align-items: center;
     max-width: 100%;
-    font-weight: 700;
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
     line-height: 1.1;
     white-space: nowrap;
   }
-  /* The ear tag is printed as a single continuous string so that it uses
-     only the font's natural letter spacing. The last-4 span gets its own
-     padding when the highlight is toggled on so the box doesn't collapse
-     onto the digits. */
   .app-ear-tag__prefix { margin-right: 0.35ch; }
   .app-ear-tag__part { display: inline-block; }
-  /* No left/right padding when the highlight is off – we don't want a
-     visible gap before the last four digits unless the box is on. The
-     .border-toggle modifier below adds its own padding for the box. */
-  .app-ear-tag__part--last4 { padding: 0; }
-  /* Tight box around the last-4 digits – just enough room to keep the
-     digits clear of the border. Matched by the page-footer range box
-     and the VAX flag so all three "boxes" share the same internal
-     padding. The border uses GOV.UK mid-grey (#b1b4b6) so a vertical
-     edge of the box can't be mistaken for a "1" digit on the printed
-     list. */
-  .border-toggle { padding: 2px 3px; border: 2px solid #b1b4b6; }
-  /* Duplicate animal: invert the last-4 box (black background, white
-     digits) so the vet can spot the animal at a glance on the printed
-     list. Replaces the old "DUP" badge that used to sit beside the
-     box. The border keeps the same 2px thickness but matches the
-     fill, so the box visually grows by the border width without a
-     visible outline. */
+  .app-ear-tag__part--last4 {
+    padding: 0;
+    font-weight: 700;
+  }
   .app-ear-tag__part--last4--duplicate {
-    background-color: #0b0c0c;
-    color: #ffffff;
-    border-color: #0b0c0c;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  .app-dob-cell--check {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
   }
   @media (max-width: 900px) {
     .app-page-grid {
@@ -471,7 +467,7 @@
   <div class="govuk-grid-column-full">
     {# Caption shows the current list. #}
     <span class="govuk-caption-l">
-      {{ data['herd']['farm'] }} - vaccination list
+      {{ data['herd']['farm'] }} 
     </span>
     <h1 class="govuk-heading-l govuk-!-margin-bottom-4">
       List of cattle to vaccinate
@@ -480,12 +476,14 @@
     {# Summary line + secondary-button disclosure.
        The summary line above always reflects the current state so the
        choice is discoverable; the button next to it opens the form
-       panel for the few vets who want to change defaults. #}
-    {% set lookLabel = 'Compact' if listLook == 'compact' else 'Easy to read' %}
+       panel for the few vets who want to change defaults. The "View"
+       value mirrors the current Cattle-on-each-page setting (20 or
+       40) so vets see at a glance how dense the printed sheet will
+       be. #}
+    {% set viewCount = 40 if listLook == 'compact' else 20 %}
     <p class="app-list-summary govuk-body">
       <strong>{{ totalCattle or previewCount }} cattle on this farm</strong>
-      &middot; Sorted by {{ sortByLabel }}
-      &middot; {{ lookLabel }}
+      &middot; View: {{ viewCount }} cattle per page
     </p>
 
     <details class="app-list-settings">
@@ -500,11 +498,11 @@
             idPrefix: "listLook",
             name: "listLook",
             classes: "govuk-radios--small",
-            fieldset: { legend: { text: "How would you like the list to look?", classes: "govuk-fieldset__legend--s" } },
-            hint: { text: "Choose how much detail to show on each page." },
+            fieldset: { legend: { text: "Cattle on each page", classes: "govuk-fieldset__legend--s" } },
+            hint: { text: "Decide how many cattle you want to see on each page." },
             items: [
-              { value: "easy",    text: "Easy to read (around 20 cattle per page)", checked: (listLook or 'easy') == 'easy' },
-              { value: "compact", text: "Compact (around 40 cattle per page)",      checked: listLook == 'compact' }
+              { value: "easy",    text: "20", checked: (listLook or 'easy') == 'easy' },
+              { value: "compact", text: "40", checked: listLook == 'compact' }
             ]
           }) }}
 
@@ -522,7 +520,7 @@
 
           <div class="govuk-button-group govuk-!-margin-top-4">
             {{ govukButton({ text: "Apply changes", classes: "govuk-!-margin-bottom-0" }) }}
-            <a class="govuk-link" href="/v1-2/download-list/reset">Reset to default</a>
+            <a class="govuk-link" href="/v1-2/download-list/reset">Clear my settings</a>
           </div>
         </form>
       </div>
@@ -563,9 +561,12 @@
                data pages, with a simpler 5-column table the vet can
                write any unlisted cattle into by hand. #}
             <div class="app-sheet app-sheet--{{ previewOrientation or 'portrait' }} app-sheet--text-{{ previewTextSize or 'standard' }} app-sheet--spacing-{{ previewSpacing or 'standard' }} app-blank-sheet">
-              <h2 class="govuk-heading-m" style="font-family: Arial, Helvetica, sans-serif; margin-bottom: 16px;">
+              <h2 class="govuk-heading-m" style="font-family: Arial, Helvetica, sans-serif; margin-bottom: 8px;">
                 {{ data['herd']['farm'] }} - Additional cattle
               </h2>
+              <p class="govuk-body" style="font-family: Arial, Helvetica, sans-serif; margin-bottom: 16px;">
+                This page left blank to capture unexpected cattle.
+              </p>
               <table class="app-record-table app-blank-table">
                 <thead>
                   <tr>
@@ -605,11 +606,11 @@
                 <thead>
                   <tr>
                     <th scope="col" class="app-col-ear-tag">Ear tag number</th>
-                    <th scope="col" class="app-col-vax">TB Vax</th>
                     {% for column in fieldColumns %}
                       {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
                       <th scope="col">{{ headingText }}</th>
                     {% endfor %}
+                    <th scope="col" class="app-col-vax">TB Vax</th>
                     <th scope="col">Vaccinated</th>
                     <th scope="col" class="app-col-notes">Remarks</th>
                   </tr>
@@ -618,10 +619,10 @@
                   {% for row in pagedRows %}
                   <tr>
                     <td>{{ row.officialId }}</td>
-                    <td class="app-col-vax">{{ row.vaccinationDate or '-' }}</td>
                     {% for cell in row.cells %}
                       <td>{{ cell.value }}</td>
                     {% endfor %}
+                    <td class="app-col-vax">{{ row.vaccinationDate or '-' }}</td>
                     <td></td>
                     <td>{% if row.isRecentlyVaccinated %}Check last vaccination date{% endif %}</td>
                   </tr>
@@ -690,7 +691,6 @@
                 <thead>
                   <tr>
                     <th scope="col" class="app-col-ear-tag">Ear tag number</th>
-                    <th scope="col" class="app-col-vax">TB Vax</th>
                     {% for column in fieldColumns %}
                       {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
                       {% set columnClass = "app-col-narrow" %}
@@ -700,6 +700,7 @@
                       {% if headingText == "Breed" %}{% set columnClass = "app-col-breed" %}{% endif %}
                       <th scope="col" class="{{ columnClass }}">{{ headingText }}</th>
                     {% endfor %}
+                    <th scope="col" class="app-col-vax">TB Vax</th>
                     <th scope="col" class="app-col-vaccinated">Vaccinated</th>
                     <th scope="col">Remarks</th>
                   </tr>
@@ -713,11 +714,10 @@
                         <span class="app-ear-tag__part app-ear-tag__part--herd">{{ row.earTagParts.herd }}</span>
                         <span class="app-ear-tag__part app-ear-tag__part--check">{{ row.earTagParts.check }}</span>
                         <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ row.earTagParts.individualStart }}</span>
-                        <span class="app-ear-tag__part app-ear-tag__part--last4{% if emphasiseLastFive %} border-toggle{% endif %}{% if row.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                        <span class="app-ear-tag__part app-ear-tag__part--last4{% if row.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
                               {% if row.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
                       </div>
                     </td>
-                    <td class="app-col-vax">{{ row.vaccinationDate or '-' }}</td>
                     {% for cell in row.cells %}
                       {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
                       {% set cellClass = "app-col-narrow" %}
@@ -725,8 +725,17 @@
                       {% if cellHeading == "DOB" %}{% set cellClass = "app-col-dob" %}{% endif %}
                       {% if cellHeading == "Sex" %}{% set cellClass = "app-col-sex" %}{% endif %}
                       {% if cellHeading == "Breed" %}{% set cellClass = "app-col-breed" %}{% endif %}
+                      {# Recently-vaccinated animals underline the DOB so
+                         the vet sees at a glance which animals need a
+                         date check before vaccinating. The Remarks
+                         column also still prints "Check last
+                         vaccination date" for the same row. #}
+                      {% if cellHeading == "DOB" and row.isRecentlyVaccinated %}
+                        {% set cellClass = cellClass + " app-dob-cell--check" %}
+                      {% endif %}
                       <td class="{{ cellClass }}">{{ cell.value }}</td>
                     {% endfor %}
+                    <td class="app-col-vax">{{ row.vaccinationDate or '-' }}</td>
                     <td class="app-col-vaccinated"></td>
                     <td>{% if row.isRecentlyVaccinated %}Check last vaccination date{% endif %}</td>
                   </tr>
