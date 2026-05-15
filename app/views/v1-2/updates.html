@@ -1,0 +1,185 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  What's new in this version – V3 – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back to all versions",
+  href: "/"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">V3</span>
+    <h1 class="govuk-heading-l">Skin tests (Mixed herds) – prepare a list and reporting</h1>
+
+    <p class="govuk-body-l">
+      A redesigned skin test journey built for mixed herds where some cattle have been BCG vaccinated and some haven't.
+      One combined list, a single tabular screen for entering every reactor's measurements, automatic result interpretation, and a printable list designed to print exactly onto A4.
+    </p>
+
+    <h2 class="govuk-heading-m">Everything in V2 is still here</h2>
+    <p class="govuk-body">
+      The full vaccination and skin test journeys from V1 and V2 are still available. V3 keeps those flows and adds the changes listed below.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">Confirming the farm</h2>
+
+    <h3 class="govuk-heading-s">New farm briefing</h3>
+    <p class="govuk-body">
+      After picking a farm, vets see a richer briefing page covering the farmer's contact details, herd composition, last TB test, risk area, test interval, next skin test (with an "Overdue" tag when relevant) and the farm's vaccination programme.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">A single combined skin test list</h2>
+
+    <h3 class="govuk-heading-s">One list instead of two</h3>
+    <p class="govuk-body">
+      For mixed herds, V3 produces a single combined list with a Test column showing whether each animal should have SICCT or DIVA. Vaccinated animals where both tests are valid show as "Either" with two tick boxes for the vet to mark which test was actually used.
+    </p>
+
+    <h3 class="govuk-heading-s">Two printable layouts</h3>
+    <p class="govuk-body">
+      Choose between a compact layout that fits up to 40 cattle on a portrait A4 sheet, or a comfy layout with 20 cattle per page and a clearer Avian/Bovine split. The print spacing matches the printed proofs exactly so the list comes out the right size.
+    </p>
+
+    <h3 class="govuk-heading-s">Page-1 header with all the metadata</h3>
+    <p class="govuk-body">
+      The first page of the printed list now carries everything the vet needs at a glance: who the list is sorted by, total cattle, when the list was created, Day 1 date, Day 2 date, SICCT batch number and DIVA batch number. Empty boxes are left for the date and batch values so the vet can write them in by hand.
+    </p>
+
+    <h3 class="govuk-heading-s">Choose how to view the list</h3>
+    <p class="govuk-body">
+      Decide whether you want the list as a printable PDF, in a spreadsheet, or compatible with your handheld device.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">Capturing test dates and times</h2>
+
+    <h3 class="govuk-heading-s">Day 2 calculated automatically</h3>
+    <p class="govuk-body">
+      Day 1 is the injection date. On the same screen the vet now records the start time of the test (hour, minute and AM/PM). Day 2 is calculated automatically as 72 hours after Day 1.
+    </p>
+
+    <h3 class="govuk-heading-s">Multi-day visits</h3>
+    <p class="govuk-body">
+      If the test spans more than one day, the vet can tick a checkbox to reveal date and time fields for Day 2 so they can enter both dates manually.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">Identifying reactors</h2>
+
+    <h3 class="govuk-heading-s">Clearer gate page</h3>
+    <p class="govuk-body">
+      The "Did any cattle react?" page is now phrased as "Did any cattle show a TB positive reaction?" with a clearer hint that inconclusive results should also be selected.
+    </p>
+
+    <h3 class="govuk-heading-s">Wider table for picking reactors</h3>
+    <p class="govuk-body">
+      The reactor selection table is wider (three-quarters of the page) so longer ear-tag numbers don't crowd the columns.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">Recording measurements on one screen</h2>
+
+    <h3 class="govuk-heading-s">All reactors in one table</h3>
+    <p class="govuk-body">
+      Instead of stepping through one animal at a time, every reactor sits in a single tabular form. The vet can enter Day 1 and Day 2 measurements for every animal on one screen.
+    </p>
+
+    <h3 class="govuk-heading-s">Pick the test per row</h3>
+    <p class="govuk-body">
+      For mixed herds, each row has a dropdown so the vet can pick SICCT or DIVA. The expected test is pre-selected from the animal's vaccination status; the vet only has to change it if they did the other one.
+    </p>
+
+    <h3 class="govuk-heading-s">Avian and Bovine sites together</h3>
+    <p class="govuk-body">
+      For SICCT rows the Day 1 and Day 2 cells split into Avian on top and Bovine underneath. For DIVA rows the avian half greys out because DIVA is bovine only.
+    </p>
+
+    <h3 class="govuk-heading-s">Results worked out for you</h3>
+    <p class="govuk-body">
+      The reaction description and overall result are calculated automatically as the vet types. SICCT uses an interpretation rules engine (clearly marked as a prototype and to be validated against the official TB64 matrix). DIVA uses the bovine increase between Day 1 and Day 2.
+    </p>
+
+    <h3 class="govuk-heading-s">Save and continue later</h3>
+    <p class="govuk-body">
+      A "Save and continue later" button on the measurement table saves what's been entered so far and returns the vet to the dashboard. They can pick the work up where they left off.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">Finishing the visit</h2>
+
+    <h3 class="govuk-heading-s">"Were all the cattle tested?" with reactor flags</h3>
+    <p class="govuk-body">
+      The all-tested check page lists every animal with a red "Reactor" tag next to the cattle that have been marked as reactors.
+    </p>
+
+    <h3 class="govuk-heading-s">Confirmation shows the test type</h3>
+    <p class="govuk-body">
+      The review-and-submit screen shows Day 1 and Day 2 with the start time. When Day 2 was auto-calculated it adds a "Calculated as 72 hours after Day 1" note next to the value.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">Consistent tables across the service</h2>
+
+    <h3 class="govuk-heading-s">Standard GOV.UK tables for browsing and selecting</h3>
+    <p class="govuk-body">
+      Tables that aren't designed for paper printing now use the standard GOV.UK design-system table styling. The reactor picker, the not-tested picker, the all-tested check, the assign-cattle screens and the vaccinated-animal selector all read consistently.
+    </p>
+
+    <h3 class="govuk-heading-s">Same column order everywhere</h3>
+    <p class="govuk-body">
+      Every cattle table uses the same column order: Ear tag number, DOB, Sex, Breed, Test, TB Vax. (Pages without a Test or TB Vax column simply skip those.)
+    </p>
+
+    <h3 class="govuk-heading-s">Easier-to-scan ear tags</h3>
+    <p class="govuk-body">
+      The full ear tag prints at the regular weight; only the last 4 digits are bold so the eye lands on the individual number. Duplicate ear tags underline the last 4 digits instead of inverting them, so the prompt is quieter but still visible.
+    </p>
+
+    <h3 class="govuk-heading-s">Underlines that highlight what to check</h3>
+    <p class="govuk-body">
+      The DOB cell underlines when an animal is around the 42-day testing age (between 35 and 49 days). The TB Vax cell underlines when the BCG vaccination is around 9 months old (between 8 and 10 months), suggesting a booster is approaching.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">Bug fixes and polish</h2>
+
+    <h3 class="govuk-heading-s">"How do you want this list?" routes correctly</h3>
+    <p class="govuk-body">
+      The three list-format options (PDF, spreadsheet, handheld) now route to the right page. Previously two of the three were all sending the vet to the PDF preview.
+    </p>
+
+    <h3 class="govuk-heading-s">Trimmed the per-animal page</h3>
+    <p class="govuk-body">
+      The DIVA and SICCT per-animal pages have been simplified – the reaction description, overall result radios and per-animal remarks have been removed because the result is calculated automatically.
+    </p>
+
+    {# ------------------------------------------------------------ #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">Updates based on research</h2>
+
+    <p class="govuk-body">
+      Round 2 of alpha research (May 2026) tested the V2 skin-test prototype with five vets in 45–50 minute semi-structured interviews. The mixed-herd anxiety, the desire for automation and the call for a tabular measurement screen drove most of the V3 changes.
+    </p>
+    <p class="govuk-body">
+      <a class="govuk-link" href="/v1-2/research-updates">Read how research findings shaped V3</a>
+    </p>
+
+    <div class="govuk-button-group govuk-!-margin-top-8">
+      {{ govukButton({
+        text: "Start V3",
+        href: "/v1-2/start"
+      }) }}
+      <a class="govuk-link" href="/">Back to all versions</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
