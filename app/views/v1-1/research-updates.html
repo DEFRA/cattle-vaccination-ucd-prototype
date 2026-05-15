@@ -1,0 +1,169 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Updates based on research – V2 – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back to what's new in V2",
+  href: "/v1-1/updates"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">V2</span>
+    <h1 class="govuk-heading-l">Updates based on research</h1>
+
+    <p class="govuk-body-l">
+      Round 1 of alpha research (April 2026) tested the V1 vaccination prototype with five vets (4 APHA, 1 OV) in 45–50 minute semi-structured interviews. The findings below shaped what's in V2. Quotes are taken verbatim from the report.
+    </p>
+
+    <h2 class="govuk-heading-m">Let vets record cattle in whichever order they want</h2>
+    <p class="govuk-body">
+      Round 1 recommendation:
+      <em>"Allow for flexibility of order in recording those vaccinated vs not, people tackle in different orders, and our prototype is prescriptive of vax first, followed by not vax."</em>
+    </p>
+    <p class="govuk-body">
+      What changed in V2: a new "How do you want to record the cattle?" page lets the vet choose between recording the vaccinated cattle first or the cattle that weren't vaccinated first. The downstream flow follows whichever option they pick.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-1/vaccination-approach">/v1-1/vaccination-approach</a>
+      &middot; <a class="govuk-link" href="/v1-1/select-vaccinated-animals">/v1-1/select-vaccinated-animals</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to mark that a cattle has received a vaccine</strong>, so that it can be recorded, and information obtained in the future.
+    </p>
+
+    <h2 class="govuk-heading-m">Let vets add cattle that weren't on the original list</h2>
+    <p class="govuk-body">
+      Round 1 recommendation:
+      <em>"Allow for functionality / space to add additional cattle that are presented on the day (vax and test)"</em> and <em>"Ability to add cattle that weren't on the original list"</em>.
+    </p>
+    <p class="govuk-body">
+      What changed in V2: an "Add a cattle" option in the report flow so a newly tagged calf or an animal that wasn't on the printed list can still be recorded.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-1/skin-test-add-another">/v1-1/skin-test-add-another</a>
+      &middot; <a class="govuk-link" href="/v1-1/skin-test-confirmation">/v1-1/skin-test-confirmation</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to have the ability to add a cattle that is not listed on the test sheet</strong>, so that I can keep a track of cattle presented, to follow up / add to the system.
+    </p>
+
+    <h2 class="govuk-heading-m">Space for batch numbers on the printed list</h2>
+    <p class="govuk-body">
+      Round 1 finding:
+      <em>"Identified at this point there is missing space for the batch no."</em>
+    </p>
+    <p class="govuk-body">
+      What changed in V2: the printable list now has empty boxes the vet can write batch numbers into by hand on the day of the visit.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-1/skin-test-list">/v1-1/skin-test-list</a>
+      &middot; <a class="govuk-link" href="/v1-1/download-list">/v1-1/download-list</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to be able to add a comment / note to a cattle</strong>, so that I can record important information in addition to test / vaccine recording.
+    </p>
+
+    <h2 class="govuk-heading-m">Same sort / ordering options on the record page as the prepare page</h2>
+    <p class="govuk-body">
+      Round 1 recommendation:
+      <em>"Provide the same sorting/ordering options on the record page as the prepare cattle page."</em>
+    </p>
+    <p class="govuk-body">
+      What changed in V2: the record-cattle table uses the same sort options (ear tag, age, sex) the vet chose when preparing the list, so the order doesn't change between the two views.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-1/select-vaccinated-animals">/v1-1/select-vaccinated-animals</a>
+      &middot; <a class="govuk-link" href="/v1-1/skin-test-list">/v1-1/skin-test-list</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to quickly find an ear tag number</strong>, so that I can see relevant information and allow me to carry out work quickly for the correct cattle.
+    </p>
+
+    <h2 class="govuk-heading-m">Reduce the number of printed pages</h2>
+    <p class="govuk-body">
+      Round 1 emerging need:
+      <em>"Increased pages to take out increases effort to manage paperwork on site"</em> and <em>"To see how many pages their current view will generate."</em>
+    </p>
+    <p class="govuk-body">
+      What changed in V2: a "Cattle on each page" setting (20, 30 or 40) lets the vet pick a denser layout so fewer A4 sheets need to be carried onto the farm.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-1/skin-test-list">/v1-1/skin-test-list</a>
+      &middot; <a class="govuk-link" href="/v1-1/download-list">/v1-1/download-list</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to quickly find an ear tag number</strong>, so that I can see relevant information and allow me to carry out work quickly for the correct cattle.
+    </p>
+
+    <h2 class="govuk-heading-m">Send a report to the farmer</h2>
+    <p class="govuk-body">
+      Round 1 recommendation:
+      <em>"Send report to farmer perhaps shouldn't be optional"</em>. The Round 1 findings also noted <em>"Positive reaction to support providing livestock owner with medicine information for their record."</em>
+    </p>
+    <p class="govuk-body">
+      What changed in V2: a "Send a report to the farmer" link is prominently surfaced on the report-submitted page so the vet remembers to share medicine information with the livestock owner.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-1/report-submitted">/v1-1/report-submitted</a>
+      &middot; <a class="govuk-link" href="/v1-1/skin-test-submitted">/v1-1/skin-test-submitted</a>
+    </p>
+
+    <h2 class="govuk-heading-m">Bold last 4 ear-tag digits and a DUP marker for duplicates</h2>
+    <p class="govuk-body">
+      Round 1 findings:
+      <em>"Last four digits in bold/box is received positively to help scan numbers"</em> and <em>"DUP (duplicate) tag received positively to avoid mistakes logging wrong info against wrong number (frequent)"</em>.
+    </p>
+    <p class="govuk-body">
+      What changed in V2: the printed list emphasises the last 4 digits of each ear tag and adds a DUP flag to animals on the same farm whose last 4 digits clash, so the vet can tell them apart at a glance.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-1/skin-test-list">/v1-1/skin-test-list</a>
+      &middot; <a class="govuk-link" href="/v1-1/download-list">/v1-1/download-list</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to quickly find an ear tag number</strong>, so that I can see relevant information and allow me to carry out work quickly for the correct cattle.
+    </p>
+
+    <h2 class="govuk-heading-m">Show ages in months rather than just DOB</h2>
+    <p class="govuk-body">
+      Round 1 finding:
+      <em>"Ages of the cattle in months was positively received, and felt it would help them identify eligibility easier than a d.o.b."</em>
+    </p>
+    <p class="govuk-body">
+      What changed in V2: cattle list views include the age (in months) so the vet can spot eligibility at a glance.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-1/skin-test-list">/v1-1/skin-test-list</a>
+      &middot; <a class="govuk-link" href="/v1-1/prepare-skin-test-untested">/v1-1/prepare-skin-test-untested</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to know if a cattle is eligible for test</strong>, so that I can adhere to policy about giving the TB test. Also: <strong>to quickly identify cattle that are NOT eligible</strong>, so that I can discount them.
+    </p>
+
+    {# ------------------------------------------------------------ #}
+    <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible">
+
+    <h2 class="govuk-heading-s">Source</h2>
+    <p class="govuk-body">
+      <strong>bTB Cattle Vaccination Alpha Research Report Round 1</strong>
+      &middot; Erin Gray, Lead User Research
+    </p>
+
+    <div class="govuk-button-group govuk-!-margin-top-6">
+      {{ govukButton({
+        text: "Start V2",
+        href: "/v1-1/start"
+      }) }}
+      <a class="govuk-link" href="/v1-1/updates">Back to what's new in V2</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

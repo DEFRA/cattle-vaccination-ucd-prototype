@@ -69,12 +69,14 @@
       {
         key: { text: "Day 1 (injection)" },
         value: { text: day1Formatted or "Not recorded" },
-        actions: { items: [{ href: "/v1-2/skin-test-date", text: "Change", visuallyHiddenText: "day 1 date" }] }
+        actions: { items: [{ href: "/v1-2/skin-test-date", text: "Change", visuallyHiddenText: "day 1 date and start time" }] }
       },
       {
         key: { text: "Day 2 (reading)" },
-        value: { text: day2Formatted or "Not recorded" },
-        actions: { items: [{ href: "/v1-2/skin-test-date", text: "Change", visuallyHiddenText: "day 2 date" }] }
+        value: {
+          html: (day2Formatted or "Not recorded") + ('<br><span class="govuk-hint govuk-!-margin-bottom-0">Calculated as 72 hours after Day 1</span>' if day2Calculated and day2Formatted else '')
+        },
+        actions: { items: [{ href: "/v1-2/skin-test-date", text: "Change", visuallyHiddenText: "day 2 date and start time" }] }
       },
       {
         key: { text: "Test type" },

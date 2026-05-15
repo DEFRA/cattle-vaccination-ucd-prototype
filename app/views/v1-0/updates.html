@@ -1,0 +1,73 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  What's in this version – V1 – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back to all versions",
+  href: "/"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">V1</span>
+    <h1 class="govuk-heading-l">Vaccination – prepare a list and reporting</h1>
+
+    <p class="govuk-body-l">
+      The first version of the service. It covers the full vaccination journey, from finding a farm to submitting a report.
+    </p>
+
+    <h2 class="govuk-heading-m">What you can do in V1</h2>
+
+    <h3 class="govuk-heading-s">Sign in</h3>
+    <p class="govuk-body">
+      Sign in to the service using GOV.UK One Login. There is a placeholder one-login email and password flow.
+    </p>
+
+    <h3 class="govuk-heading-s">Find a farm</h3>
+    <p class="govuk-body">
+      Search for a herd or animal by county parish holding (CPH) number or ear tag number. A search results page shows the matching farms; you select the one you want to visit and confirm the details before continuing.
+    </p>
+
+    <h3 class="govuk-heading-s">Prepare a list of cattle to vaccinate</h3>
+    <p class="govuk-body">
+      Once you have chosen a farm, you can prepare a printable list of every animal on the holding so you can take it with you on the visit.
+    </p>
+
+    <h3 class="govuk-heading-s">Record vaccinations during the visit</h3>
+    <p class="govuk-body">
+      Record who gave the vaccine, the vaccination date, vaccine batch details and diluent batch details. Tick the cattle that were vaccinated and mark any that were not, with a reason for each.
+    </p>
+
+    <h3 class="govuk-heading-s">Submit a vaccination report</h3>
+    <p class="govuk-body">
+      Review the answers before sending the report to APHA. After submission you see a confirmation page summarising what was reported.
+    </p>
+
+    <h3 class="govuk-heading-s">Plan future visits</h3>
+    <p class="govuk-body">
+      You can schedule the next vaccination visit for a farm and see a confirmation of the booking.
+    </p>
+
+    <h2 class="govuk-heading-m">Not in this version</h2>
+
+    <p class="govuk-body">
+      V1 does not include the bovine TB skin test journey. That was added in V2.
+    </p>
+
+    <div class="govuk-button-group govuk-!-margin-top-6">
+      {{ govukButton({
+        text: "Start V1",
+        href: "/v1-0/start"
+      }) }}
+      <a class="govuk-link" href="/">Back to all versions</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

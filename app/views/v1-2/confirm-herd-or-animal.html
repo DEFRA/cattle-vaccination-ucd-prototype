@@ -23,15 +23,17 @@
       Check the farm details are correct before you continue.
     </p>
 
-
     {% if data['herd'] %}
-      {# Summary list written as raw HTML so a full-width "source of
-         data" note can sit as a row directly under "Number of cattle",
-         spanning both the key and value columns while keeping the
-         summary-list horizontal rule beneath it. The list is review-
-         only – choosing a different farm is a navigation action, not a
-         field edit, so it sits as a standalone link below the list
-         (not as a "Change" action inside the list). #}
+      {# Two summary lists separated by a "source of data" note. The
+         first block is CTS-sourced demographic / contact data – farm,
+         location, herd composition and the farmer's contact details.
+         The note belongs between the two lists so it visibly applies
+         to the rows above it. The second block is APHA-held disease-
+         control data – TB status, testing cadence, risk area and the
+         vaccination programme. Choosing a different farm is a
+         navigation action, not a field edit, so it sits as a link
+         below the primary CTA (not as a "Change" action inside the
+         list). #}
       <dl class="govuk-summary-list">
         <div class="govuk-summary-list__row">
           <dt class="govuk-summary-list__key">Farm</dt>
@@ -45,44 +47,79 @@
           <dt class="govuk-summary-list__key">Address</dt>
           <dd class="govuk-summary-list__value">{{ data['herd']['address'] }}</dd>
         </div>
-        {# The "source of data" note sits inside the value cell of the
-           "Number of cattle" row, directly under the count. Only the
-           cattle count is sourced from CTS, so the note belongs with
-           that value (not as a separate full-width row). #}
         <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Number of cattle</dt>
-          <dd class="govuk-summary-list__value">
-            {{ data['herd']['cattle'] }}
-            <p class="govuk-body govuk-!-margin-top-3 govuk-!-margin-bottom-0">
-              This information comes from the
-              <strong><a class="govuk-link" href="https://www.gov.uk/cattle-tracing-online">Cattle Tracing System</a></strong>.
-              It may not be up to date.
-            </p>
-          </dd>
+          <dt class="govuk-summary-list__key">Total cattle</dt>
+          <dd class="govuk-summary-list__value">{{ data['herd']['cattle'] }}</dd>
         </div>
-
-        <div class="govuk-summary-list__row">
-          <dt class="govuk-summary-list__key">Vaccinated</dt>
-          <dd class="govuk-summary-list__value">{{ vaccinatedCount }}</dd>
-        </div>
-
-        {% if tbStatus %}
+        {% if farmDetails %}
           <div class="govuk-summary-list__row">
-            <dt class="govuk-summary-list__key">Status</dt>
-            <dd class="govuk-summary-list__value">
-              <strong>{{ tbStatus.status }}</strong> — {{ tbStatus.statusFullName }}
-            </dd>
+            <dt class="govuk-summary-list__key">Bulls</dt>
+            <dd class="govuk-summary-list__value">{{ farmDetails.bulls }}</dd>
           </div>
           <div class="govuk-summary-list__row">
-            <dt class="govuk-summary-list__key">Day 1 of last TB test</dt>
-            <dd class="govuk-summary-list__value">{{ tbStatus.lastTestDate }}</dd>
+            <dt class="govuk-summary-list__key">Type of cattle</dt>
+            <dd class="govuk-summary-list__value">{{ farmDetails.type }}</dd>
           </div>
           <div class="govuk-summary-list__row">
-            <dt class="govuk-summary-list__key">Last breakdown</dt>
-            <dd class="govuk-summary-list__value">{{ tbStatus.lastBreakdown }}</dd>
+            <dt class="govuk-summary-list__key">Contact</dt>
+            <dd class="govuk-summary-list__value">{{ farmDetails.contact }}</dd>
+          </div>
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Phone number</dt>
+            <dd class="govuk-summary-list__value">{{ farmDetails.phone }}</dd>
           </div>
         {% endif %}
       </dl>
+
+      <p class="govuk-body govuk-!-margin-bottom-4">
+        This information comes from the
+        <a class="govuk-link" href="https://www.gov.uk/cattle-tracing-online">Cattle Tracing System</a>.
+        It may not be up to date.
+      </p>
+
+      {% if tbStatus or farmDetails %}
+        <dl class="govuk-summary-list">
+          {% if tbStatus %}
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Status</dt>
+              <dd class="govuk-summary-list__value">
+                <strong>{{ tbStatus.status }}</strong> — {{ tbStatus.statusFullName }}
+              </dd>
+            </div>
+          {% endif %}
+          {% if farmDetails %}
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Last TB test day 2</dt>
+              <dd class="govuk-summary-list__value">{{ farmDetails.lastTbTestDay2 }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Risk area</dt>
+              <dd class="govuk-summary-list__value">{{ farmDetails.riskArea }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Test interval</dt>
+              <dd class="govuk-summary-list__value">{{ farmDetails.testInterval }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Next skin test</dt>
+              <dd class="govuk-summary-list__value">
+                {{ farmDetails.nextSkinTest }}
+                {% if farmDetails.nextSkinTestOverdue %}
+                  <strong class="govuk-tag govuk-tag--red govuk-!-margin-left-1">Overdue</strong>
+                {% endif %}
+              </dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Vaccination status</dt>
+              <dd class="govuk-summary-list__value">{{ farmDetails.vaccinationStatus }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Vaccination booster</dt>
+              <dd class="govuk-summary-list__value">{{ farmDetails.vaccinationBooster }}</dd>
+            </div>
+          {% endif %}
+        </dl>
+      {% endif %}
 
       {{ govukButton({
         text: "Continue",

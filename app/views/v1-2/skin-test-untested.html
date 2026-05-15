@@ -13,56 +13,18 @@
 
 {% block content %}
 <style>
-  /* v1-2: the untested picker now uses the same printable-list look
-     as /v1-2/skin-test-list, /v1-2/skin-test-reactors and
-     /v1-2/skin-test-all-tested so the vet sees a familiar table.
-     The list settings panel has been removed entirely – the order
-     matches the skin-test-list order so no separate sort UI is
-     needed here. */
-  .app-record-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    margin: 0 0 20px;
-    font-family: Arial, Helvetica, sans-serif;
-  }
-  .app-record-table th,
-  .app-record-table td {
-    border: 1px solid #0b0c0c;
-    padding: 6px 8px;
-    vertical-align: middle;
-    box-sizing: border-box;
-  }
-  .app-record-table th {
-    background: #ffffff;
-    text-align: center;
-    font-weight: 700;
-    line-height: 1.2;
-  }
-  .app-record-table td {
-    height: 2.4em;
-  }
-
-  /* Column widths mirror /v1-2/skin-test-list and the other v1-2
-     skin-test pages so the tables read the same on screen. The
-     Select column is left-aligned so the checkbox sits flush with
-     the column header rather than centred. */
-  .app-col-select   { width: 4rem; text-align: left !important; }
-  .app-col-select .govuk-checkboxes__item { padding-left: 28px; }
-  .app-col-ear-tag  { width: 8.5rem; }
-  .app-col-vax      { width: 4.5rem; text-align: center !important; font-variant-numeric: tabular-nums; }
-  .app-col-dob      { width: 7rem;   text-align: center !important; }
-  .app-col-sex      { width: 3.5rem; text-align: center !important; }
-  .app-col-breed    { width: 4.5rem; text-align: center !important; }
-
-  /* Ear tag rendering – matches the skin-test-list table.
-     The last-4 digits sit in a tight bordered box so the vet can
-     spot the animal at a glance; duplicates invert the box. */
+  /* Ear tag rendering – matches the rest of the v1-2 skin-test
+     tables. The wrapper prints at the regular weight; only the last
+     4 digits are bold so the vet's eye lands on the individual
+     number. Duplicates underline the last-4 segment; under-test-age
+     cattle (DOB < 44 days ago) underline the DOB value. These are
+     content-presentation concerns that sit on top of the standard
+     GOV.UK table. */
   .app-ear-tag {
     display: inline-flex;
     align-items: center;
     max-width: 100%;
-    font-weight: 700;
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
     line-height: 1.1;
     white-space: nowrap;
@@ -70,18 +32,33 @@
   .app-ear-tag__prefix { margin-right: 0.35ch; }
   .app-ear-tag__part { display: inline-block; }
   .app-ear-tag__part--last4 {
-    padding: 2px 3px;
-    border: 2px solid #b1b4b6;
+    padding: 0;
+    font-weight: 700;
   }
   .app-ear-tag__part--last4--duplicate {
-    background-color: #0b0c0c;
-    color: #ffffff;
-    border-color: #0b0c0c;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
   }
+  .app-dob-cell--under-age {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  .app-vax-cell--check {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  /* The selection checkbox sits inside a govuk-table__cell. Drop the
+     usual govuk-checkboxes vertical margin so the row stays a clean
+     single line. */
+  .govuk-table .govuk-checkboxes__item { padding-left: 28px; margin-bottom: 0; }
+  .govuk-table .govuk-checkboxes__label { padding-top: 0; padding-bottom: 0; }
 </style>
 
 <div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
+  <div class="govuk-grid-column-three-quarters">
 
     {% if errorSummary %}
       {{ govukErrorSummary(errorSummary) }}
@@ -104,23 +81,28 @@
 
       <form action="/v1-2/skin-test-untested" method="post" novalidate>
 
-        <table class="app-record-table">
-          <thead>
-            <tr>
-              <th scope="col" class="app-col-select">Select</th>
-              <th scope="col" class="app-col-ear-tag">Ear tag number</th>
-              <th scope="col" class="app-col-vax">TB Vax</th>
-              <th scope="col" class="app-col-dob">DOB</th>
-              <th scope="col" class="app-col-sex">Sex</th>
-              <th scope="col" class="app-col-breed">Breed</th>
+        {# Standard GOV.UK design system table. Each row is one
+           animal; the first cell carries the selection checkbox the
+           vet ticks to mark a not-tested animal. The ear-tag / DOB
+           columns reuse the same content-presentation classes as
+           the other v1-2 skin-test tables. #}
+        <table class="govuk-table">
+          <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+              <th scope="col" class="govuk-table__header">Select</th>
+              <th scope="col" class="govuk-table__header">Ear tag number</th>
+              <th scope="col" class="govuk-table__header">DOB</th>
+              <th scope="col" class="govuk-table__header">Sex</th>
+              <th scope="col" class="govuk-table__header">Breed</th>
+              <th scope="col" class="govuk-table__header">TB Vax</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="govuk-table__body">
             {% for animal in animals %}
-              <tr>
-                <td class="app-col-select">
+              <tr class="govuk-table__row">
+                <td class="govuk-table__cell">
                   <div class="govuk-checkboxes govuk-checkboxes--small">
-                    <div class="govuk-checkboxes__item govuk-!-margin-bottom-0">
+                    <div class="govuk-checkboxes__item">
                       <input class="govuk-checkboxes__input" id="untested-{{ loop.index }}" name="untested" type="checkbox" value="{{ animal.officialId }}" {% if animal.officialId in selectedUntested %}checked{% endif %}>
                       <label class="govuk-label govuk-checkboxes__label" for="untested-{{ loop.index }}">
                         <span class="govuk-visually-hidden">{{ animal.officialId }} was not tested</span>
@@ -128,7 +110,7 @@
                     </div>
                   </div>
                 </td>
-                <td class="app-col-ear-tag">
+                <td class="govuk-table__cell">
                   <div class="app-ear-tag">
                     <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
                     <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
@@ -138,10 +120,10 @@
                           {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
                   </div>
                 </td>
-                <td class="app-col-vax">{{ animal.vaccinationDate or '-' }}</td>
-                <td class="app-col-dob">{{ animal.dob }}</td>
-                <td class="app-col-sex">{{ animal.sex }}</td>
-                <td class="app-col-breed">{{ animal.breed }}</td>
+                <td class="govuk-table__cell{% if animal.isUnderTestAge %} app-dob-cell--under-age{% endif %}">{{ animal.dob }}</td>
+                <td class="govuk-table__cell">{{ animal.sex }}</td>
+                <td class="govuk-table__cell">{{ animal.breed }}</td>
+                <td class="govuk-table__cell{% if animal.isVaxCheckDue %} app-vax-cell--check{% endif %}">{{ animal.vaccinationDate or '-' }}</td>
               </tr>
             {% endfor %}
           </tbody>

@@ -1,7 +1,7 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  When was Day 1 of the test? – GOV.UK
+  When was the test? – GOV.UK
 {% endblock %}
 
 {% block beforeContent %}
@@ -19,14 +19,18 @@
       {{ govukErrorSummary(errorSummary) }}
     {% endif %}
 
-    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - Day 1 of 2</span>
-    <h1 class="govuk-heading-l">When was Day 1 of the test?</h1>
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    <h1 class="govuk-heading-l">When was the test?</h1>
     <p class="govuk-body">
-      Day 1 is when you injected the tuberculin. Day 2 (the reading) takes place 72 hours later – you'll record that on the next page.
+      Day 1 is when you injected the tuberculin. Day 2 (the reading) is 72 hours later – we'll work that out for you unless you tell us the test ran over more than one day.
     </p>
 
     <form action="/v1-2/skin-test-date" method="post" novalidate>
 
+      {# ----------------------------------------------------------------
+         Day 1 – injection date. Reuses the standard govukDateInput so
+         the day/month/year fields match the rest of the service.
+      ---------------------------------------------------------------- #}
       {{ govukDateInput({
         id: "skinTestDay1",
         namePrefix: "skinTestDay1",
@@ -59,15 +63,159 @@
         ]
       }) }}
 
+      {# ----------------------------------------------------------------
+         Day 1 start time – Hour / Minute / AM-PM. There's no built-in
+         govukTimeInput, so we hand-roll the three controls using the
+         same govuk-date-input row layout so they line up horizontally
+         to match the date inputs above.
+      ---------------------------------------------------------------- #}
+      <div class="govuk-form-group">
+        <fieldset class="govuk-fieldset" role="group" aria-describedby="skinTestDay1StartTime-hint">
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
+            What time did the test begin?
+          </legend>
+          <div id="skinTestDay1StartTime-hint" class="govuk-hint">
+            For example, 9 30 AM
+          </div>
+          <div class="govuk-date-input">
+            <div class="govuk-date-input__item">
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-date-input__label" for="skinTestDay1StartTime-hour">Hour</label>
+                <input class="govuk-input govuk-date-input__input govuk-input--width-2"
+                       id="skinTestDay1StartTime-hour"
+                       name="skinTestDay1StartTime-hour"
+                       type="text"
+                       inputmode="numeric"
+                       value="{{ data['skinTestDay1StartTimeHour'] }}">
+              </div>
+            </div>
+            <div class="govuk-date-input__item">
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-date-input__label" for="skinTestDay1StartTime-minute">Minute</label>
+                <input class="govuk-input govuk-date-input__input govuk-input--width-2"
+                       id="skinTestDay1StartTime-minute"
+                       name="skinTestDay1StartTime-minute"
+                       type="text"
+                       inputmode="numeric"
+                       value="{{ data['skinTestDay1StartTimeMinute'] }}">
+              </div>
+            </div>
+            <div class="govuk-date-input__item">
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-date-input__label" for="skinTestDay1StartTime-ampm">AM or PM</label>
+                <select class="govuk-select"
+                        id="skinTestDay1StartTime-ampm"
+                        name="skinTestDay1StartTime-ampm">
+                  <option value="AM" {{ "selected" if data['skinTestDay1StartTimeAmpm'] == 'AM' }}>AM</option>
+                  <option value="PM" {{ "selected" if data['skinTestDay1StartTimeAmpm'] == 'PM' }}>PM</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+
+      {# ----------------------------------------------------------------
+         Multi-day reveal. When the vet ticks "test taken over more
+         than one day" we ask for a Day 2 date + start time explicitly,
+         because the auto-calculated "72 hours after Day 1" won't be
+         accurate if either visit spanned multiple days.
+
+         The reveal HTML is built into a {% set %} block first so it can
+         be passed cleanly into govukCheckboxes' `conditional.html`.
+      ---------------------------------------------------------------- #}
+      {% set day2RevealHtml %}
+        {{ govukDateInput({
+          id: "skinTestDay2",
+          namePrefix: "skinTestDay2",
+          errorMessage: { text: errors['skinTestDay2'].text } if errors and errors['skinTestDay2'],
+          fieldset: {
+            legend: {
+              text: "Day 2 (reading)",
+              classes: "govuk-fieldset__legend--m"
+            }
+          },
+          hint: {
+            text: "For example, 23 4 2026"
+          },
+          items: [
+            {
+              name: "day",
+              classes: "govuk-input--width-2",
+              value: data['skinTestDay2Day'] if data['skinTestDay2Calculated'] != 'yes'
+            },
+            {
+              name: "month",
+              classes: "govuk-input--width-2",
+              value: data['skinTestDay2Month'] if data['skinTestDay2Calculated'] != 'yes'
+            },
+            {
+              name: "year",
+              classes: "govuk-input--width-4",
+              value: data['skinTestDay2Year'] if data['skinTestDay2Calculated'] != 'yes'
+            }
+          ]
+        }) }}
+
+        <div class="govuk-form-group">
+          <fieldset class="govuk-fieldset" role="group" aria-describedby="skinTestDay2StartTime-hint">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
+              What time did Day 2 begin?
+            </legend>
+            <div id="skinTestDay2StartTime-hint" class="govuk-hint">
+              For example, 10 00 AM
+            </div>
+            <div class="govuk-date-input">
+              <div class="govuk-date-input__item">
+                <div class="govuk-form-group">
+                  <label class="govuk-label govuk-date-input__label" for="skinTestDay2StartTime-hour">Hour</label>
+                  <input class="govuk-input govuk-date-input__input govuk-input--width-2"
+                         id="skinTestDay2StartTime-hour"
+                         name="skinTestDay2StartTime-hour"
+                         type="text"
+                         inputmode="numeric"
+                         value="{{ data['skinTestDay2StartTimeHour'] if data['skinTestDay2Calculated'] != 'yes' }}">
+                </div>
+              </div>
+              <div class="govuk-date-input__item">
+                <div class="govuk-form-group">
+                  <label class="govuk-label govuk-date-input__label" for="skinTestDay2StartTime-minute">Minute</label>
+                  <input class="govuk-input govuk-date-input__input govuk-input--width-2"
+                         id="skinTestDay2StartTime-minute"
+                         name="skinTestDay2StartTime-minute"
+                         type="text"
+                         inputmode="numeric"
+                         value="{{ data['skinTestDay2StartTimeMinute'] if data['skinTestDay2Calculated'] != 'yes' }}">
+                </div>
+              </div>
+              <div class="govuk-date-input__item">
+                <div class="govuk-form-group">
+                  <label class="govuk-label govuk-date-input__label" for="skinTestDay2StartTime-ampm">AM or PM</label>
+                  <select class="govuk-select"
+                          id="skinTestDay2StartTime-ampm"
+                          name="skinTestDay2StartTime-ampm">
+                    <option value="AM" {{ "selected" if data['skinTestDay2StartTimeAmpm'] == 'AM' and data['skinTestDay2Calculated'] != 'yes' }}>AM</option>
+                    <option value="PM" {{ "selected" if data['skinTestDay2StartTimeAmpm'] == 'PM' and data['skinTestDay2Calculated'] != 'yes' }}>PM</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+      {% endset %}
+
       {{ govukCheckboxes({
-        idPrefix: "skinTestDay1OverMultipleDays",
-        name: "skinTestDay1OverMultipleDays",
+        idPrefix: "skinTestMultiDay",
+        name: "skinTestMultiDay",
         classes: "govuk-checkboxes--small",
         items: [
           {
             value: "yes",
-            text: "Select if Day 1 took more than a single day to complete",
-            checked: data['skinTestDay1OverMultipleDays'] == "yes"
+            text: "Test taken over more than one day",
+            checked: data['skinTestMultiDay'] == "yes",
+            conditional: {
+              html: day2RevealHtml
+            }
           }
         ]
       }) }}
