@@ -23,7 +23,7 @@
       }) }}
     {% endif %}
 
-    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (skinTestType or data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
     <h1 class="govuk-heading-l">Check and send</h1>
 
     <p class="govuk-body">
@@ -32,16 +32,19 @@
 
     {# Batch numbers entered on /skin-test-type are rendered as
        bullet lists when there's more than one, or a plain line when
-       there's just one – matches how the vet entered them. #}
+       there's just one – matches how the vet entered them. When the
+       vet hasn't recorded anything earlier in the journey the page
+       falls back to a sensible dummy value so the prototype can be
+       demoed without forcing data entry. #}
     {% set sicctBatchesHtml %}
       {% if sicctBatches and sicctBatches.length > 1 %}
         <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
           {% for batch in sicctBatches %}<li>{{ batch }}</li>{% endfor %}
         </ul>
-      {% elif sicctBatches and sicctBatches.length == 1 %}
+      {% elif sicctBatches and sicctBatches.length == 1 and sicctBatches[0] %}
         {{ sicctBatches[0] }}
       {% else %}
-        Not recorded
+        138009G
       {% endif %}
     {% endset %}
 
@@ -50,10 +53,10 @@
         <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
           {% for batch in divaBatches %}<li>{{ batch }}</li>{% endfor %}
         </ul>
-      {% elif divaBatches and divaBatches.length == 1 %}
+      {% elif divaBatches and divaBatches.length == 1 and divaBatches[0] %}
         {{ divaBatches[0] }}
       {% else %}
-        Not recorded
+        447112F
       {% endif %}
     {% endset %}
 

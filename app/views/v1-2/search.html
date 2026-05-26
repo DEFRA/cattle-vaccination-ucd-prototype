@@ -18,31 +18,35 @@
       {{ govukErrorSummary(errorSummary) }}
     {% endif %}
 
-    <h1 class="govuk-heading-l">Find a holding</h1>
-    <p class="govuk-body">
-          You can search by CPH, farm name, work schedule number or postcode. 
-          You can also combine search terms. For example, 12/345 Hill Farm    
-    </p>
+<h1 class="govuk-heading-l">Search for a holding or animal</h1>
 
+<p class="govuk-body">You can search by:</p>
 
+<ul class="govuk-list govuk-list--bullet">
+  <li>CPH</li>
+  <li>farm name</li>
+  <li>work schedule number</li>
+  <li>postcode</li>
+  <li>ear tag number</li>
+</ul>
 
-    <form action="/v1-2/search" method="post" novalidate>
-      {{ govukInput({
-        label: {
-          text: "Enter a CPH, farm name, postcode or ear tag",
-          classes: "govuk-label--m"
-        },
-        hint: {
-          text: "For example, 12/345/6789, Hill Farm, HG4 1BC, or UK341234400156"
-        },
-        id: "cattleSearch",
-        name: "cattleSearch",
-        value: data['cattleSearch'] or data['search'],
-        errorMessage: { text: errors['cattleSearch'].text } if errors and errors['cattleSearch']
-      }) }}
+<p class="govuk-body">You can also combine search terms.</p>
 
-      {{ govukButton({ text: "Search" }) }}
-    </form>
-  </div>
-</div>
+<form action="/v1-2/search" method="post" novalidate>
+  {{ govukInput({
+    label: {
+      text: "Enter search terms",
+      classes: "govuk-label--m"
+    },
+    hint: {
+      text: "For example, 12/345 Hill Farm"
+    },
+    id: "cattleSearch",
+    name: "cattleSearch",
+    value: data['cattleSearch'] or data['search'],
+    errorMessage: { text: errors['cattleSearch'].text } if errors and errors['cattleSearch']
+  }) }}
+
+  {{ govukButton({ text: "Search" }) }}
+</form>
 {% endblock %}

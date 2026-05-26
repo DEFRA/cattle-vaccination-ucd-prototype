@@ -37,10 +37,16 @@
     padding: 0;
     font-weight: 700;
   }
+  /* Duplicate last-4 segment – emphasised with a heavy 4px top and
+     bottom band wrapping just the four bold digits, no side borders.
+     Matches the duplicate treatment on /v1-2/download-list,
+     /v1-2/select-vaccinated-animals, /v1-2/skin-test-list and
+     /v1-2/skin-test-reactors so the same flag reads the same across
+     every v1-2 table. */
   .app-ear-tag__part--last4--duplicate {
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 2px;
+    border: 0;
+    border-top: 4px solid #000;
+    border-bottom: 4px solid #000;
   }
   .app-dob-cell--under-age {
     text-decoration: underline;
