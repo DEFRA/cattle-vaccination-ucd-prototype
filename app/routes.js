@@ -22,7 +22,7 @@ const herdData = {
   '12/360/6795': { cph: '12/360/6795', farm: 'Low Beck Farm', address: 'Low Beck Farm, Malton, YO17 7FG', cattle: '326' },
   '12/315/6796': { cph: '12/315/6796', farm: 'West Field Farm', address: 'West Field Farm, Bedale, DL8 1GH', cattle: '119' },
   '12/310/6797': { cph: '12/310/6797', farm: 'Oak Tree Farm', address: 'Oak Tree Farm, Skipton, BD23 2HJ', cattle: '64' },
-  '24/420/6798': { cph: '24/420/6798', farm: 'Stonebridge Farm', address: 'Stonebridge Farm, Beverley, HU17 8JK', cattle: '211' },
+  '24/420/6798': { cph: '24/420/6798', farm: 'Stonebridge Farm', address: 'Stonebridge Farm, Beverley, HU17 8JK', cattle: '212' },
   // High Pastures Farm – main holding + beef finishing unit
   '12/320/6799':    { cph: '12/320/6799',    farm: 'High Pastures Farm', address: 'High Pastures Farm, Northallerton, DL7 9KL',   cattle: '200', holdingLabel: 'Main holding' },
   '12/320/6799-01': { cph: '12/320/6799-01', farm: 'High Pastures Farm', address: 'High Pastures Beef Unit, Northallerton, DL7 9KL', cattle: '187', holdingLabel: 'Beef finishing unit' },
@@ -41,7 +41,7 @@ const herdData = {
   '12/352/6808-01': { cph: '12/352/6808-01', farm: 'Riverside Farm', address: 'Riverside Dairy Unit, Tadcaster, LS24 9UV',      cattle: '130', holdingLabel: 'Dairy unit' },
   '12/352/6808-02': { cph: '12/352/6808-02', farm: 'Riverside Farm', address: 'Riverside Beef Finishing Unit, Tadcaster, LS24 9UV', cattle: '82',  holdingLabel: 'Beef finishing unit' }
 }
-
+ 
 function searchResultsForTerm(search) {
   const term = (search || '').toLowerCase()
 
