@@ -1,7 +1,7 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Which test did you do? – GOV.UK
+  Which test do you want to record first? – GOV.UK
 {% endblock %}
 
 {% block beforeContent %}
@@ -12,6 +12,11 @@
 {% endblock %}
 
 {% block content %}
+{# This page only renders when both SICCT and DIVA were prepared for
+   this CPH (so the vet needs to choose which to record first). For
+   single-test CPHs the GET handler skips this page entirely and
+   sends the vet straight to the batch-details page for the prepared
+   test. #}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 
@@ -19,87 +24,26 @@
       {{ govukErrorSummary(errorSummary) }}
     {% endif %}
 
-    {# Selected tests + per-test batch numbers come from session so the
-       "Add another batch" button can grow each list across re-renders.
-       Each test starts with a single empty batch input when the
-       checkbox is first ticked. #}
-    {% set selectedTests = data['skinTestTests'] or [] %}
-    {% set sicctChecked = "SICCT" in selectedTests %}
-    {% set divaChecked  = "DIVA"  in selectedTests %}
-    {% set sicctBatches = data['skinTestSicctBatches'] if data['skinTestSicctBatches'] and data['skinTestSicctBatches'].length else [''] %}
-    {% set divaBatches  = data['skinTestDivaBatches']  if data['skinTestDivaBatches']  and data['skinTestDivaBatches'].length  else [''] %}
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
 
     <form action="/v1-2/skin-test-type" method="post" novalidate>
 
-      {# ---- SICCT conditional content (batch number list + add link) ---- #}
-      {% set sicctConditionalHtml %}
-        {% for batch in sicctBatches %}
-          {{ govukInput({
-            label: { text: "SICCT batch number" },
-            id: "sicctBatch-" + loop.index|string,
-            name: "sicctBatches",
-            classes: "govuk-input--width-20",
-            value: batch
-          }) }}
-        {% endfor %}
-        <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">
-          <button type="submit"
-                  name="addBatch"
-                  value="sicct"
-                  class="govuk-link"
-                  style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
-            Add another SICCT batch
-          </button>
-        </p>
-      {% endset %}
-
-      {# ---- DIVA conditional content (batch number list + add link) ---- #}
-      {% set divaConditionalHtml %}
-        {% for batch in divaBatches %}
-          {{ govukInput({
-            label: { text: "DIVA batch number" },
-            id: "divaBatch-" + loop.index|string,
-            name: "divaBatches",
-            classes: "govuk-input--width-20",
-            value: batch
-          }) }}
-        {% endfor %}
-        <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">
-          <button type="submit"
-                  name="addBatch"
-                  value="diva"
-                  class="govuk-link"
-                  style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
-            Add another DIVA batch
-          </button>
-        </p>
-      {% endset %}
-
-      {{ govukCheckboxes({
-        idPrefix: "tests",
-        name: "tests",
+      {{ govukRadios({
+        idPrefix: "skinTestFirstOrder",
+        name: "skinTestFirstOrder",
+        value: data['skinTestFirstOrder'],
         fieldset: {
           legend: {
-            text: "Which test did you do?",
+            text: "Which test do you want to record first?",
             isPageHeading: true,
             classes: "govuk-fieldset__legend--l"
           }
         },
-        hint: { text: "Select all that apply." },
-        errorMessage: { text: errors['tests'].text } if errors and errors['tests'],
+        hint: { text: "You will record the other test straight after this one." },
+        errorMessage: { text: errors['skinTestFirstOrder'].text } if errors and errors['skinTestFirstOrder'],
         items: [
-          {
-            value: "SICCT",
-            text: "SICCT test",
-            checked: sicctChecked,
-            conditional: { html: sicctConditionalHtml }
-          },
-          {
-            value: "DIVA",
-            text: "DIVA test",
-            checked: divaChecked,
-            conditional: { html: divaConditionalHtml }
-          }
+          { value: "sicct", text: "SICCT" },
+          { value: "diva",  text: "DIVA" }
         ]
       }) }}
 

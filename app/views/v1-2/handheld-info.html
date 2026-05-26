@@ -1,49 +1,35 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Using a handheld device – GOV.UK
-{% endblock %}
-
-{% block beforeContent %}
-{{ govukBackLink({
-  text: "Back",
-  href: "/v1-2/list-format"
-}) }}
+  Sent to your handheld – GOV.UK
 {% endblock %}
 
 {% block content %}
+{% set isSkinTest = data['journey'] == 'prepare-skin-test' %}
+{% set pdfUrl = "/v1-2/skin-test-list" if isSkinTest else "/v1-2/download-list" %}
+
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 
-    <span class="govuk-caption-l">{{ data['herd']['farm'] or 'Selected farm' }}</span>
-    <h1 class="govuk-heading-l">Using a handheld device</h1>
-
-    <p class="govuk-body">
-      This service does not send lists directly to handheld devices.
-      Instead, it provides an API that handheld systems and other
-      farm-software providers can connect to so the data is available
-      inside their own software.
-    </p>
-
-    <h2 class="govuk-heading-m">If you already use a handheld</h2>
-    <p class="govuk-body">
-      Check the system that came with your handheld, or contact your
-      device provider, to find out whether they are connected to this
-      service. If they are, the list will appear in their software
-      once they are set up to receive it.
-    </p>
-
-    <h2 class="govuk-heading-m">If you do not use a handheld</h2>
-    <p class="govuk-body">
-      You can still take the list to the visit by downloading a
-      printable PDF or a spreadsheet (CSV).
-    </p>
-
-    {{ govukButton({
-      text: "Choose another option",
-      href: "/v1-2/list-format",
-      classes: "govuk-button--secondary"
+    {{ govukPanel({
+      titleText: "Sent to your handheld"
     }) }}
+
+    <p class="govuk-body">
+      The list is now sent to the handheld device you have connected to this sign in.
+    </p>
+
+    <p class="govuk-body">
+      If you have not yet set up a handheld device for this account
+      <a class="govuk-link" href="#">read the guide to setting up a handheld to work with this service</a>.
+    </p>
+
+    <p class="govuk-body">
+      You can also see your list as a
+      <a class="govuk-link" href="{{ pdfUrl }}">PDF</a>
+      or
+      <a class="govuk-link" href="/v1-2/list-spreadsheet">spreadsheet</a>.
+    </p>
 
   </div>
 </div>

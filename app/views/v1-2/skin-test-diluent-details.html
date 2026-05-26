@@ -1,0 +1,60 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Confirm {{ testLabel }} diluent details – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-2/skin-test-batch-details/" + test
+}) }}
+{% endblock %}
+
+{% block content %}
+{# Diluent batch number + diluent date for the active test. Sits
+   between /v1-2/skin-test-batch-details and /v1-2/skin-test-
+   reactors-any so the vet captures every printed-list detail
+   before moving on to reactor selection. Stored alongside the
+   batch-details under skinTestBatchDetails[test].
+
+   No validation – the vet is just confirming what's on the
+   printed list and a blank submission is fine. #}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ testLabel }}</span>
+    <h1 class="govuk-heading-l">Confirm the diluent details</h1>
+    <p class="govuk-body">
+      Enter the diluent batch number and date from the printed list.
+    </p>
+
+    <form action="/v1-2/skin-test-diluent-details/{{ test }}" method="post" novalidate>
+
+      {{ govukInput({
+        label: { text: "Diluent batch number", classes: "govuk-label--m" },
+        id: "diluentBatch",
+        name: "diluentBatch",
+        classes: "govuk-input--width-20",
+        value: formValues['diluentBatch']
+      }) }}
+
+      {{ govukDateInput({
+        id: "diluentDate",
+        namePrefix: "diluentDate",
+        fieldset: { legend: { text: "Diluent date", classes: "govuk-fieldset__legend--m" } },
+        hint: { text: "For example, 27 3 2026" },
+        items: [
+          { name: "Day",   classes: "govuk-input--width-2", value: formValues['diluentDateDay'] },
+          { name: "Month", classes: "govuk-input--width-2", value: formValues['diluentDateMonth'] },
+          { name: "Year",  classes: "govuk-input--width-4", value: formValues['diluentDateYear'] }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

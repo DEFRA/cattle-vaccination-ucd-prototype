@@ -22,7 +22,7 @@ const herdData = {
   '12/360/6795': { cph: '12/360/6795', farm: 'Low Beck Farm', address: 'Low Beck Farm, Malton, YO17 7FG', cattle: '326' },
   '12/315/6796': { cph: '12/315/6796', farm: 'West Field Farm', address: 'West Field Farm, Bedale, DL8 1GH', cattle: '119' },
   '12/310/6797': { cph: '12/310/6797', farm: 'Oak Tree Farm', address: 'Oak Tree Farm, Skipton, BD23 2HJ', cattle: '64' },
-  '24/420/6798': { cph: '24/420/6798', farm: 'Stonebridge Farm', address: 'Stonebridge Farm, Beverley, HU17 8JK', cattle: '211' },
+  '24/420/6798': { cph: '24/420/6798', farm: 'Stonebridge Farm', address: 'Stonebridge Farm, Beverley, HU17 8JK', cattle: '212' },
   // High Pastures Farm – main holding + beef finishing unit
   '12/320/6799':    { cph: '12/320/6799',    farm: 'High Pastures Farm', address: 'High Pastures Farm, Northallerton, DL7 9KL',   cattle: '200', holdingLabel: 'Main holding' },
   '12/320/6799-01': { cph: '12/320/6799-01', farm: 'High Pastures Farm', address: 'High Pastures Beef Unit, Northallerton, DL7 9KL', cattle: '187', holdingLabel: 'Beef finishing unit' },
@@ -41,7 +41,7 @@ const herdData = {
   '12/352/6808-01': { cph: '12/352/6808-01', farm: 'Riverside Farm', address: 'Riverside Dairy Unit, Tadcaster, LS24 9UV',      cattle: '130', holdingLabel: 'Dairy unit' },
   '12/352/6808-02': { cph: '12/352/6808-02', farm: 'Riverside Farm', address: 'Riverside Beef Finishing Unit, Tadcaster, LS24 9UV', cattle: '82',  holdingLabel: 'Beef finishing unit' }
 }
-
+ 
 function searchResultsForTerm(search) {
   const term = (search || '').toLowerCase()
 
@@ -875,64 +875,46 @@ const v11AnimalsByCph = buildV11Dataset()
 const v12AnimalsByCph = Object.assign({}, v11AnimalsByCph)
 if (v12AnimalsByCph['12/312/6802']) {
   const millHouse = v11AnimalsByCph['12/312/6802']
-  // Hand-picked vaccinations by ear-tag last 4. 0094 and 0102 are
-  // recent enough to fall inside the 6-month "DIVA only" window from
-  // the demo date (May 2026); the others are older so they're free to
-  // be tested with either DIVA or SICCT. The vaccination flow also
-  // uses 0094 / 0102 to flag "Check last vaccination date" so the vet
-  // doesn't accidentally re-vaccinate inside the booster window.
-  const vaccinationDatesByLast4 = {
-    '0075': '01/25', // ~16 months — DIVA or SICCT
-    '0081': '03/24', // ~26 months — DIVA or SICCT
-    '0082': '11/24', // ~18 months — DIVA or SICCT
-    '0094': '02/26', // ~3 months  — DIVA only
-    '0102': '11/25'  // ~6 months  — DIVA only
-  }
-  // Index-based supplemental vaccinations applied to whichever animals
-  // land at these positions in the deterministically-generated herd
-  // list. They guarantee the v1-2 demo always shows a clear mix of
-  // "DIVA only" (vaccinated within the last 6 months) and "DIVA or
-  // SICCT" (vaccinated 6+ months ago) cattle on the combined skin-test
-  // list, even if the seed-generated ear tags drift. Indices start at 4
-  // to leave the first three unvaccinated animals free for the calf
-  // DOB override below.
-  const supplementalVaxByIndex = {
-    4:  '03/26', // ~2 months  — DIVA only
-    7:  '04/26', // ~1 month   — DIVA only
-    10: '12/25', // ~5 months  — DIVA only
-    14: '07/25', // ~10 months — DIVA or SICCT
-    18: '04/25', // ~13 months — DIVA or SICCT
-    22: '09/24', // ~20 months — DIVA or SICCT
-    26: '06/24'  // ~23 months — DIVA or SICCT
-  }
-  // DOBs that put each animal at well under 44 days old at the demo
-  // date (Thursday 7 May 2026). The remark column on the printed list
-  // will show "Check age" for each of these animals.
-  const youngCalfDobs = [
-    '17/04/2026', // ~20 days old
-    '07/04/2026', // ~30 days old
-    '28/03/2026'  // ~40 days old
-  ]
-  let youngIdx = 0
+  // Mill House Farm's herd is set up to exercise the full skin-test
+  // reporting loop. Vaccinated cattle stay below 25% of the herd so
+  // the demo shows a predominantly unvaccinated farm. The 38-animal
+  // herd splits into:
+  //   - 30 unvaccinated cattle (indices 0–29)  → SICCT side (~79%)
+  //   - 2  recently vaccinated cattle (30–31)  → DIVA side, NOT overdue
+  //                                              (vaccinated 1–2 months
+  //                                              ago, inside the 12-month
+  //                                              protection window).
+  //   - 6  overdue cattle (indices 32–37)      → DIVA side, vaccinated
+  //                                              12–14 months ago and
+  //                                              flagged as overdue for
+  //                                              revaccination on the
+  //                                              herd briefing.
+  // Total vaccinated: 8 of 38 = ~21% (below 25%).
+  // Dates are anchored to the prototype's demo date (early May 2026)
+  // so the windows render predictably.
+  const recentVaxDates = ['04/26', '03/26']
+  const overdueVaxDates = ['03/25', '04/25', '05/25']
+  const unvaccinatedCount = 30
+  const recentlyVaccinatedCount = 2
   v12AnimalsByCph['12/312/6802'] = millHouse.map(function (a, idx) {
-    const last4 = String(a.officialId || '').slice(-4)
-    let vaxDate = vaccinationDatesByLast4[last4]
-    if (!vaxDate && supplementalVaxByIndex[idx]) {
-      vaxDate = supplementalVaxByIndex[idx]
+    if (idx < unvaccinatedCount) {
+      return Object.assign({}, a, {
+        vaccinationStatus: 'Not vaccinated',
+        vaccinationDate: ''
+      })
     }
-    const isVaccinated = !!vaxDate
-    const animal = Object.assign({}, a, {
-      vaccinationStatus: isVaccinated ? 'Vaccinated' : 'Not vaccinated',
-      vaccinationDate: vaxDate || ''
+    const offset = idx - unvaccinatedCount
+    if (offset < recentlyVaccinatedCount) {
+      return Object.assign({}, a, {
+        vaccinationStatus: 'Vaccinated',
+        vaccinationDate: recentVaxDates[offset % recentVaxDates.length]
+      })
+    }
+    const overdueOffset = offset - recentlyVaccinatedCount
+    return Object.assign({}, a, {
+      vaccinationStatus: 'Vaccinated',
+      vaccinationDate: overdueVaxDates[overdueOffset % overdueVaxDates.length]
     })
-    // Force the first three unvaccinated animals to young calf DOBs
-    // so the "Check age" remark always has something to highlight on
-    // the SICCT side of the combined list.
-    if (!isVaccinated && youngIdx < youngCalfDobs.length) {
-      animal.dob = youngCalfDobs[youngIdx]
-      youngIdx++
-    }
-    return animal
   })
 }
 
@@ -1190,7 +1172,12 @@ function getReportingGroups(animals, decisionMap) {
     'withdrawn-export': [],
     'withdrawn-slaughter': [],
     'withdrawn-owner': [],
-    other: []
+    other: [],
+    // 'no-reason' is the bulk-skip bucket – the vet has decided not
+    // to record a specific reason for these animals. Reached via the
+    // "Skip and mark as no reason given" link on the reasons phase
+    // of /v1-2/select-vaccinated-animals.
+    'no-reason': []
   }
 
   animals.forEach((animal) => {
@@ -1214,7 +1201,8 @@ function getSummaryBuckets(groups) {
     { key: 'withdrawn-export', label: 'Withdrawn for export', count: groups['withdrawn-export'].length },
     { key: 'withdrawn-slaughter', label: 'Withdrawn for slaughter', count: groups['withdrawn-slaughter'].length },
     { key: 'withdrawn-owner', label: 'Withdrawn by owner', count: groups['withdrawn-owner'].length },
-    { key: 'other', label: 'Other', count: groups.other.length }
+    { key: 'other', label: 'Other', count: groups.other.length },
+    { key: 'no-reason', label: 'No reason given', count: (groups['no-reason'] || []).length }
   ].filter(bucket => bucket.count > 0)
 }
 
@@ -1227,7 +1215,8 @@ function getGroupLabel(groupKey) {
     'withdrawn-export': 'Withdrawn for export',
     'withdrawn-slaughter': 'Withdrawn for slaughter',
     'withdrawn-owner': 'Withdrawn by owner',
-    other: 'Other'
+    other: 'Other',
+    'no-reason': 'No reason given'
   }
 
   return labels[groupKey] || 'Remaining cattle'
@@ -1249,6 +1238,8 @@ function getRowsForReviewGroup(groups, groupKey, otherReasons) {
       return buildReportingTableRows(groups['withdrawn-owner'], otherReasons)
     case 'other':
       return buildReportingTableRows(groups.other, otherReasons)
+    case 'no-reason':
+      return buildReportingTableRows(groups['no-reason'] || [], otherReasons)
     default:
       return buildReportingTableRows(groups.remaining, otherReasons)
   }
@@ -1339,7 +1330,17 @@ function buildSelectedAnimalSummary(animals, ids) {
 }
 
 function renderSelectVaccinatedAnimals(req, res, version, options = {}) {
-  const baseAnimals = getReportingAnimals(req, version)
+  // v1-2: lock the order on this page to ear-tag (last 5 digits) so it
+  // matches the printed / on-screen lists, which always default to the
+  // same key (req.session.data.skinTestSortBy → "Ear-tag number (last
+  // 5 digits)"). Without this override the page would inherit whatever
+  // generic req.session.data.sortBy happens to be (e.g. Age or DOB),
+  // which would put the cattle in a different order from the list the
+  // vet has already prepared.
+  const rawAnimals = getAnimalsForSelection(req.session.data.selectedCattle, version)
+  const baseAnimals = (version === 'v1-2')
+    ? sortAnimals(rawAnimals, 'Ear-tag number (last 5 digits)', 'asc')
+    : getReportingAnimals(req, version)
   // Pre-compute the borderline-flag set across the whole reporting
   // herd so duplicate / DOB-check / TB-Vax-check underlines render
   // consistently regardless of which review group the animal sits in.
@@ -1385,6 +1386,11 @@ function renderSelectVaccinatedAnimals(req, res, version, options = {}) {
     markingPhase,
     selectedIds,
     selectedAnimalSummary: buildSelectedAnimalSummary(animals, selectedIds),
+    // Page size the vet chose on /v1-2/download-list (Easy = 20,
+    // Compact = 40). The marking table renders a "Page N" divider
+    // after every chunk of this many rows so the on-screen order
+    // mirrors the printed-sheet boundaries.
+    cattlePerPage: req.session.data.vaccinationCattlePerPage || 20,
     errors: options.errors,
     errorSummary: options.errorSummary,
     formValues: options.formValues || {}
@@ -1538,11 +1544,20 @@ function registerVersionRoutes(version) {
     // v1-1 / v1-2 show the TB status block – v1-0 template doesn't use it.
     if ((version === 'v1-1' || version === 'v1-2') && req.session.data.selectedCattle) {
       locals.tbStatus = getV11TbStatusForCph(req.session.data.selectedCattle)
-      // Count vaccinated cattle on the selected farm so the template
-      // can show "Vaccinated cattle" under "Number of cattle".
       const animals = getAnimalsForSelection(req.session.data.selectedCattle, version)
-      locals.vaccinatedCount = animals.filter(function (a) {
+      const vaccinated = animals.filter(function (a) {
         return a.vaccinationStatus === 'Vaccinated'
+      })
+      locals.vaccinatedCount = vaccinated.length
+      locals.unvaccinatedCount = animals.length - vaccinated.length
+      // "Overdue revaccination" = vaccinated 12+ months ago, i.e.
+      // outside the 12-month booster window. Drives the vet briefing
+      // on the herd page so they know how many cattle on the DIVA
+      // side will be flagged for re-vaccination.
+      const today = new Date()
+      locals.overdueRevaccinationCount = vaccinated.filter(function (a) {
+        const monthsSince = monthsSinceVaxDate(a.vaccinationDate, today)
+        return typeof monthsSince === 'number' && monthsSince >= 12
       }).length
     }
     // v1-2 also renders the expanded farm briefing (bulls, contact,
@@ -1786,7 +1801,8 @@ function registerVersionRoutes(version) {
       'withdrawn-export': 'Withdrawn for export',
       'withdrawn-slaughter': 'Withdrawn for slaughter',
       'withdrawn-owner': 'Withdrawn by owner',
-      other: 'Other reason'
+      other: 'Other reason',
+      'no-reason': 'No reason given'
     }
 
     Object.keys(statusLabels).forEach(function (key) {
@@ -1851,7 +1867,8 @@ function registerVersionRoutes(version) {
       if (groups.remaining.length === 0) {
         const bankedKeys = [
           'vaccinated', 'not-found', 'deceased',
-          'withdrawn-export', 'withdrawn-slaughter', 'withdrawn-owner', 'other'
+          'withdrawn-export', 'withdrawn-slaughter', 'withdrawn-owner', 'other',
+          'no-reason'
         ]
         const firstBanked = bankedKeys.find(function (k) {
           return (groups[k] || []).length > 0
@@ -1884,7 +1901,8 @@ function registerVersionRoutes(version) {
             if (otherReasons[a.officialId]) acc[a.officialId] = otherReasons[a.officialId]
             return acc
           }, {})
-        }
+        },
+        { status: 'no-reason', cattle: (groups['no-reason'] || []).map(a => a.officialId) }
       ].filter(g => g.cattle.length)
       return res.redirect(`/${version}/check-report-answers`)
     }
@@ -1906,7 +1924,8 @@ function registerVersionRoutes(version) {
     // query param falls back to the default "remaining" view.
     const allowedGroups = [
       'remaining', 'vaccinated', 'not-found', 'deceased',
-      'withdrawn-export', 'withdrawn-slaughter', 'withdrawn-owner', 'other'
+      'withdrawn-export', 'withdrawn-slaughter', 'withdrawn-owner', 'other',
+      'no-reason'
     ]
     const groupParam = req.query && req.query.group
     if (groupParam && allowedGroups.indexOf(groupParam) !== -1) {
@@ -1951,9 +1970,29 @@ function registerVersionRoutes(version) {
     }
 
     if (markAction === 'continue-to-reasons') {
-      // Route through the new confirmation page. The confirmation
-      // POST then bumps us to the 'reasons' phase (or 'vaccinated'
-      // for the inverse approach) and back to this screen.
+      // Route through the confirmation page. The confirmation POST
+      // then bumps us to the 'reasons' phase (or 'vaccinated' for
+      // the inverse approach) and back to this screen.
+      return res.redirect(`/${version}/vaccination-marked-confirm`)
+    }
+
+    // Reasons-phase shortcut: the vet doesn't want to record a
+    // specific reason for the remaining cattle. Bulk-mark every
+    // remaining animal as "no reason given" and continue through the
+    // confirmation page. Triggered by the "Skip and mark as no
+    // reason given" link at the bottom of the reasons-phase view.
+    if (markAction === 'skip-no-reason') {
+      const decisionMap = { ...getDecisionMap(req.session.data) }
+      const currentOtherReasons = { ...(req.session.data.otherReasons || {}) }
+      animals.forEach(function (animal) {
+        const id = animal.officialId
+        if (!decisionMap[id] || decisionMap[id] === 'remaining') {
+          decisionMap[id] = 'no-reason'
+          delete currentOtherReasons[id]
+        }
+      })
+      req.session.data.cattleDecisions = decisionMap
+      req.session.data.otherReasons = currentOtherReasons
       return res.redirect(`/${version}/vaccination-marked-confirm`)
     }
 
@@ -1980,22 +2019,9 @@ function registerVersionRoutes(version) {
       const decisionMap = getDecisionMap(req.session.data)
       const groups = getReportingGroups(animals, decisionMap)
 
-      if (groups.remaining.length) {
-        return renderSelectVaccinatedAnimals(req, res, version, {
-          errors: {
-            selectedAnimals: { text: 'Mark all remaining cattle before you continue' }
-          },
-          errorSummary: {
-            titleText: 'There is a problem',
-            errorList: [
-              {
-                text: 'Mark all remaining cattle before you continue',
-                href: '#selected-animals'
-              }
-            ]
-          }
-        })
-      }
+      // Validation removed – the vet can continue even when some
+      // cattle still have no decision. Anything in groups.remaining
+      // is rolled forward unchanged.
 
       req.session.data.vaccinatedCattle = groups.vaccinated.map(animal => animal.officialId)
       const otherReasons = req.session.data.otherReasons || {}
@@ -2014,7 +2040,8 @@ function registerVersionRoutes(version) {
             }
             return acc
           }, {})
-        }
+        },
+        { status: 'no-reason', cattle: (groups['no-reason'] || []).map(animal => animal.officialId) }
       ].filter(group => group.cattle.length)
 
       return res.redirect(`/${version}/check-report-answers`)
@@ -2033,24 +2060,9 @@ function registerVersionRoutes(version) {
       return res.redirect(`/${version}/select-vaccinated-animals`)
     }
 
-    if (!selectedIds.length) {
-      return renderSelectVaccinatedAnimals(req, res, version, {
-        selectedIds,
-        formValues: { selectedStatus, otherReason },
-        errors: {
-          selectedAnimals: { text: 'Select at least one animal' }
-        },
-        errorSummary: {
-          titleText: 'There is a problem',
-          errorList: [
-            {
-              text: 'Select at least one animal',
-              href: '#selected-animals'
-            }
-          ]
-        }
-      })
-    }
+    // Validation removed – an empty selection just falls through:
+    // the per-id loop below becomes a no-op and the redirect rules
+    // decide where the vet lands next.
 
     if (markAction !== 'mark') {
       return res.redirect(`/${version}/select-vaccinated-animals`)
@@ -2071,43 +2083,9 @@ function registerVersionRoutes(version) {
       ? 'vaccinated'
       : selectedStatus
 
-    if ((req.session.data.markingPhase === 'reasons' || isReasonView) && !selectedStatus) {
-      return renderSelectVaccinatedAnimals(req, res, version, {
-        selectedIds,
-        formValues: { selectedStatus, otherReason },
-        errors: {
-          selectedStatus: { text: 'Select what to mark the selected cattle as' }
-        },
-        errorSummary: {
-          titleText: 'There is a problem',
-          errorList: [
-            {
-              text: 'Select what to mark the selected cattle as',
-              href: '#selectedStatus'
-            }
-          ]
-        }
-      })
-    }
-
-    if (finalStatus === 'other' && !otherReason) {
-      return renderSelectVaccinatedAnimals(req, res, version, {
-        selectedIds,
-        formValues: { selectedStatus, otherReason },
-        errors: {
-          otherReason: { text: 'Enter the other reason' }
-        },
-        errorSummary: {
-          titleText: 'There is a problem',
-          errorList: [
-            {
-              text: 'Enter the other reason',
-              href: '#otherReason'
-            }
-          ]
-        }
-      })
-    }
+    // Validation removed – the vet can mark cattle in the reasons
+    // phase without picking a status, and the "Other" reason can be
+    // left blank. Downstream code stores whatever's there.
 
     const decisionMap = { ...getDecisionMap(req.session.data) }
     const otherReasons = { ...(req.session.data.otherReasons || {}) }
@@ -2164,7 +2142,46 @@ function registerVersionRoutes(version) {
     return res.redirect(`/${version}/check-report-answers`)
   })
 
+  // v1-2: /check-report-answers now carries a yes/no declaration that
+  // the vet has checked their answers. The page is template-served by
+  // the prototype kit; this GET handler exists only so an error from
+  // a failed submission can be lifted out of session and rendered as
+  // the standard govukErrorSummary + per-field error message.
+  if (version === 'v1-2') {
+    router.get(`/${version}/check-report-answers`, function (req, res) {
+      const errorState = req.session.data.checkAnswersError
+      // One-shot: clear the flag so refreshing the page after a
+      // successful correction doesn't keep showing the error.
+      req.session.data.checkAnswersError = null
+      const errors = errorState
+        ? { answersChecked: { text: 'Select yes to confirm you have checked the answers' } }
+        : null
+      const errorSummary = errorState
+        ? {
+            titleText: 'There is a problem',
+            errorList: [{
+              text: 'Select yes to confirm you have checked the answers',
+              href: '#answersChecked'
+            }]
+          }
+        : null
+      res.render(`${version}/check-report-answers`, { errors, errorSummary })
+    })
+  }
+
   router.post(`/${version}/submit-vaccination-report`, (req, res) => {
+    // v1-2: validate the declaration before we let the vet submit.
+    // Older versions don't have the declaration and submit through
+    // unchanged.
+    if (version === 'v1-2') {
+      const answersChecked = req.body.answersChecked
+      req.session.data.answersChecked = answersChecked
+      if (answersChecked !== 'yes') {
+        req.session.data.checkAnswersError = true
+        return res.redirect(`/${version}/check-report-answers`)
+      }
+      req.session.data.checkAnswersError = null
+    }
     return res.redirect(`/${version}/report-submitted`)
   })
 
@@ -2431,22 +2448,151 @@ function registerVersionRoutes(version) {
       })()
 
       // Enrich each animal with the flags the v1-2 list template uses.
+      // The duplicate ear-tag underline and the "recently vaccinated"
+      // TB Vax underline are scoped to Mill House Farm only for the
+      // demo. Other farms render the list without these flags so the
+      // page stays a clean printable list. The "recently vaccinated"
+      // window is also tightened from 12 months to 11 months for the
+      // demo – animals vaccinated 11 months ago or less get the
+      // highlight.
+      const isMillHouseFarmV12 = selectedCattleV12 === '12/312/6802'
       const last4Counts = {}
       baseAnimalsV12.forEach(function (a) {
         const last4 = String(a.officialId || '').slice(-4)
         last4Counts[last4] = (last4Counts[last4] || 0) + 1
       })
+      // Helpers for the Eligibility column on Mill House Farm. The
+      // column rolls five states into a single label so the vet sees
+      // each animal's vaccination position at a glance:
+      //
+      //   "Eligible"                       – unvaccinated AND 42+
+      //                                      days old on the date
+      //                                      the list is printed.
+      //   "Eligible on DD/MM/YYYY"         – under 42 days old on
+      //                                      the date the list is
+      //                                      printed. The shown date
+      //                                      is DOB + 42 days.
+      //   "Vaccinated"                     – vaccinated within the
+      //                                      last 46 weeks (still
+      //                                      has 6+ weeks of cover
+      //                                      before revaccination).
+      //   "Revaccination due DD/MM/YYYY"   – vaccinated more than
+      //                                      46 weeks but less than
+      //                                      1 calendar year ago.
+      //                                      The shown date is the
+      //                                      original vaccination
+      //                                      date + 1 year.
+      //   "Revaccination overdue"          – vaccinated more than
+      //                                      1 calendar year ago.
+      const REVAX_DUE_DAYS = 46 * 7  // 46 weeks = 322 days
+      function parseDobDate (dob) {
+        if (!dob || typeof dob !== 'string') return null
+        const parts = dob.split('/')
+        if (parts.length !== 3) return null
+        const d = parseInt(parts[0], 10)
+        const m = parseInt(parts[1], 10)
+        const y = parseInt(parts[2], 10)
+        if (!d || !m || !y) return null
+        return new Date(y, m - 1, d)
+      }
+      function parseMmYyToDate (mmYY) {
+        if (!mmYY || typeof mmYY !== 'string') return null
+        const parts = mmYY.split('/')
+        if (parts.length !== 2) return null
+        const month = parseInt(parts[0], 10)
+        const year2 = parseInt(parts[1], 10)
+        if (isNaN(month) || isNaN(year2)) return null
+        const fullYear = year2 < 100 ? 2000 + year2 : year2
+        // Anchor to the 1st of the vaccination month – MM/YY is the
+        // finest granularity the prototype captures.
+        return new Date(fullYear, month - 1, 1)
+      }
+      function daysBetween (earlier, later) {
+        return (later.getTime() - earlier.getTime()) / (24 * 60 * 60 * 1000)
+      }
+      function formatDayMonthYear (date) {
+        const dd = String(date.getDate()).padStart(2, '0')
+        const mm = String(date.getMonth() + 1).padStart(2, '0')
+        const yy = date.getFullYear()
+        return `${dd}/${mm}/${yy}`
+      }
+      function computeEligibilityLabel (animal) {
+        if (!isMillHouseFarmV12) return 'Eligible'
+
+        const today = new Date()
+
+        // 1 & 2. Age check first – applies to every animal regardless
+        // of vaccination status.
+        const dob = parseDobDate(animal.dob)
+        if (dob) {
+          const eligibleOn = new Date(dob.getTime() + 42 * 24 * 60 * 60 * 1000)
+          if (eligibleOn > today) {
+            return 'Eligible on ' + formatDayMonthYear(eligibleOn)
+          }
+        }
+
+        // 3. Unvaccinated animals that are 42+ days old → "Eligible".
+        if (animal.vaccinationStatus !== 'Vaccinated' || !animal.vaccinationDate) {
+          return 'Eligible'
+        }
+
+        // 4 & 5. Vaccinated animals – bucket by days since the last
+        // recorded vaccination (anchored to the 1st of the recorded
+        // MM/YY).
+        const vaxDate = parseMmYyToDate(animal.vaccinationDate)
+        if (!vaxDate) return 'Vaccinated'
+
+        const revaxDueDate = new Date(vaxDate)
+        revaxDueDate.setFullYear(revaxDueDate.getFullYear() + 1)
+
+        // "Revaccination overdue" – more than one calendar year ago.
+        if (today > revaxDueDate) {
+          return 'Revaccination overdue'
+        }
+
+        // "Revaccination due [date]" – over 46 weeks but still within
+        // a year. The displayed date is when revaccination is due
+        // (the original vaccination date + 1 calendar year).
+        const daysSince = daysBetween(vaxDate, today)
+        if (daysSince > REVAX_DUE_DAYS) {
+          return 'Revaccination due ' + formatDayMonthYear(revaxDueDate)
+        }
+
+        // Default for a vaccinated animal still inside the 46-week
+        // protection window.
+        return 'Vaccinated'
+      }
+
+      // Helper: true when the vaccinated animal sits in the
+      // "Revaccination due" window (between 46 weeks and 1 year since
+      // vaccination). Used to underline the TB Vax cell so the vet
+      // spots the approaching revaccination deadline at a glance.
+      function isRevaxDueWindow (animal) {
+        if (animal.vaccinationStatus !== 'Vaccinated' || !animal.vaccinationDate) return false
+        const vaxDate = parseMmYyToDate(animal.vaccinationDate)
+        if (!vaxDate) return false
+        const today = new Date()
+        const revaxDueDate = new Date(vaxDate)
+        revaxDueDate.setFullYear(revaxDueDate.getFullYear() + 1)
+        if (today > revaxDueDate) return false
+        return daysBetween(vaxDate, today) > REVAX_DUE_DAYS
+      }
+
       const enrichedV12 = baseAnimalsV12.map(function (a) {
         const last4 = String(a.officialId || '').slice(-4)
         const vaxDate = a.vaccinationDate || ''
         return Object.assign({}, a, {
-          isDuplicate: last4Counts[last4] > 1,
+          isDuplicate: isMillHouseFarmV12 && last4Counts[last4] > 1,
           isVaccinated: a.vaccinationStatus === 'Vaccinated',
           vaccinationDate: vaxDate,
-          // Flagged on the printed list with "Check last vaccination
-          // date" so the vet doesn't double-vaccinate inside the
-          // 12-month booster window.
-          isRecentlyVaccinated: isVaccinationWithinOneYear(vaxDate)
+          // Underline the TB Vax cell when the animal sits in the
+          // "Revaccination due" window (46 weeks – 1 year since
+          // vaccination). Scoped to Mill House Farm only for the demo.
+          isRecentlyVaccinated: isMillHouseFarmV12 && isRevaxDueWindow(a),
+          // Full eligibility label rendered in the Eligibility
+          // column. On non-Mill-House farms every animal reads as
+          // a plain "Eligible".
+          eligibilityLabel: computeEligibilityLabel(a)
         })
       })
 
@@ -2457,7 +2603,8 @@ function registerVersionRoutes(version) {
             isDuplicate: enrichedV12[idx].isDuplicate,
             isVaccinated: enrichedV12[idx].isVaccinated,
             vaccinationDate: enrichedV12[idx].vaccinationDate,
-            isRecentlyVaccinated: enrichedV12[idx].isRecentlyVaccinated
+            isRecentlyVaccinated: enrichedV12[idx].isRecentlyVaccinated,
+            eligibilityLabel: enrichedV12[idx].eligibilityLabel
           })
         })
 
@@ -2685,6 +2832,29 @@ function registerVersionRoutes(version) {
     const farmName = (herd && herd.farm) || 'Selected farm'
     const currentUser = (req.session.data && req.session.data.userName) || 'You'
 
+    // Demo seed (v1-2 only): Mill House Farm (12/312/6802) is the
+    // mixed-vaccination demo farm. So the prepared-lists block is
+    // populated without forcing the vet to walk the full prepare-list
+    // journey, auto-seed a "Both" (SICCT + DIVA) skin-test prepared
+    // list the first time this farm is opened. Real prepared records
+    // created later in the session take precedence because we only
+    // seed when no record exists for this CPH yet, and the post-submit
+    // cleanup elsewhere strips the record once the report is filed.
+    if (version === 'v1-2' && cph === '12/312/6802') {
+      const existingSkinTest = Array.isArray(req.session.data.skinTestListPrepared)
+        ? req.session.data.skinTestListPrepared
+        : []
+      const alreadySeeded = existingSkinTest.some(function (r) { return r && r.cph === cph })
+      if (!alreadySeeded && !req.session.data.millHouseSkinTestSubmitted) {
+        existingSkinTest.push({
+          cph: cph,
+          types: ['SICCT', 'DIVA'],
+          preparedAt: new Date().toISOString()
+        })
+        req.session.data.skinTestListPrepared = existingSkinTest
+      }
+    }
+
     // Build a clean per-farm task list from real session state. After
     // a list is prepared the only "ready to do" task is the matching
     // report. The prepared list itself is shown separately so the vet
@@ -2746,21 +2916,50 @@ function registerVersionRoutes(version) {
     // vet can view, edit or reprint without the list cluttering the
     // active task list. Each list type for "Both" produces its own
     // link.
+    // The "Date created" stamp matches the format used on the printed
+    // skin-test list (en-GB long weekday + day + month + year) so the
+    // farm-tasks row and the printed sheet read identically.
+    const preparedListDateFormatter = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    })
+    function formatPreparedAt(preparedAt) {
+      if (!preparedAt) return null
+      const d = new Date(preparedAt)
+      if (isNaN(d.getTime())) return null
+      return preparedListDateFormatter.format(d)
+    }
     const preparedLists = []
     if (sicctRecord) {
       const types = Array.isArray(sicctRecord.types) ? sicctRecord.types : ['SICCT']
-      types.forEach(function (testLabel) {
+      const dateCreated = formatPreparedAt(sicctRecord.preparedAt)
+      const hasSicct = types.indexOf('SICCT') !== -1
+      const hasDiva = types.indexOf('DIVA') !== -1
+      if (hasSicct && hasDiva) {
+        // Both prepared → one combined entry so the vet downloads or
+        // reprints both lists as a single file. The list page reads
+        // ?both=1 and stacks the SICCT then DIVA previews.
         preparedLists.push({
-          title: testLabel + ' list of cattle for skin tests',
-          actionText: 'View, edit or reprint the ' + testLabel + ' list',
-          href: `/${version}/skin-test-list?sublist=` + (testLabel === 'DIVA' ? 'diva' : 'sicct')
+          title: 'SICCT and DIVA list of cattle for skin tests',
+          actionText: 'View, edit or reprint the SICCT and DIVA list',
+          dateCreated: dateCreated,
+          href: `/${version}/skin-test-list?both=1`
         })
-      })
+      } else {
+        types.forEach(function (testLabel) {
+          preparedLists.push({
+            title: testLabel + ' list of cattle for skin tests',
+            actionText: 'View, edit or reprint the ' + testLabel + ' list',
+            dateCreated: dateCreated,
+            href: `/${version}/skin-test-list?sublist=` + (testLabel === 'DIVA' ? 'diva' : 'sicct')
+          })
+        })
+      }
     }
     if (vaxRecord) {
       preparedLists.push({
         title: 'List of cattle to vaccinate',
         actionText: 'View, edit or reprint the list',
+        dateCreated: formatPreparedAt(vaxRecord.preparedAt),
         href: `/${version}/download-list`
       })
     }
@@ -3001,6 +3200,12 @@ function registerVersionRoutes(version) {
         // mirrors the PDF confirmation step but is framed around
         // downloading a CSV (now or later from the dashboard).
         return res.redirect(`/${version}/list-spreadsheet`)
+      }
+      // When both SICCT and DIVA were prepared the vet first picks
+      // which list to format and print first. Single-test CPHs skip
+      // the picker and go straight to the list.
+      if (req.session.data.prepareSkinTestType === 'Both') {
+        return res.redirect(`/${version}/skin-test-list-order`)
       }
       return res.redirect(`/${version}/skin-test-list`)
     }
@@ -3289,6 +3494,57 @@ function registerSkinTestRoutes(version) {
 
   function getCurrentReactorPhaseLabel(req) {
     return getCurrentReactorPhase(req) === 'diva' ? 'DIVA' : 'SICCT'
+  }
+
+  // True when the vet is partway through the v1-2 per-test sub-flow
+  // (the new SICCT-then-DIVA loop driven by skin-test-batch-details).
+  // When this is on, the combined-Both shortcuts in the reactor and
+  // measurement handlers are bypassed so each test runs through its
+  // own reactor-pick + measurements + confirm cycle.
+  function isPerTestSubFlow(req) {
+    const t = req.session.data.currentSkinTest
+    return t === 'sicct' || t === 'diva'
+  }
+
+  // Animal-ID set for the active test, derived from the prepare-list
+  // assignments (SICCT = unvaccinated, DIVA = vaccinated). Used to
+  // scope the reactor picker and measurements to a single test.
+  function getPerTestAnimalIdSet(req, test) {
+    const assignments = req.session.data.prepareSkinTestAssignments || {}
+    const ids = Array.isArray(assignments[test]) ? assignments[test] : []
+    return new Set(ids)
+  }
+
+  // After a test's measurements / "no reactors" answer have been
+  // captured, decide where the vet goes next. Used by the per-test
+  // confirmation page on submit. If the Both journey still has the
+  // other test to run, swap currentSkinTest and send the vet to that
+  // test's batch-details. Otherwise the loop is done – clear the
+  // active-test marker and continue to the all-tested gate.
+  function nextRouteAfterCurrentTest(req, version) {
+    const isBoth = req.session.data.skinTestType === 'Both'
+    const current = req.session.data.currentSkinTest === 'diva' ? 'diva' : 'sicct'
+    const completed = Array.isArray(req.session.data.skinTestCompletedTests)
+      ? req.session.data.skinTestCompletedTests.slice()
+      : []
+    if (completed.indexOf(current) === -1) completed.push(current)
+    req.session.data.skinTestCompletedTests = completed
+
+    if (isBoth) {
+      const other = current === 'sicct' ? 'diva' : 'sicct'
+      if (completed.indexOf(other) === -1) {
+        req.session.data.currentSkinTest = other
+        // Reset the per-test reactor + measurement pointers for the
+        // next test so it starts from a clean slate.
+        req.session.data.currentSkinTestIndex = 0
+        req.session.data.currentDivaIndex = 0
+        return `/${version}/skin-test-batch-details/${other}`
+      }
+    }
+
+    // All tests done.
+    req.session.data.currentSkinTest = null
+    return `/${version}/skin-test-all-tested`
   }
 
   function getEntriesForPhase(req, phase) {
@@ -3968,6 +4224,48 @@ function registerSkinTestRoutes(version) {
     res.redirect(`/${version}/skin-test-list`)
   })
 
+  // --- Picker: which list to print first (v1-2 Both only) --------------
+  // Shown between /v1-2/list-format and /v1-2/skin-test-list when both
+  // tests were prepared for the CPH. The vet's choice is stored on
+  // `prepareSkinTestListFirstOrder` so the second pass through the
+  // confirmed page knows which list still needs running, and copied
+  // to `prepareSkinTestPhase` so the list page renders the chosen
+  // test on entry.
+  router.get(`/${version}/skin-test-list-order`, function (req, res) {
+    if (version !== 'v1-2') {
+      return res.redirect(`/${version}/skin-test-list`)
+    }
+    if (req.session.data.prepareSkinTestType !== 'Both') {
+      // Not a Both CPH – the picker doesn't apply.
+      return res.redirect(`/${version}/skin-test-list`)
+    }
+    res.render(`${version}/skin-test-list-order`)
+  })
+
+  router.post(`/${version}/skin-test-list-order`, function (req, res) {
+    if (version !== 'v1-2') {
+      return res.redirect(`/${version}/skin-test-list`)
+    }
+    const choice = req.body.prepareSkinTestListFirstOrder === 'diva'
+      ? 'diva'
+      : (req.body.prepareSkinTestListFirstOrder === 'sicct' ? 'sicct' : null)
+    if (!choice) {
+      return res.render(`${version}/skin-test-list-order`, {
+        errors: { prepareSkinTestListFirstOrder: { text: 'Select which list you want to format first' } },
+        errorSummary: {
+          titleText: 'There is a problem',
+          errorList: [{ text: 'Select which list you want to format first', href: '#prepareSkinTestListFirstOrder' }]
+        }
+      })
+    }
+    req.session.data.prepareSkinTestListFirstOrder = choice
+    req.session.data.prepareSkinTestPhase = choice
+    // Reset the per-list confirmation tracker so each fresh entry
+    // through the picker starts from a clean slate.
+    req.session.data.prepareSkinTestListConfirmedPhases = []
+    res.redirect(`/${version}/skin-test-list`)
+  })
+
   router.get(`/${version}/skin-test-list`, function (req, res) {
     const baseAnimals = getSkinTestAnimals(req)
 
@@ -4069,57 +4367,25 @@ function registerSkinTestRoutes(version) {
       divaPreview = buildPreviewForPhase('diva')
     }
 
-    // v1-2 combines the SICCT and DIVA lists into a single preview for
-    // the Both journey. Each row carries an `assignedTest` field so the
-    // template can show one extra column telling the vet which test
-    // applies to that animal.
+    // v1-2 PDF "Both" prepares TWO separate printed lists – one for
+    // SICCT (unvaccinated cattle) and one for DIVA (vaccinated cattle).
+    // There is no "either" option because the animal's vaccination
+    // status determines which test it sits on. The vet picks which
+    // list to print first on /v1-2/skin-test-list-order, then formats
+    // and saves each list one at a time. The legacy combined-list
+    // path is no longer built for v1-2; the rendering uses the
+    // single-phase template branches with `prepareSkinTestPhase`
+    // driving which test is shown.
     //
-    // Sort order: walk `baseAnimals` (already sorted by the vet's
-    // chosen sort) and pick up each animal's preview row from whichever
-    // phase produced it. This interleaves SICCT and DIVA cattle in a
-    // single ear-tag-ordered sequence so the vet doesn't see DIVA
-    // animals bunched at the end after SICCT – they sit wherever their
-    // ear tag falls in the herd-wide sort.
-    const isCombinedBoth = isBoth && version === 'v1-2'
-    let combinedPreview = null
-    if (isCombinedBoth) {
-      const sicctIds = new Set((sicctPreview && sicctPreview.rows || [])
-        .map(function (r) { return r.officialId }))
-      const divaIds = new Set((divaPreview && divaPreview.rows || [])
-        .map(function (r) { return r.officialId }))
-      const rowById = {}
-      ;((sicctPreview && sicctPreview.rows) || []).forEach(function (r) {
-        rowById[r.officialId] = r
-      })
-      ;((divaPreview && divaPreview.rows) || []).forEach(function (r) {
-        // SICCT row wins the slot if an animal somehow appears on both
-        // (shouldn't happen with the auto-split but guard anyway).
-        if (!rowById[r.officialId]) rowById[r.officialId] = r
-      })
-      const combinedRows = []
-      const todayForVax = new Date()
-      baseAnimals.forEach(function (a) {
-        const id = a.officialId
-        const row = rowById[id]
-        if (!row) return
-        // Test recommendation rules:
-        //   - Unvaccinated → SICCT only
-        //   - Vaccinated <6 months ago → must use DIVA (DIVA only)
-        //   - Vaccinated ≥6 months ago → either DIVA or SICCT works
-        // For the combined list we surface the third case as "Either"
-        // so the vet sees at a glance that they have a choice on
-        // those animals.
-        let assignedTest = 'SICCT'
-        if (sicctIds.has(id) && divaIds.has(id)) {
-          assignedTest = 'Either'
-        } else if (divaIds.has(id)) {
-          const monthsSinceVax = monthsSinceVaxDate(row.vaccinationDate, todayForVax)
-          assignedTest = (monthsSinceVax !== null && monthsSinceVax < 6) ? 'DIVA' : 'Either'
-        }
-        combinedRows.push(Object.assign({}, row, { assignedTest: assignedTest }))
-      })
-      combinedPreview = { rows: combinedRows, count: combinedRows.length }
-    }
+    // The ?both=1 query param overrides the per-phase view and
+    // renders BOTH lists in one printable stack. Used by the final
+    // confirmation page so a single Download button can print the
+    // SICCT and DIVA lists together.
+    const isCombinedBoth = false
+    const showBothLists = isBoth
+      && version === 'v1-2'
+      && req.query && req.query.both === '1'
+    const combinedPreview = null
 
     // Single-preview variables kept for backwards compatibility with
     // the existing template. For "Both", default to the SICCT preview
@@ -4132,9 +4398,35 @@ function registerSkinTestRoutes(version) {
 
     const downloadFormat = req.session.data.downloadFormat || 'pdf'
 
+    // Format the "List created" stamp from the prepared-list record so
+    // the printed sheet shows the same date as the prepared-lists row
+    // on /v1-2/farm-tasks. Falls back to today's date (rendered client-
+    // side in the template) if no preparedAt is stored, which keeps the
+    // earlier behaviour for v1-0 / v1-1 and for sessions that bypass
+    // the prepare flow entirely.
+    let listCreatedFormatted = null
+    if (version === 'v1-2') {
+      const currentCph = req.session.data.herd && req.session.data.herd.cph
+      const preparedRecords = Array.isArray(req.session.data.skinTestListPrepared)
+        ? req.session.data.skinTestListPrepared
+        : []
+      const preparedRecord = currentCph && preparedRecords.find(function (r) {
+        return r && r.cph === currentCph
+      })
+      if (preparedRecord && preparedRecord.preparedAt) {
+        const d = new Date(preparedRecord.preparedAt)
+        if (!isNaN(d.getTime())) {
+          listCreatedFormatted = new Intl.DateTimeFormat('en-GB', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+          }).format(d)
+        }
+      }
+    }
+
     res.render(`${version}/skin-test-list`, {
       previewRows,
       previewColumns: settings.visibleColumns,
+      listCreatedFormatted,
       previewAllColumns: skinTestListColumns,
       previewOptions: settings.previewOptions,
       emphasiseLastFive: settings.emphasiseLastFive,
@@ -4144,15 +4436,26 @@ function registerSkinTestRoutes(version) {
       previewSpacing: req.session.data.skinTestPreviewSpacing || 'standard',
       prepareSkinTestType,
       prepareSkinTestPhase,
-      listTestLabel: isCombinedBoth
+      listTestLabel: showBothLists
         ? 'SICCT and DIVA'
         : (prepareSkinTestPhase === 'diva' ? 'DIVA' : 'SICCT'),
       isBothJourney: isBoth,
       isCombinedBoth,
+      showBothLists,
+      // True when this is the second list in a v1-2 Both journey
+      // (i.e. the other phase has already been confirmed). The inset
+      // text drops the "you'll format the other list next" sentence
+      // when this is true.
+      isSecondList: isBoth
+        && version === 'v1-2'
+        && !showBothLists
+        && (req.session.data.prepareSkinTestListConfirmedPhases || [])
+             .indexOf(prepareSkinTestPhase === 'sicct' ? 'diva' : 'sicct') !== -1,
       // For v1-1 "Both", show the step indicator so the vet sees there's
-      // a second list still to format after this one. v1-2 has a single
-      // combined list so the step text isn't shown.
-      bothStepText: isBoth && !isCombinedBoth
+      // a second list still to format after this one. v1-2 drives the
+      // two-step flow via the /skin-test-list-order picker + per-test
+      // confirmed page, so the step text isn't shown for v1-2 Both.
+      bothStepText: isBoth && !isCombinedBoth && version !== 'v1-2'
         ? (prepareSkinTestPhase === 'sicct' ? 'Step 1 of 2' : 'Step 2 of 2')
         : null,
       sicctPreviewRows: sicctPreview && sicctPreview.rows,
@@ -4188,18 +4491,13 @@ function registerSkinTestRoutes(version) {
 
   router.post(`/${version}/skin-test-list`, function (req, res) {
     // v1-2: only two settings are user-facing now – the list "look"
-    // (Easy to read / Medium / Compact) and the sort key. All columns
-    // are always shown and the last-4 ear-tag emphasis is always on.
+    // (Easy to read / Compact) and the sort key. All columns are
+    // always shown and the last-4 ear-tag emphasis is always on.
     // listLook drives both the page size and the visual density:
     //   easy    → 20 per page, standard text/spacing
-    //   medium  → 30 per page, standard text/spacing
     //   compact → 40 per page, small text + tight spacing
-    const listLook = req.body.listLook === 'compact' ? 'compact'
-      : req.body.listLook === 'medium' ? 'medium'
-      : 'easy'
-    const cattlePerPage = listLook === 'compact' ? 40
-      : listLook === 'medium' ? 30
-      : 20
+    const listLook = req.body.listLook === 'compact' ? 'compact' : 'easy'
+    const cattlePerPage = listLook === 'compact' ? 40 : 20
     let textSize = 'standard'
     let spacing = 'standard'
     if (listLook === 'compact') { textSize = 'small'; spacing = 'tight' }
@@ -4251,23 +4549,51 @@ function registerSkinTestRoutes(version) {
     const prepareSkinTestPhase = req.session.data.prepareSkinTestPhase
       || (prepareSkinTestType === 'DIVA' ? 'diva' : 'sicct')
     const isBoth = prepareSkinTestType === 'Both'
-    // v1-2 combines the SICCT and DIVA lists into one, so there's no
-    // mid-journey "now do DIVA" step and the success page renders a
-    // single combined download.
-    const isCombinedBoth = isBoth && version === 'v1-2'
-    const listTestLabel = isCombinedBoth
-      ? 'SICCT and DIVA'
-      : (prepareSkinTestPhase === 'diva' ? 'DIVA' : 'SICCT')
-    // Show the "Continue to DIVA list" action only after the SICCT
-    // step of the v1-1 "Both" journey is confirmed. v1-2's combined
-    // list never needs a second step.
-    const bothHasNextStep = isBoth && !isCombinedBoth && prepareSkinTestPhase === 'sicct'
+    // v1-2 Both now runs the SICCT and DIVA lists as two separate
+    // print steps (driven by the picker on /skin-test-list-order), so
+    // it no longer combines them. The legacy v1-1 path keeps the
+    // SICCT-then-DIVA flow unchanged.
+    const isCombinedBoth = false
+    const listTestLabel = prepareSkinTestPhase === 'diva' ? 'DIVA' : 'SICCT'
+
+    // Track which lists the vet has confirmed in this Both journey so
+    // we know whether to offer "Continue to <other> list" or to
+    // declare the journey done. The first time the vet hits this
+    // page after the picker, only the firstOrder phase will be in
+    // the list. After the second confirmation both will be present.
+    if (isBoth) {
+      const confirmed = Array.isArray(req.session.data.prepareSkinTestListConfirmedPhases)
+        ? req.session.data.prepareSkinTestListConfirmedPhases.slice()
+        : []
+      if (confirmed.indexOf(prepareSkinTestPhase) === -1) {
+        confirmed.push(prepareSkinTestPhase)
+      }
+      req.session.data.prepareSkinTestListConfirmedPhases = confirmed
+    }
+
+    const firstOrder = req.session.data.prepareSkinTestListFirstOrder
+    const otherPhase = prepareSkinTestPhase === 'sicct' ? 'diva' : 'sicct'
+    // Show the "Continue to <other> list" panel when this is the
+    // first of two confirmations (Both, vet just confirmed the
+    // firstOrder phase, the other phase isn't in the confirmed list
+    // yet). For v1-1 the original SICCT-first assumption is the same
+    // as firstOrder === 'sicct'.
+    const confirmedSoFar = Array.isArray(req.session.data.prepareSkinTestListConfirmedPhases)
+      ? req.session.data.prepareSkinTestListConfirmedPhases
+      : []
+    const bothHasNextStep = isBoth
+      && version === 'v1-2'
+      && firstOrder
+      && prepareSkinTestPhase === firstOrder
+      && confirmedSoFar.indexOf(otherPhase) === -1
+      ? true
+      : (version !== 'v1-2' && isBoth && prepareSkinTestPhase === 'sicct')
 
     // Record (or update) the prepared list against the current farm
     // so the dashboard's "Work in progress" can offer the vet a way
     // back to view / edit / reprint the list, or report on the same
-    // cattle. We only mark "Both" as fully prepared once the DIVA
-    // step has been confirmed too (ie. there's no next step left).
+    // cattle. We only mark "Both" as fully prepared once both list
+    // steps have been confirmed (ie. there's no next step left).
     const herd = req.session.data.herd
     const cph = herd && herd.cph
     if (cph) {
@@ -4275,10 +4601,6 @@ function registerSkinTestRoutes(version) {
       const existing = Array.isArray(req.session.data.skinTestListPrepared)
         ? req.session.data.skinTestListPrepared.filter(function (r) { return r && r.cph !== cph })
         : []
-      // For the SICCT step of a Both journey, hold off recording the
-      // "ready" entry until the second list is confirmed – otherwise
-      // the dashboard would show the DIVA list as ready before the
-      // vet has actually formatted it.
       if (!bothHasNextStep) {
         existing.push({ cph, types, preparedAt: new Date().toISOString() })
       }
@@ -4295,23 +4617,43 @@ function registerSkinTestRoutes(version) {
     })
   })
 
-  // Advance from the SICCT list to the DIVA list in the "Both" journey.
-  // Resets the format settings so the DIVA list starts from the defaults.
+  // Advance to the second list in a Both journey. v1-1 always goes
+  // SICCT → DIVA. v1-2 switches to whichever phase the vet didn't
+  // pick on /skin-test-list-order. Either way the format settings
+  // reset so the second list starts from the defaults.
   router.post(`/${version}/prepare-skin-test-next`, function (req, res) {
-    if (req.session.data.prepareSkinTestType === 'Both'
-        && req.session.data.prepareSkinTestPhase === 'sicct') {
-      req.session.data.prepareSkinTestPhase = 'diva'
-      // Reset format settings so the DIVA list starts from the defaults
-      // – the vet can change them independently of the SICCT list.
-      req.session.data.skinTestPreviewOptions = ['show-last-five', ...skinTestListColumns]
-      req.session.data.skinTestSortBy = 'Ear-tag number (last 5 digits)'
-      req.session.data.skinTestSortDirection = 'asc'
-      req.session.data.downloadFormat = 'pdf'
-      req.session.data.skinTestPreviewTextSize = 'standard'
-      req.session.data.skinTestPreviewOrientation = 'portrait'
-      req.session.data.skinTestPreviewSpacing = 'standard'
+    const data = req.session.data
+    const isBoth = data.prepareSkinTestType === 'Both'
+
+    if (isBoth && version === 'v1-2') {
+      const firstOrder = data.prepareSkinTestListFirstOrder || 'sicct'
+      const otherPhase = firstOrder === 'sicct' ? 'diva' : 'sicct'
+      if (data.prepareSkinTestPhase === firstOrder) {
+        data.prepareSkinTestPhase = otherPhase
+        data.skinTestPreviewOptions = ['show-last-five', ...skinTestListColumns]
+        data.skinTestSortBy = 'Ear-tag number (last 5 digits)'
+        data.skinTestSortDirection = 'asc'
+        data.downloadFormat = 'pdf'
+        data.skinTestPreviewTextSize = 'standard'
+        data.skinTestPreviewOrientation = 'portrait'
+        data.skinTestPreviewSpacing = 'standard'
+        return res.redirect(`/${version}/skin-test-list`)
+      }
+    }
+
+    // v1-1 (legacy) – always SICCT → DIVA on the first confirmation.
+    if (isBoth && data.prepareSkinTestPhase === 'sicct') {
+      data.prepareSkinTestPhase = 'diva'
+      data.skinTestPreviewOptions = ['show-last-five', ...skinTestListColumns]
+      data.skinTestSortBy = 'Ear-tag number (last 5 digits)'
+      data.skinTestSortDirection = 'asc'
+      data.downloadFormat = 'pdf'
+      data.skinTestPreviewTextSize = 'standard'
+      data.skinTestPreviewOrientation = 'portrait'
+      data.skinTestPreviewSpacing = 'standard'
       return res.redirect(`/${version}/skin-test-list`)
     }
+
     res.redirect(`/${version}/skin-test-list-confirmed`)
   })
 
@@ -4427,10 +4769,73 @@ function registerSkinTestRoutes(version) {
   })
 
   router.get(`/${version}/skin-test-type`, function (req, res) {
+    // v1-2 onwards: the system already knows which test(s) were
+    // prepared for this CPH (`prepareSkinTestType` is auto-derived
+    // from the herd's vaccination status). So the vet only needs to
+    // pick "which to record first" when both tests were prepared.
+    // Single-test CPHs skip this page entirely.
+    if (version === 'v1-2') {
+      // If the vet jumped straight into the report flow without
+      // preparing a list, fall back to the auto-setup so
+      // prepareSkinTestType / prepareSkinTestAssignments are
+      // populated from the herd's vaccination status.
+      if (!req.session.data.prepareSkinTestType) {
+        autoSetupSkinTestForV12(req, version)
+      }
+      const preparedType = req.session.data.prepareSkinTestType
+      const completed = Array.isArray(req.session.data.skinTestCompletedTests)
+        ? req.session.data.skinTestCompletedTests
+        : []
+      req.session.data.skinTestCompletedTests = completed
+
+      if (preparedType === 'SICCT' || preparedType === 'DIVA') {
+        // Single-test CPH – propagate the type, set the active test
+        // and skip straight to batch-details for it.
+        req.session.data.skinTestType = preparedType
+        req.session.data.currentSkinTest = preparedType.toLowerCase()
+        req.session.data.skinTestFirstOrder = preparedType.toLowerCase()
+        return res.redirect(`/${version}/skin-test-batch-details/${preparedType.toLowerCase()}`)
+      }
+
+      if (preparedType === 'Both') {
+        req.session.data.skinTestType = 'Both'
+        // Reset per-phase pointers so the picker always starts fresh.
+        req.session.data.currentSkinTestIndex = 0
+        req.session.data.currentDivaIndex = 0
+        req.session.data.completedSkinTestPhases = []
+        req.session.data.skinTestReactors = null
+        req.session.data.anyReactors = null
+        return res.render(`${version}/skin-test-type`)
+      }
+    }
     res.render(`${version}/skin-test-type`)
   })
 
   router.post(`/${version}/skin-test-type`, function (req, res) {
+    // v1-2: only the "first test" picker for Both CPHs lands here.
+    // POST stores the choice and sends the vet to the batch-details
+    // page for whichever test they picked first.
+    if (version === 'v1-2') {
+      const firstOrder = req.body.skinTestFirstOrder === 'diva'
+        ? 'diva'
+        : (req.body.skinTestFirstOrder === 'sicct' ? 'sicct' : null)
+      if (!firstOrder) {
+        return res.render(`${version}/skin-test-type`, {
+          errors: { skinTestFirstOrder: { text: 'Select which test you want to record first' } },
+          errorSummary: {
+            titleText: 'There is a problem',
+            errorList: [{ text: 'Select which test you want to record first', href: '#skinTestFirstOrder' }]
+          }
+        })
+      }
+      req.session.data.skinTestType = 'Both'
+      req.session.data.skinTestFirstOrder = firstOrder
+      req.session.data.currentSkinTest = firstOrder
+      req.session.data.skinTestCompletedTests = []
+      return res.redirect(`/${version}/skin-test-batch-details/${firstOrder}`)
+    }
+
+    // ----- Legacy v1-0 / v1-1 path: the checkbox-based picker -----
     // Tests: a checkbox group with values "SICCT" and "DIVA". The vet
     // can pick one or both. The Prototype Kit injects the "_unchecked"
     // placeholder for empty submissions, which we strip out.
@@ -4441,11 +4846,6 @@ function registerSkinTestRoutes(version) {
       return t && t !== '_unchecked'
     })
 
-    // Per-test batch number inputs. When the checkbox is ticked, the
-    // page renders one input per existing batch (plus an empty one
-    // initially). We keep blank entries here so an empty input the
-    // vet hasn't filled in yet stays on the page after a re-render –
-    // they are stripped out at final submit time below.
     const sicctBatchesRaw = Array.isArray(req.body.sicctBatches)
       ? req.body.sicctBatches
       : (req.body.sicctBatches !== undefined ? [req.body.sicctBatches] : [])
@@ -4453,19 +4853,12 @@ function registerSkinTestRoutes(version) {
       ? req.body.divaBatches
       : (req.body.divaBatches !== undefined ? [req.body.divaBatches] : [])
 
-    // Stash the in-progress state so a redirect-driven re-render
-    // shows everything the vet has just typed.
     req.session.data.skinTestTests = tests
     req.session.data.skinTestSicctBatches = sicctBatchesRaw
     req.session.data.skinTestDivaBatches = divaBatchesRaw
 
-    // "Add another batch" buttons – append a blank input to the
-    // matching list and re-render the same page so the new field
-    // appears under the existing ones.
     if (req.body.addBatch === 'sicct') {
       req.session.data.skinTestSicctBatches = sicctBatchesRaw.concat([''])
-      // Make sure the checkbox stays ticked even if the vet clicked
-      // "Add another batch" before ticking it.
       if (tests.indexOf('SICCT') === -1) {
         req.session.data.skinTestTests = tests.concat(['SICCT'])
       }
@@ -4479,7 +4872,6 @@ function registerSkinTestRoutes(version) {
       return res.redirect(`/${version}/skin-test-type`)
     }
 
-    // Final Continue submit – at least one test must be ticked.
     if (!tests.length) {
       return res.render(`${version}/skin-test-type`, {
         errors: { tests: { text: 'Select which test you did' } },
@@ -4490,8 +4882,6 @@ function registerSkinTestRoutes(version) {
       })
     }
 
-    // Map the checkbox selection to the journey-wide skinTestType
-    // string the rest of the flow already understands.
     const hasSicct = tests.indexOf('SICCT') !== -1
     const hasDiva = tests.indexOf('DIVA') !== -1
     const skinTestType = (hasSicct && hasDiva)
@@ -4499,9 +4889,6 @@ function registerSkinTestRoutes(version) {
       : (hasDiva ? 'DIVA' : 'SICCT')
     req.session.data.skinTestType = skinTestType
 
-    // Trim blank batch entries before we hand the data on to the
-    // rest of the journey – only the test the vet actually ticked
-    // gets a non-empty list.
     req.session.data.skinTestSicctBatches = hasSicct
       ? sicctBatchesRaw.map(function (b) { return (b || '').trim() }).filter(Boolean)
       : []
@@ -4509,8 +4896,6 @@ function registerSkinTestRoutes(version) {
       ? divaBatchesRaw.map(function (b) { return (b || '').trim() }).filter(Boolean)
       : []
 
-    // Reset phase-specific pointers + the reactor/untested state so a
-    // brand-new choice always starts from a clean slate.
     req.session.data.currentSkinTestIndex = 0
     req.session.data.currentDivaIndex = 0
     req.session.data.completedSkinTestPhases = []
@@ -4520,21 +4905,204 @@ function registerSkinTestRoutes(version) {
     req.session.data.skinTestUntested = null
     req.session.data.skinTestUntestedReasons = null
 
-    // For "Both" the v1-1 flow asks the test-order question up-front,
-    // then runs the reactor + measurement loop once per test. v1-2
-    // collapses the Both journey into a single combined reactor pick:
-    // we default the order to SICCT-first (so the rest of the per-
-    // phase machinery still works) and skip the order page.
     if (skinTestType === 'Both') {
-      if (version === 'v1-2') {
-        req.session.data.skinTestFirstOrder = 'sicct'
-        return res.redirect(`/${version}/skin-test-reactors-any`)
-      }
       return res.redirect(`/${version}/skin-test-both-order`)
     }
 
-    // Otherwise: jump straight to the "did any cattle react?" gate.
     res.redirect(`/${version}/skin-test-reactors-any`)
+  })
+
+  // --- Per-test batch details (v1-2 only) -------------------------------
+  // Two-page sub-flow: the vet first confirms the batch number and
+  // vaccine expiry date for the active test, then the diluent batch
+  // number and diluent date on the next page. Both pages persist into
+  // the same per-test session object so downstream code can read the
+  // full set in one place.
+  //
+  //   skinTestBatchDetails.<test> = {
+  //     batch, vaccineExpiryDay, vaccineExpiryMonth, vaccineExpiryYear,
+  //     diluentBatch, diluentDateDay, diluentDateMonth, diluentDateYear
+  //   }
+  //
+  // Values come straight off the printed list, so neither page does
+  // any validation – the vet is just confirming what's already on
+  // paper and a blank submission is allowed.
+  function ensureBatchDetails (req, test) {
+    req.session.data.skinTestBatchDetails = req.session.data.skinTestBatchDetails || {}
+    req.session.data.skinTestBatchDetails[test] = req.session.data.skinTestBatchDetails[test] || {}
+    return req.session.data.skinTestBatchDetails[test]
+  }
+
+  function formatBatchDetailsForView (stored) {
+    const s = stored || {}
+    return {
+      batch: s.batch || '',
+      vaccineExpiryDay: s.vaccineExpiryDay || '',
+      vaccineExpiryMonth: s.vaccineExpiryMonth || '',
+      vaccineExpiryYear: s.vaccineExpiryYear || '',
+      diluentBatch: s.diluentBatch || '',
+      diluentDateDay: s.diluentDateDay || '',
+      diluentDateMonth: s.diluentDateMonth || '',
+      diluentDateYear: s.diluentDateYear || ''
+    }
+  }
+
+  router.get(`/${version}/skin-test-batch-details/:test`, function (req, res) {
+    const test = req.params.test === 'diva' ? 'diva' : 'sicct'
+    const testLabel = test === 'diva' ? 'DIVA' : 'SICCT'
+    const stored = ensureBatchDetails(req, test)
+    // Back link:
+    //  - Second test of a Both journey → previous test's per-test
+    //    confirm page (so the vet can revisit the first test).
+    //  - First test of a Both journey → the first-test picker.
+    //  - Single-test CPH → the skin-test-date page.
+    const isBoth = req.session.data.skinTestType === 'Both'
+    const firstOrder = req.session.data.skinTestFirstOrder
+    const otherTest = test === 'sicct' ? 'diva' : 'sicct'
+    let backHref
+    if (isBoth && firstOrder !== test) {
+      backHref = `/${version}/skin-test-confirm-test/${otherTest}`
+    } else if (isBoth) {
+      backHref = `/${version}/skin-test-type`
+    } else {
+      backHref = `/${version}/skin-test-date`
+    }
+
+    res.render(`${version}/skin-test-batch-details`, {
+      test: test,
+      testLabel: testLabel,
+      backHref: backHref,
+      formValues: formatBatchDetailsForView(stored)
+    })
+  })
+
+  router.post(`/${version}/skin-test-batch-details/:test`, function (req, res) {
+    const test = req.params.test === 'diva' ? 'diva' : 'sicct'
+    const stored = ensureBatchDetails(req, test)
+
+    stored.batch = (req.body.batch || '').trim()
+    stored.vaccineExpiryDay = (req.body.vaccineExpiryDay || '').trim()
+    stored.vaccineExpiryMonth = (req.body.vaccineExpiryMonth || '').trim()
+    stored.vaccineExpiryYear = (req.body.vaccineExpiryYear || '').trim()
+
+    // Mirror the trimmed batch onto the legacy per-test session keys
+    // the existing measurement / confirmation templates still read
+    // (skinTestSicctBatches / skinTestDivaBatches). They expect an
+    // array, so a single-value batch becomes a 1-element list (empty
+    // batch becomes an empty list).
+    const batchList = stored.batch ? [stored.batch] : []
+    if (test === 'sicct') {
+      req.session.data.skinTestSicctBatches = batchList
+    } else {
+      req.session.data.skinTestDivaBatches = batchList
+    }
+
+    req.session.data.currentSkinTest = test
+    res.redirect(`/${version}/skin-test-diluent-details/${test}`)
+  })
+
+  router.get(`/${version}/skin-test-diluent-details/:test`, function (req, res) {
+    const test = req.params.test === 'diva' ? 'diva' : 'sicct'
+    const testLabel = test === 'diva' ? 'DIVA' : 'SICCT'
+    const stored = ensureBatchDetails(req, test)
+
+    res.render(`${version}/skin-test-diluent-details`, {
+      test: test,
+      testLabel: testLabel,
+      formValues: formatBatchDetailsForView(stored)
+    })
+  })
+
+  router.post(`/${version}/skin-test-diluent-details/:test`, function (req, res) {
+    const test = req.params.test === 'diva' ? 'diva' : 'sicct'
+    const stored = ensureBatchDetails(req, test)
+
+    stored.diluentBatch = (req.body.diluentBatch || '').trim()
+    stored.diluentDateDay = (req.body.diluentDateDay || '').trim()
+    stored.diluentDateMonth = (req.body.diluentDateMonth || '').trim()
+    stored.diluentDateYear = (req.body.diluentDateYear || '').trim()
+
+    req.session.data.currentSkinTest = test
+    res.redirect(`/${version}/skin-test-reactors-any`)
+  })
+
+  // --- Per-test confirmation page (v1-2) --------------------------------
+  // Shows what the vet entered for the active test (batches, reactor
+  // count) and gives them a single Continue action. On submit the
+  // route decides where to go next via nextRouteAfterCurrentTest: if
+  // the Both journey still has the other test outstanding, the vet
+  // is sent to its batch-details page; otherwise we continue on to
+  // the all-tested gate.
+  function formatDmyDisplay (d, m, y) {
+    if (!d && !m && !y) return ''
+    return [d, m, y].filter(Boolean).join('/')
+  }
+
+  router.get(`/${version}/skin-test-confirm-test/:test`, function (req, res) {
+    const test = req.params.test === 'diva' ? 'diva' : 'sicct'
+    const testLabel = test === 'diva' ? 'DIVA' : 'SICCT'
+    const batchDetails = (req.session.data.skinTestBatchDetails || {})[test] || {}
+
+    const vaccineExpiryDisplay = formatDmyDisplay(
+      batchDetails.vaccineExpiryDay,
+      batchDetails.vaccineExpiryMonth,
+      batchDetails.vaccineExpiryYear
+    )
+    const diluentDateDisplay = formatDmyDisplay(
+      batchDetails.diluentDateDay,
+      batchDetails.diluentDateMonth,
+      batchDetails.diluentDateYear
+    )
+
+    const reactorIds = getReactorsForPhase(req, test)
+    // Build reactor entries with the officialId so the template can
+    // render the same bulleted ear-tag list as the final
+    // /v1-2/skin-test-confirmation page.
+    const reactorEntries = reactorIds.map(function (id) {
+      return { officialId: id }
+    })
+
+    // Continue button label changes depending on whether there's
+    // another test to run. If the Both journey still has the other
+    // test outstanding, the vet's next step is that test, so the
+    // button reads "Continue to <other>". Otherwise it just says
+    // "Continue".
+    const isBoth = req.session.data.skinTestType === 'Both'
+    const otherTest = test === 'sicct' ? 'diva' : 'sicct'
+    const completed = Array.isArray(req.session.data.skinTestCompletedTests)
+      ? req.session.data.skinTestCompletedTests
+      : []
+    const otherStillOutstanding = isBoth && completed.indexOf(otherTest) === -1
+    const continueButtonLabel = otherStillOutstanding
+      ? `Continue to ${otherTest === 'diva' ? 'DIVA' : 'SICCT'}`
+      : 'Continue'
+
+    // Back link points to wherever the vet came from – the
+    // measurements table when reactors were recorded, otherwise the
+    // reactors-any gate (since the vet answered "no" there and
+    // skipped both reactors / measurements).
+    const backHref = reactorIds.length > 0
+      ? `/${version}/skin-test-diva-table`
+      : `/${version}/skin-test-reactors-any`
+
+    res.render(`${version}/skin-test-confirm-test`, {
+      test: test,
+      testLabel: testLabel,
+      batchDetails: batchDetails,
+      vaccineExpiryDisplay: vaccineExpiryDisplay,
+      diluentDateDisplay: diluentDateDisplay,
+      reactorEntries: reactorEntries,
+      reactorCount: reactorIds.length,
+      continueButtonLabel: continueButtonLabel,
+      backHref: backHref
+    })
+  })
+
+  router.post(`/${version}/skin-test-confirm-test/:test`, function (req, res) {
+    const test = req.params.test === 'diva' ? 'diva' : 'sicct'
+    req.session.data.currentSkinTest = test
+    const nextRoute = nextRouteAfterCurrentTest(req, version)
+    res.redirect(nextRoute)
   })
 
   // --- Reactor picker ---------------------------------------------------
@@ -4605,12 +5173,13 @@ function registerSkinTestRoutes(version) {
   // For the "Both" journey the page is shown twice – once per test –
   // so the caption / heading reflects the current test (SICCT or DIVA).
   router.get(`/${version}/skin-test-reactors-any`, function (req, res) {
-    const phase = getCurrentReactorPhase(req)
-    const phaseLabel = getCurrentReactorPhaseLabel(req)
+    const perTest = isPerTestSubFlow(req)
+    const phase = perTest ? req.session.data.currentSkinTest : getCurrentReactorPhase(req)
+    const phaseLabel = phase === 'diva' ? 'DIVA' : 'SICCT'
     const isBoth = req.session.data.skinTestType === 'Both'
-    // v1-2 asks the question once across both tests for the Both
-    // journey, so the heading drops the per-test caption.
-    const isCombinedBoth = isBoth && version === 'v1-2'
+    // In the per-test sub-flow the question is scoped to the active
+    // test, so the combined-Both heading does NOT apply.
+    const isCombinedBoth = isBoth && version === 'v1-2' && !perTest
     res.render(`${version}/skin-test-reactors-any`, {
       currentReactorPhase: phase,
       currentTestLabel: phaseLabel,
@@ -4620,16 +5189,16 @@ function registerSkinTestRoutes(version) {
   })
 
   router.post(`/${version}/skin-test-reactors-any`, function (req, res) {
-    const phase = getCurrentReactorPhase(req)
-    const phaseLabel = getCurrentReactorPhaseLabel(req)
+    const perTest = isPerTestSubFlow(req)
+    const phase = perTest ? req.session.data.currentSkinTest : getCurrentReactorPhase(req)
+    const phaseLabel = phase === 'diva' ? 'DIVA' : 'SICCT'
     const isBoth = req.session.data.skinTestType === 'Both'
-    const isCombinedBoth = isBoth && version === 'v1-2'
+    // The combined-Both shortcut only applies when we're NOT in the
+    // per-test sub-flow. Once currentSkinTest is set the answer is
+    // scoped to that test only.
+    const isCombinedBoth = isBoth && version === 'v1-2' && !perTest
     const anyReactors = req.body.anyReactors
 
-    // Track the answer per phase so the second pass on a Both journey
-    // doesn't carry the first phase's answer over. v1-2 also records
-    // the answer against the "other" phase straight away because the
-    // combined question covers both tests in one step.
     const anyReactorsByPhase = Object.assign({}, req.session.data.anyReactorsByPhase || {})
     anyReactorsByPhase[phase] = anyReactors
     if (isCombinedBoth) {
@@ -4653,9 +5222,6 @@ function registerSkinTestRoutes(version) {
     }
 
     if (anyReactors === 'no') {
-      // No reactors. Record an empty list and mark the phase complete.
-      // For v1-2 Both we close BOTH phases here so the rest of the
-      // flow doesn't ask the same question for the other test.
       setReactorsForPhase(req, phase, [])
       if (isCombinedBoth) {
         setReactorsForPhase(req, phase === 'sicct' ? 'diva' : 'sicct', [])
@@ -4678,9 +5244,12 @@ function registerSkinTestRoutes(version) {
       }
       req.session.data.completedSkinTestPhases = completed
 
-      // v1-1 Both with the other phase still outstanding → ask the
-      // same question again for the other test. v1-2 closes both
-      // phases above, so it always falls through to the all-tested gate.
+      // Per-test sub-flow: skip straight to the per-test confirm page
+      // (which then loops back to the other test or to all-tested).
+      if (perTest) {
+        return res.redirect(`/${version}/skin-test-confirm-test/${phase}`)
+      }
+
       if (isBoth && !isCombinedBoth) {
         const otherPhase = phase === 'sicct' ? 'diva' : 'sicct'
         if (completed.indexOf(otherPhase) === -1) {
@@ -4697,10 +5266,11 @@ function registerSkinTestRoutes(version) {
 
   // --- Step 2: selection page – "Which cattle reacted?" ----------------
   router.get(`/${version}/skin-test-reactors`, function (req, res) {
-    const phase = getCurrentReactorPhase(req)
-    const phaseLabel = getCurrentReactorPhaseLabel(req)
+    const perTest = isPerTestSubFlow(req)
+    const phase = perTest ? req.session.data.currentSkinTest : getCurrentReactorPhase(req)
+    const phaseLabel = phase === 'diva' ? 'DIVA' : 'SICCT'
     const isBoth = req.session.data.skinTestType === 'Both'
-    const isCombinedBoth = isBoth && version === 'v1-2'
+    const isCombinedBoth = isBoth && version === 'v1-2' && !perTest
     const anyReactorsByPhase = req.session.data.anyReactorsByPhase || {}
 
     // Skip straight back to the decision page if the vet hasn't
@@ -4708,13 +5278,25 @@ function registerSkinTestRoutes(version) {
     if (anyReactorsByPhase[phase] !== 'yes') {
       return res.redirect(`/${version}/skin-test-reactors-any`)
     }
-    const animals = getReportingAnimalsWithFlags(req)
+    let animals = getReportingAnimalsWithFlags(req)
+    // Per-test sub-flow: scope the picker to only the animals that
+    // sit on this test's prepared list (SICCT = unvaccinated, DIVA =
+    // vaccinated, via prepareSkinTestAssignments).
+    if (perTest) {
+      const allowed = getPerTestAnimalIdSet(req, phase)
+      // Fall back to no filtering when the assignment set is empty
+      // (single-test CPHs don't populate prepareSkinTestAssignments).
+      if (allowed.size > 0) {
+        animals = animals.filter(function (a) { return allowed.has(a.officialId) })
+      }
+    }
     if (!animals.length) {
       return res.redirect(`/${version}/skin-test-type`)
     }
     // For v1-2 Both we show one combined picker covering both tests,
     // so the pre-ticked set is the union of the SICCT and DIVA reactor
-    // lists (typically empty on first visit).
+    // lists (typically empty on first visit). Per-test sub-flow uses
+    // the current phase only.
     const selectedReactors = isCombinedBoth
       ? Array.from(new Set([
           ...getReactorsForPhase(req, 'sicct'),
@@ -4778,17 +5360,16 @@ function registerSkinTestRoutes(version) {
   // complete, and routes onward (to the other phase for Both, or to
   // the all-tested gate).
   router.post(`/${version}/skin-test-reactors/skip`, function (req, res) {
-    const phase = getCurrentReactorPhase(req)
+    const perTest = isPerTestSubFlow(req)
+    const phase = perTest ? req.session.data.currentSkinTest : getCurrentReactorPhase(req)
     const isBoth = req.session.data.skinTestType === 'Both'
-    const isCombinedBoth = isBoth && version === 'v1-2'
+    const isCombinedBoth = isBoth && version === 'v1-2' && !perTest
 
     setReactorsForPhase(req, phase, [])
     if (isCombinedBoth) {
       setReactorsForPhase(req, phase === 'sicct' ? 'diva' : 'sicct', [])
     }
 
-    // Mirror the "answered No" flag on the gate page so a back/forward
-    // refresh doesn't bounce the vet straight back to the picker.
     const anyReactorsByPhase = Object.assign({}, req.session.data.anyReactorsByPhase || {})
     anyReactorsByPhase[phase] = 'no'
     if (isCombinedBoth) {
@@ -4797,8 +5378,6 @@ function registerSkinTestRoutes(version) {
     req.session.data.anyReactorsByPhase = anyReactorsByPhase
     req.session.data.anyReactors = 'no'
 
-    // Seed blank entries so each animal has a row, matching the
-    // "answered No" branch on the gate page.
     const allEntries = getEntries(req)
     const stored = Array.isArray(req.session.data.skinTestEntries)
       ? [...req.session.data.skinTestEntries]
@@ -4816,8 +5395,13 @@ function registerSkinTestRoutes(version) {
     }
     req.session.data.completedSkinTestPhases = completed
 
-    // v1-1 Both with the other phase still outstanding – ask the gate
-    // question again for that test. v1-2 closes both phases above.
+    // Per-test sub-flow: head to the per-test confirm page – the
+    // routing helper there decides whether to loop back for the
+    // other test or to continue to all-tested.
+    if (perTest) {
+      return res.redirect(`/${version}/skin-test-confirm-test/${phase}`)
+    }
+
     if (isBoth && !isCombinedBoth) {
       const otherPhase = phase === 'sicct' ? 'diva' : 'sicct'
       if (completed.indexOf(otherPhase) === -1) {
@@ -4829,10 +5413,11 @@ function registerSkinTestRoutes(version) {
   })
 
   router.post(`/${version}/skin-test-reactors`, function (req, res) {
-    const phase = getCurrentReactorPhase(req)
-    const phaseLabel = getCurrentReactorPhaseLabel(req)
+    const perTest = isPerTestSubFlow(req)
+    const phase = perTest ? req.session.data.currentSkinTest : getCurrentReactorPhase(req)
+    const phaseLabel = phase === 'diva' ? 'DIVA' : 'SICCT'
     const isBoth = req.session.data.skinTestType === 'Both'
-    const isCombinedBoth = isBoth && version === 'v1-2'
+    const isCombinedBoth = isBoth && version === 'v1-2' && !perTest
 
     // Filter the Prototype Kit's "_unchecked" placeholder so an empty
     // submission really registers as zero reactors.
@@ -4847,7 +5432,13 @@ function registerSkinTestRoutes(version) {
     // step, so they must tick at least one animal here. If they want
     // to record no reactors, they go back and select "No".
     if (reactors.length === 0) {
-      const animals = getReportingAnimalsWithFlags(req)
+      let animals = getReportingAnimalsWithFlags(req)
+      if (perTest) {
+        const allowed = getPerTestAnimalIdSet(req, phase)
+        if (allowed.size > 0) {
+          animals = animals.filter(function (a) { return allowed.has(a.officialId) })
+        }
+      }
       return res.render(`${version}/skin-test-reactors`, {
         animals,
         selectedReactors: [],
@@ -4863,12 +5454,10 @@ function registerSkinTestRoutes(version) {
       })
     }
 
-    // For v1-2 Both, ALL reactors loop through the unified measurement
-    // page (skin-test-diva). The vet picks SICCT or DIVA per animal on
-    // that page; the per-animal `performedTest` field captures the
-    // choice and the confirmation page derives per-test reactor counts
-    // from it. We mark the SICCT phase complete on entry so the loop
-    // doesn't try to run a separate SICCT pass.
+    // For v1-2 Both (legacy combined path), ALL reactors loop through
+    // the unified measurement page (skin-test-diva). The vet picks
+    // SICCT or DIVA per animal on that page. This branch is bypassed
+    // entirely when we're in the per-test sub-flow.
     if (isCombinedBoth) {
       setReactorsForPhase(req, 'sicct', [])
       setReactorsForPhase(req, 'diva', reactors)
@@ -4913,6 +5502,13 @@ function registerSkinTestRoutes(version) {
       : []
     while (stored.length < allEntries.length) stored.push(blankEntry())
     req.session.data.skinTestEntries = stored
+
+    // Per-test sub-flow (v1-2): head straight to the bulk
+    // measurement table for the active phase.
+    if (perTest && version === 'v1-2') {
+      req.session.data.currentSkinTestPhase = phase
+      return res.redirect(`/${version}/skin-test-diva-table`)
+    }
 
     // Routing: head into the measurement loop for this phase.
     if (phase === 'diva') {
@@ -5592,8 +6188,21 @@ function registerSkinTestRoutes(version) {
     if (version !== 'v1-2') {
       return res.redirect(`/${version}/skin-test-diva`)
     }
-    const entries = getAllReactorEntriesForTable(req)
+    const perTest = isPerTestSubFlow(req)
+    let entries = getAllReactorEntriesForTable(req)
+    if (perTest) {
+      // Scope the measurement table to only this test's reactors.
+      const activeTest = req.session.data.currentSkinTest
+      const phaseReactorIds = new Set(getReactorsForPhase(req, activeTest))
+      entries = entries.filter(function (e) { return phaseReactorIds.has(e.officialId) })
+    }
     if (!entries.length) {
+      // Per-test sub-flow: if there are no reactors for this test the
+      // vet has already answered "no" on reactors-any (or hit Skip)
+      // so jump straight to the per-test confirm summary.
+      if (perTest) {
+        return res.redirect(`/${version}/skin-test-confirm-test/${req.session.data.currentSkinTest}`)
+      }
       if (!Array.isArray(req.session.data.skinTestReactors)) {
         return res.redirect(`/${version}/skin-test-reactors`)
       }
@@ -5601,7 +6210,10 @@ function registerSkinTestRoutes(version) {
     }
     const skinTestType = req.session.data.skinTestType || 'SICCT'
     const isBoth = skinTestType === 'Both'
-    const canSwitchTest = isBoth
+    // In the per-test sub-flow the test is fixed for the page, so the
+    // per-row dropdown is locked. The combined-Both view keeps it
+    // switchable for backwards compatibility.
+    const canSwitchTest = isBoth && !perTest
     const backHref = `/${version}/skin-test-reactors`
 
     const divaBatches = (Array.isArray(req.session.data.skinTestDivaBatches)
@@ -5619,9 +6231,39 @@ function registerSkinTestRoutes(version) {
     getSkinTestAnimals(req).forEach(function (a) {
       skinAnimalsById[a.officialId] = a
     })
+
+    // Source-page lookup: for each reactor entry, work out which page
+    // of the printed list it came from so the table can group rows
+    // under "From page N" dividers (matching the page-break cadence
+    // on the vet's printed list).
+    const preparedPageSize = req.session.data.skinTestCattlePerPage || 20
+    const allSkinTestAnimals = getSkinTestAnimals(req)
+    const perTestAnimalIds = perTest
+      ? getPerTestAnimalIdSet(req, req.session.data.currentSkinTest)
+      : null
+    const orderedForSourcing = perTest && perTestAnimalIds && perTestAnimalIds.size > 0
+      ? allSkinTestAnimals.filter(function (a) { return perTestAnimalIds.has(a.officialId) })
+      : allSkinTestAnimals
+    const sourceIndexById = {}
+    orderedForSourcing.forEach(function (a, idx) {
+      sourceIndexById[a.officialId] = idx
+    })
+    function sourcePageFor (officialId) {
+      const idx = sourceIndexById[officialId]
+      if (typeof idx !== 'number') return null
+      return Math.floor(idx / preparedPageSize) + 1
+    }
+
     const enriched = entries.map(function (e) {
       const recommended = e.isVaccinated ? 'DIVA' : 'SICCT'
-      const rowTest = e.performedTest || (isBoth ? recommended : (skinTestType === 'DIVA' ? 'DIVA' : 'SICCT'))
+      // Per-test sub-flow: every row in this table belongs to the
+      // active test, so rowTest is fixed regardless of recommendation.
+      const perTestRowTest = perTest
+        ? (req.session.data.currentSkinTest === 'diva' ? 'DIVA' : 'SICCT')
+        : null
+      const rowTest = perTestRowTest
+        || e.performedTest
+        || (isBoth ? recommended : (skinTestType === 'DIVA' ? 'DIVA' : 'SICCT'))
       // For DIVA rows, bovine measurements live in the DIVA fields;
       // for SICCT rows they live in the SICCT fields. The template
       // displays whichever pair applies to the current rowTest.
@@ -5641,7 +6283,11 @@ function registerSkinTestRoutes(version) {
         // C / SO dropdowns in the Reaction Desc column. Default to
         // "C" (clinical) when nothing's been picked yet.
         avianOedema: e.avianOedema || 'C',
-        bovineOedema: e.bovineOedema || 'C'
+        bovineOedema: e.bovineOedema || 'C',
+        // Source-page back-reference – the page number on the
+        // printed list where this animal was originally listed.
+        // Drives the "From page N" dividers in the template.
+        sourcePage: sourcePageFor(e.officialId)
       })
     })
 
@@ -5659,8 +6305,17 @@ function registerSkinTestRoutes(version) {
     if (version !== 'v1-2') {
       return res.redirect(`/${version}/skin-test-diva`)
     }
-    const entries = getAllReactorEntriesForTable(req)
+    const perTest = isPerTestSubFlow(req)
+    const activeTest = perTest ? req.session.data.currentSkinTest : null
+    let entries = getAllReactorEntriesForTable(req)
+    if (perTest) {
+      const phaseReactorIds = new Set(getReactorsForPhase(req, activeTest))
+      entries = entries.filter(function (e) { return phaseReactorIds.has(e.officialId) })
+    }
     if (!entries.length) {
+      if (perTest) {
+        return res.redirect(`/${version}/skin-test-confirm-test/${activeTest}`)
+      }
       return res.redirect(`/${version}/skin-test-all-tested`)
     }
     const allAnimalsCount = getEntries(req).length
@@ -5693,10 +6348,15 @@ function registerSkinTestRoutes(version) {
       const i = entry.originalIndex
       let test = (req.body['test-' + i] || '').trim()
       if (test !== 'SICCT' && test !== 'DIVA') {
-        // Fall back to the journey type (or recommended for Both).
-        test = isBoth
-          ? (entry.isVaccinated ? 'DIVA' : 'SICCT')
-          : (skinTestType === 'DIVA' ? 'DIVA' : 'SICCT')
+        // Fall back to the active per-test test, the journey type, or
+        // the per-row recommendation.
+        if (perTest) {
+          test = activeTest === 'diva' ? 'DIVA' : 'SICCT'
+        } else {
+          test = isBoth
+            ? (entry.isVaccinated ? 'DIVA' : 'SICCT')
+            : (skinTestType === 'DIVA' ? 'DIVA' : 'SICCT')
+        }
       }
       const avianPre = (req.body['avianPre-' + i] || '').trim()
       const avianPost = (req.body['avianPost-' + i] || '').trim()
@@ -5704,17 +6364,17 @@ function registerSkinTestRoutes(version) {
       const bovinePost = (req.body['bovinePost-' + i] || '').trim()
 
       if (test === 'DIVA') {
-        // DIVA result derived from bovine increase:
-        //   < 2 mm  → negative
-        //   2–4 mm → inconclusive
-        //   ≥ 4 mm  → positive
+        // DIVA result derived from the reading:
+        //   ≤ 2 mm → negative
+        //   > 2 mm → positive (reactor)
+        // No inconclusive band – DIVA on this prototype is a single
+        // pass/fail call against the 2 mm threshold.
         let divaResult = ''
         const pre = parseFloat(bovinePre)
         const post = parseFloat(bovinePost)
         if (!isNaN(pre) && !isNaN(post)) {
           const diff = post - pre
-          if (diff >= 4) divaResult = 'positive'
-          else if (diff >= 2) divaResult = 'inconclusive'
+          if (diff > 2) divaResult = 'positive'
           else divaResult = 'negative'
         }
         const hasAnyValue = bovinePre !== '' || bovinePost !== ''
@@ -5807,13 +6467,29 @@ function registerSkinTestRoutes(version) {
     // by clicking back into the in-progress card on the dashboard.
     const saveAction = (req.body.saveAction || '').trim()
     if (saveAction === 'save-exit') {
-      req.session.data.currentSkinTestPhase = 'diva'
+      // Remember which test the vet was on so the resume flow can
+      // pick up the right per-test sub-flow.
+      req.session.data.currentSkinTestPhase = perTest ? activeTest : 'diva'
       req.session.data.savedBanner = 'skin-test-report'
       req.session.data.skinTestInProgress = true
       return res.redirect(`/${version}/dashboard`)
     }
 
-    // Mark both phases complete – this single page covers everything.
+    // Per-test sub-flow: only mark the active test complete. Reactor
+    // IDs were already assigned to this phase by the reactors POST, so
+    // there's no redistribution to do. Hand off to the per-test
+    // confirm page – it decides where to go next.
+    if (perTest) {
+      const completedPhases = Array.isArray(req.session.data.completedSkinTestPhases)
+        ? req.session.data.completedSkinTestPhases.slice()
+        : []
+      if (!completedPhases.includes(activeTest)) completedPhases.push(activeTest)
+      req.session.data.completedSkinTestPhases = completedPhases
+      return res.redirect(`/${version}/skin-test-confirm-test/${activeTest}`)
+    }
+
+    // Legacy combined-Both v1-2 path: mark both phases complete – this
+    // single page covers everything.
     const completed = Array.isArray(req.session.data.completedSkinTestPhases)
       ? req.session.data.completedSkinTestPhases.slice()
       : []
@@ -6202,7 +6878,7 @@ function registerSkinTestRoutes(version) {
 
     // v1-2 captures a start time alongside the date for both Day 1 and
     // Day 2; the formatter falls back to date-only for older versions.
-    const day1Formatted = formatDateTimeParts(
+    let day1Formatted = formatDateTimeParts(
       req.session.data.skinTestDay1Day,
       req.session.data.skinTestDay1Month,
       req.session.data.skinTestDay1Year,
@@ -6210,7 +6886,7 @@ function registerSkinTestRoutes(version) {
       req.session.data.skinTestDay1StartTimeMinute,
       req.session.data.skinTestDay1StartTimeAmpm
     )
-    const day2Formatted = formatDateTimeParts(
+    let day2Formatted = formatDateTimeParts(
       req.session.data.skinTestDay2Day,
       req.session.data.skinTestDay2Month,
       req.session.data.skinTestDay2Year,
@@ -6219,6 +6895,30 @@ function registerSkinTestRoutes(version) {
       req.session.data.skinTestDay2StartTimeAmpm
     )
     const day2Calculated = req.session.data.skinTestDay2Calculated === 'yes'
+
+    // v1-2 dummy fallback: when the vet skipped /v1-2/skin-test-date
+    // (no Day 1 / Day 2 captured in session) seed sensible recent
+    // dates so the confirmation page is demonstrable without forcing
+    // data entry. Day 1 is 4 days ago, Day 2 is 1 day ago – exactly
+    // 3 days apart (72 hours), matching the test's expected cadence.
+    if (version === 'v1-2') {
+      function formatDummyDateTime (d) {
+        const dd = String(d.getDate()).padStart(2, '0')
+        const mm = String(d.getMonth() + 1).padStart(2, '0')
+        const yy = d.getFullYear()
+        return `${dd}/${mm}/${yy} at 9:30 AM`
+      }
+      if (!day1Formatted) {
+        const today = new Date()
+        const dummy = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 4)
+        day1Formatted = formatDummyDateTime(dummy)
+      }
+      if (!day2Formatted) {
+        const today = new Date()
+        const dummy = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
+        day2Formatted = formatDummyDateTime(dummy)
+      }
+    }
 
     // Consume the one-shot "added another" banner
     const addedAnotherEarTag = req.session.data.addedAnotherEarTag || null
@@ -6432,7 +7132,7 @@ function registerSkinTestRoutes(version) {
     const allEntries = entries.concat(addedEntries)
     const summary = entrySummary(allEntries)
 
-    const day1Formatted = formatDateTimeParts(
+    let day1Formatted = formatDateTimeParts(
       req.session.data.skinTestDay1Day,
       req.session.data.skinTestDay1Month,
       req.session.data.skinTestDay1Year,
@@ -6440,7 +7140,7 @@ function registerSkinTestRoutes(version) {
       req.session.data.skinTestDay1StartTimeMinute,
       req.session.data.skinTestDay1StartTimeAmpm
     )
-    const day2Formatted = formatDateTimeParts(
+    let day2Formatted = formatDateTimeParts(
       req.session.data.skinTestDay2Day,
       req.session.data.skinTestDay2Month,
       req.session.data.skinTestDay2Year,
@@ -6449,6 +7149,29 @@ function registerSkinTestRoutes(version) {
       req.session.data.skinTestDay2StartTimeAmpm
     )
     const day2Calculated = req.session.data.skinTestDay2Calculated === 'yes'
+
+    // v1-2 dummy fallback – mirrors the same logic on
+    // /v1-2/skin-test-confirmation so the submitted page reads the
+    // same dates the vet just signed off. Day 1 = 4 days ago, Day 2
+    // = 1 day ago (72 hours apart).
+    if (version === 'v1-2') {
+      function formatDummyDateTime (d) {
+        const dd = String(d.getDate()).padStart(2, '0')
+        const mm = String(d.getMonth() + 1).padStart(2, '0')
+        const yy = d.getFullYear()
+        return `${dd}/${mm}/${yy} at 9:30 AM`
+      }
+      if (!day1Formatted) {
+        const today = new Date()
+        const dummy = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 4)
+        day1Formatted = formatDummyDateTime(dummy)
+      }
+      if (!day2Formatted) {
+        const today = new Date()
+        const dummy = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
+        day2Formatted = formatDummyDateTime(dummy)
+      }
+    }
 
     // Mirror the breakdown the confirmation page shows so the vet
     // sees the same summary they signed off on.
@@ -6475,6 +7198,11 @@ function registerSkinTestRoutes(version) {
       req.session.data.skinTestListPrepared = req.session.data.skinTestListPrepared.filter(function (r) {
         return r && r.cph !== submittedCph
       })
+    }
+    // Stop the v1-2 Mill House Farm demo seed from re-introducing the
+    // prepared-list record after the vet has filed the report.
+    if (version === 'v1-2' && submittedCph === '12/312/6802') {
+      req.session.data.millHouseSkinTestSubmitted = true
     }
 
     res.render(`${version}/skin-test-submitted`, {

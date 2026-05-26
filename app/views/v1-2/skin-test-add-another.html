@@ -24,7 +24,7 @@
       {{ govukErrorSummary(errorSummary) }}
     {% endif %}
 
-    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
     {% if isEditMode %}
       <h1 class="govuk-heading-l">Change details for {{ originalEarTag }}</h1>
       <p class="govuk-body">

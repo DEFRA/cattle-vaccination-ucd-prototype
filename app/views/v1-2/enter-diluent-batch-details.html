@@ -19,7 +19,7 @@
     {% endif %}
 
     <form action="/v1-2/enter-diluent-batch-details" method="post" novalidate>
-      <h1 class="govuk-heading-l">Enter diluent batch details</h1>
+      <h1 class="govuk-heading-l">Enter the diluent batch details</h1>
 
       {{ govukInput({
         label: {
@@ -43,6 +43,9 @@
             text: "Expiry date",
             classes: "govuk-fieldset__legend--m"
           }
+        },
+        hint: {
+          text: "For example, 05 2029"
         },
         errorMessage: { text: errors['diluentBatchExpiryDate'].text } if errors and errors['diluentBatchExpiryDate'],
         items: [

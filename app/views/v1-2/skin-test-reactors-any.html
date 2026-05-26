@@ -1,7 +1,7 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Did any cattle react to the skin test? – GOV.UK
+  Did any cattle show a detectable reaction? – GOV.UK
 {% endblock %}
 
 {% block beforeContent %}
@@ -30,7 +30,7 @@
       <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ captionLabel }}</span>
     {% endif %}
     <h1 class="govuk-heading-l">
-      Did any cattle show a TB positive reaction?
+      Did any cattle show a detectable reaction?
     </h1>
 
     <form action="/v1-2/skin-test-reactors-any" method="post" novalidate>
@@ -41,11 +41,10 @@
         errorMessage: { text: errors['anyReactors'].text } if errors and errors['anyReactors'],
         fieldset: {
           legend: {
-            text: "Did any cattle show a TB positive reaction?" if isCombinedBoth else ("Did any cattle react to the " + captionLabel + " test?"),
+            text: "Did any cattle show a detectable reaction?",
             classes: "govuk-visually-hidden"
           }
         },
-        hint: { text: "You should also select 'yes' if any animal showed an inconclusive result." },
         items: [
           { value: "yes", text: "Yes" },
           { value: "no",  text: "No" }
