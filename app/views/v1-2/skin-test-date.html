@@ -1,7 +1,7 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  When was Day 1? – GOV.UK
+  When was the test? – GOV.UK
 {% endblock %}
 
 {% block beforeContent %}
@@ -20,7 +20,10 @@
     {% endif %}
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
-    <h1 class="govuk-heading-l">When was Day 1?</h1>
+    <h1 class="govuk-heading-l">When was the test?</h1>
+    <p class="govuk-body">
+      Day 1 is when you injected the tuberculin. Day 2 (the reading) is 72 hours later – we'll work that out for you unless you tell us the test ran over more than one day.
+    </p>
 
     <form action="/v1-2/skin-test-date" method="post" novalidate>
 
@@ -72,7 +75,7 @@
             What time did the test begin?
           </legend>
           <div id="skinTestDay1StartTime-hint" class="govuk-hint">
-            For example, 9:30am
+            For example, 9 30 AM
           </div>
           <div class="govuk-date-input">
             <div class="govuk-date-input__item">
@@ -208,7 +211,7 @@
         items: [
           {
             value: "yes",
-            text: "It took more than one visit to complete Day 1 testing",
+            text: "Test taken over more than one day",
             checked: data['skinTestMultiDay'] == "yes",
             conditional: {
               html: day2RevealHtml

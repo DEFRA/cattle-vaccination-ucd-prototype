@@ -41,46 +41,24 @@
   }
   /* Default cell padding for non-split cells. Split cells (Site /
      Day 1 / Day 2) handle their own padding inside the sub-rows so
-     the horizontal divider sits flush to the cell borders. The
-     vertical padding is generous so the value sits clear of the
-     cell borders even when the row stretches tall to fit a SICCT
-     composite cell next to it. */
-  .app-record-table td.app-cell { padding: 12px 10px; }
-  /* Headers get the same horizontal padding as the body cells so
-     each column heading sits well clear of the cell borders. */
-  .app-record-table th { padding: 10px 10px; }
+     the horizontal divider sits flush to the cell borders. */
+  .app-record-table td.app-cell { padding: 6px 8px; }
 
   /* Column widths – sized as percentages of the table (which is
      itself width: 100% of the .govuk-grid-column-full container)
      so the table never overflows the page. Summing to 100%.
      Identity columns get the biggest share; measurement columns
-     are narrower because their inputs are short. Each column-class
-     repeats the cell padding so the value has breathing room from
-     all four borders, regardless of the alignment override. */
-  .app-col-ear-tag    { width: 16%; min-width: 10rem;  text-align: right !important; padding: 12px 10px !important; white-space: nowrap; }
-  .app-col-dob        { width: 10%; min-width: 6.5rem; text-align: right !important; font-variant-numeric: tabular-nums; padding: 12px 10px !important; white-space: nowrap; }
-  .app-col-sex        { width: 4%;  text-align: center !important; padding: 12px 8px !important; }
-  .app-col-breed      { width: 7%;  text-align: left !important; padding: 12px 10px !important; }
-  .app-col-test       { width: 13%; min-width: 8rem;  text-align: center !important; padding: 12px 10px !important; overflow: hidden; }
-  .app-col-vax        { width: 6%;  min-width: 4rem;   text-align: center !important; font-variant-numeric: tabular-nums; padding: 12px 8px !important; white-space: nowrap; }
+     are narrower because their inputs are short. */
+  .app-col-ear-tag    { width: 14%; text-align: right !important; padding-right: 8px !important; white-space: nowrap; }
+  .app-col-dob        { width: 9%;  text-align: right !important; font-variant-numeric: tabular-nums; padding-left: 8px !important; }
+  .app-col-sex        { width: 4%;  text-align: center !important; }
+  .app-col-breed      { width: 7%;  text-align: left !important; }
+  .app-col-test       { width: 9%;  text-align: center !important; }
+  .app-col-vax        { width: 6%;  text-align: center !important; font-variant-numeric: tabular-nums; }
   .app-col-site       { width: 4%;  text-align: center !important; }
   .app-col-day        { width: 9%;  text-align: center !important; }
-  .app-col-reaction   { width: 12%; text-align: center !important; font-variant-numeric: tabular-nums; }
-  .app-col-result     { width: 10%; min-width: 6.5rem; text-align: center !important; padding: 12px 8px !important; overflow: hidden; }
-  /* The result is rendered as a GOV.UK tag. Some labels are short
-     ("Pass" / "Negative") but "Severe reactor" and "Inconclusive"
-     are wider than the column at smaller viewport widths. Drop the
-     tag font slightly and let it wrap to two lines so the longest
-     labels still sit cleanly inside the cell. */
-  .app-col-result .govuk-tag {
-    display: inline-block;
-    max-width: 100%;
-    box-sizing: border-box;
-    padding: 4px 8px;
-    line-height: 1.2;
-    white-space: normal;
-    word-break: normal;
-  }
+  .app-col-reaction   { width: 14%; text-align: center !important; font-variant-numeric: tabular-nums; }
+  .app-col-result     { width: 11%; text-align: center !important; }
 
   /* Ear-tag rendering – matches /v1-2/skin-test-list.
      The wrapper prints at the regular weight; only the last 4
@@ -98,22 +76,16 @@
     line-height: 1.1;
     white-space: nowrap;
   }
-  .app-ear-tag__prefix { margin-right: 0.25ch; }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
   .app-ear-tag__part { display: inline-block; }
   .app-ear-tag__part--last4 {
     padding: 0;
     font-weight: 700;
   }
-  /* Duplicate last-4 segment – emphasised with a heavy 4px top and
-     bottom band wrapping just the four bold digits, no side borders.
-     Matches the duplicate treatment on /v1-2/download-list,
-     /v1-2/select-vaccinated-animals, /v1-2/skin-test-list and
-     /v1-2/skin-test-reactors so the same flag reads the same across
-     every v1-2 table. */
   .app-ear-tag__part--last4--duplicate {
-    border: 0;
-    border-top: 4px solid #000;
-    border-bottom: 4px solid #000;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
   }
   .app-dob-cell--under-age {
     text-decoration: underline;
@@ -161,6 +133,7 @@
      margin so every row stays a constant height. */
   .app-record-table .govuk-form-group { margin-bottom: 0; }
   .app-record-table .govuk-input {
+    font-size: 17px;
     padding: 4px 6px;
     /* Stay inside the (now narrower) measurement column at all
        container widths. width: 100% lets the input grow with the
@@ -170,49 +143,32 @@
     max-width: 4.5rem;
     box-sizing: border-box;
   }
-  /* The Test dropdown stretches to fill the cell's content area but
-     stops short of the 10px cell padding via box-sizing so it never
-     overlaps the cell border. min-width: 0 lets the select shrink
-     below its intrinsic minimum content width (the chrome-default
-     "fit the longest option" behaviour) – paired with the column's
-     min-width above and the cell's overflow:hidden, the select can
-     never spill into the next column. */
-  .app-col-test .govuk-select {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    padding: 4px 6px;
-  }
+  .app-col-test .govuk-select { width: 100%; min-width: 5rem; }
 
-  .app-site-letter { font-weight: 700; }
+  .app-site-letter { font-weight: 700; font-size: 18px; }
 
   /* Auto-calculated cells get a muted style so they read as
      read-only output rather than form input. */
-  .app-cell--readout { color: #0b0c0c; line-height: 1.3; }
+  .app-cell--readout { color: #0b0c0c; font-size: 15px; line-height: 1.3; }
   .app-cell--readout .app-readout-placeholder { color: #b1b4b6; }
 
   /* Reaction-Desc sub-rows carry a C / SO dropdown plus the auto-
      calculated mm change. Stack them vertically with a small gap so
      both fit cleanly inside the sub-row. The dropdown is narrowed
-     because "C" and "SO" are very short values, and the sub-row
-     uses generous vertical padding plus a matching min-height so
-     the dropdown never clips the cell borders above or below it. */
+     because "C" and "SO" are very short values. */
   .app-col-reaction .app-sub-row {
     flex-direction: column;
     gap: 4px;
-    padding: 20px 12px;
-    min-height: 4em;
   }
   .app-col-reaction .app-reaction-select {
     width: 4.5rem;
     min-width: 4.5rem;
-    padding: 6px 8px;
-    margin: 4px 0;
+    padding: 2px 6px;
+    font-size: 15px;
   }
   .app-col-reaction .app-reaction-mm {
     display: block;
+    font-size: 13px;
     color: #505a5f;
     line-height: 1.2;
   }
@@ -222,24 +178,6 @@
     background-color: #f3f2f1;
     color: #b1b4b6;
     cursor: not-allowed;
-  }
-
-  /* Page-boundary divider row. Renders before every chunk of 20
-     reactors so the measurement table mirrors the page breaks on
-     the printed sheet and on the reactor picker. White card with a
-     light border (1px / #b1b4b6, 16/20 padding) carrying an H2
-     "Page N of M" heading at the GOV.UK medium scale. Matches the
-     divider on /v1-2/select-vaccinated-animals and the reactor
-     picker. The row spans the full 11-column table. */
-  .app-page-divider td {
-    border: 1px solid #b1b4b6;
-    background-color: #ffffff;
-    padding: 16px 20px;
-    text-align: left;
-  }
-  .app-page-divider h2 {
-    margin: 0;
-    font-family: "GDS Transport", arial, sans-serif;
   }
 </style>
 
@@ -253,7 +191,10 @@
     <span class="govuk-caption-l">{{ data['herd']['farm'] }}{% if skinTestType and skinTestType != 'Both' %} - {{ skinTestType }}{% endif %}</span>
     <h1 class="govuk-heading-l">Record skin test measurements</h1>
     <p class="govuk-body">
-      Record the readings for every reactor. The reaction description and overall result are calculated automatically as you enter measurements.
+      Record the readings for every reactor.
+      Day 1 is the injection reading; Day 2 is 72 hours later.
+      The reaction description and overall result are calculated automatically as you enter measurements.
+      The expected test is pre-selected for each animal – change it if you actually performed the other one.
     </p>
 
     <form action="/v1-2/skin-test-diva-table" method="post" novalidate>
@@ -262,47 +203,23 @@
         <thead>
           <tr>
             <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+            <th scope="col" class="app-col-dob">DOB</th>
+            <th scope="col" class="app-col-sex">Sex</th>
+            <th scope="col" class="app-col-breed">Breed</th>
+            <th scope="col" class="app-col-test">Test</th>
             <th scope="col" class="app-col-vax">TB Vax</th>
             <th scope="col" class="app-col-site"><span class="govuk-visually-hidden">Site</span></th>
             <th scope="col" class="app-col-day">Day 1</th>
             <th scope="col" class="app-col-day">Day 2</th>
-            <th scope="col" class="app-col-reaction">Reaction description</th>
+            <th scope="col" class="app-col-reaction">Reaction Desc</th>
             <th scope="col" class="app-col-result">Overall result</th>
-            <th scope="col" class="app-col-dob">DOB</th>
-            <th scope="col" class="app-col-sex">Sex</th>
-            <th scope="col" class="app-col-breed">Breed</th>
           </tr>
         </thead>
-        {# Source-page dividers. Each reactor knows which page of the
-           printed list it came from (entry.sourcePage). The table
-           groups consecutive reactors under a "From page N" divider
-           so the vet sees, at a glance, where on their printed list
-           each cluster of reactors was. The table has 10 columns so
-           the divider td uses colspan=10. #}
         <tbody>
-          {% set _prevSourcePage = 0 %}
           {% for entry in entries %}
-            {% if entry.sourcePage and entry.sourcePage != _prevSourcePage %}
-              <tr class="app-page-divider">
-                <td colspan="10">
-                  <h2 class="govuk-heading-m">From page {{ entry.sourcePage }}</h2>
-                </td>
-              </tr>
-              {% set _prevSourcePage = entry.sourcePage %}
-            {% endif %}
-            {# Each row's test is fixed by the active per-test phase
-               (or the per-animal recommendation in legacy combined
-               mode). It's captured in `data-row-test` so the JS can
-               drive the DIVA/SICCT layout without a visible Test
-               dropdown. The hidden input keeps the value flowing to
-               the POST handler. #}
             <tr class="app-row {% if entry.rowTest == 'DIVA' %}app-row--diva{% else %}app-row--sicct{% endif %}"
-                data-row-index="{{ entry.originalIndex }}"
-                data-row-test="{{ entry.rowTest }}">
+                data-row-index="{{ entry.originalIndex }}">
               <td class="app-cell app-col-ear-tag">
-                <input type="hidden"
-                       name="test-{{ entry.originalIndex }}"
-                       value="{{ entry.rowTest }}">
                 <div class="app-ear-tag">
                   <span class="app-ear-tag__prefix">{{ entry.earTagParts.prefix }}</span>
                   <span class="app-ear-tag__part app-ear-tag__part--herd">{{ entry.earTagParts.herd }}</span>
@@ -311,6 +228,27 @@
                   <span class="app-ear-tag__part app-ear-tag__part--last4{% if entry.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
                         {% if entry.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ entry.earTagParts.last4 }}</span>
                 </div>
+              </td>
+              <td class="app-cell app-col-dob{% if entry.isUnderTestAge %} app-dob-cell--under-age{% endif %}">{{ entry.dob }}</td>
+              <td class="app-cell app-col-sex">{{ entry.sex }}</td>
+              <td class="app-cell app-col-breed">{{ entry.breed }}</td>
+              <td class="app-cell app-col-test">
+                {# The test dropdown is always editable. The vet can
+                   swap an animal between SICCT and DIVA on any
+                   journey – the row's Avian sub-row hides itself and
+                   the bovine inputs become bovine-only when DIVA is
+                   chosen. The POST handler saves whichever test the
+                   vet actually picked. #}
+                <label class="govuk-visually-hidden" for="test-{{ entry.originalIndex }}">
+                  Test performed on {{ entry.officialId }}
+                </label>
+                <select class="govuk-select app-test-select"
+                        id="test-{{ entry.originalIndex }}"
+                        name="test-{{ entry.originalIndex }}"
+                        data-row-index="{{ entry.originalIndex }}">
+                  <option value="SICCT" {% if entry.rowTest == 'SICCT' %}selected{% endif %}>SICCT</option>
+                  <option value="DIVA"  {% if entry.rowTest == 'DIVA' %}selected{% endif %}>DIVA</option>
+                </select>
               </td>
               <td class="app-cell app-col-vax{% if entry.isVaxCheckDue %} app-vax-cell--check{% endif %}">{{ entry.vaccinationDate or '-' }}</td>
 
@@ -427,9 +365,6 @@
               <td class="app-cell app-cell--readout app-col-result">
                 <span class="app-overall-result"><span class="app-readout-placeholder">—</span></span>
               </td>
-              <td class="app-cell app-col-dob{% if entry.isUnderTestAge %} app-dob-cell--under-age{% endif %}">{{ entry.dob }}</td>
-              <td class="app-cell app-col-sex">{{ entry.sex }}</td>
-              <td class="app-cell app-col-breed">{{ entry.breed }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -557,25 +492,18 @@
     }
 
     function recalcRow(row) {
-      // The active test is fixed per row and stored on the row's
-      // data-row-test attribute (set server-side from entry.rowTest).
-      // Legacy combined-Both layouts also fall back to reading a
-      // hidden `test-${i}` input if it carries a value.
-      var test = row.dataset.rowTest
-        || (row.querySelector('input[name^="test-"]') || {}).value
-        || 'SICCT'
+      var test = (row.querySelector('.app-test-select') || {}).value || 'SICCT'
       if (test === 'DIVA') {
-        // DIVA – single reading, labelled "DIVA" in the reaction
-        // description (not "Bovine"). Anything over 2 mm registers
-        // as a reactor; everything else is negative.
+        // DIVA is bovine-only – only the B sub-row is visible.
         var bPre = readNum(row, 'bovinePre')
         var bPost = readNum(row, 'bovinePost')
         if (isNaN(bPre) || isNaN(bPost)) {
           return setReadout(row, '', '', '', '')
         }
         var diff = bPost - bPre
-        var descB = descLine('DIVA', diff)
-        if (diff > 2) return setReadout(row, '', descB, 'Positive', 'red')
+        var descB = descLine('Bovine', diff)
+        if (diff >= 4) return setReadout(row, '', descB, 'Positive', 'red')
+        if (diff >= 2) return setReadout(row, '', descB, 'Inconclusive', 'yellow')
         return setReadout(row, '', descB, 'Negative', 'green')
       }
       // SICCT – two reaction descriptions, one per site. Mirrors the
@@ -602,14 +530,8 @@
     }
 
     function syncRow(row) {
-      // The row's test is fixed (driven by data-row-test) – the
-      // visible Test dropdown was removed. Keep the DIVA/SICCT
-      // class + avian-input disabled state in sync with the data
-      // attribute so the layout still hides/disables the right cells.
-      var rowTest = row.dataset.rowTest
-        || (row.querySelector('input[name^="test-"]') || {}).value
-        || 'SICCT'
-      var isDiva = rowTest === 'DIVA'
+      var sel = row.querySelector('.app-test-select')
+      var isDiva = sel && sel.value === 'DIVA'
       row.classList.toggle('app-row--diva', !!isDiva)
       row.classList.toggle('app-row--sicct', !isDiva)
       row.querySelectorAll('.app-avian-input').forEach(function (input) {
@@ -620,6 +542,8 @@
 
     document.querySelectorAll('tr.app-row').forEach(function (row) {
       syncRow(row)
+      var sel = row.querySelector('.app-test-select')
+      if (sel) sel.addEventListener('change', function () { syncRow(row) })
       row.querySelectorAll('.app-meas-input').forEach(function (input) {
         input.addEventListener('input', function () { recalcRow(row) })
       })

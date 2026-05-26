@@ -89,7 +89,7 @@
           {% endif %}
           {% if farmDetails %}
             <div class="govuk-summary-list__row">
-              <dt class="govuk-summary-list__key">Last TB test day 1</dt>
+              <dt class="govuk-summary-list__key">Last TB test day 2</dt>
               <dd class="govuk-summary-list__value">{{ farmDetails.lastTbTestDay2 }}</dd>
             </div>
             <div class="govuk-summary-list__row">
@@ -109,17 +109,13 @@
                 {% endif %}
               </dd>
             </div>
-            {# Vaccination status breaks the herd into vaccinated /
-               unvaccinated counts, with an inline note for the number
-               of vaccinated cattle that are now overdue revaccination
-               (vaccinated 12+ months ago). The previous "Vaccination
-               booster" row has been folded into this single block. #}
             <div class="govuk-summary-list__row">
               <dt class="govuk-summary-list__key">Vaccination status</dt>
-              <dd class="govuk-summary-list__value">
-                {{ vaccinatedCount }} vaccinated cattle ({{ overdueRevaccinationCount }} are overdue revaccination)<br>
-                {{ unvaccinatedCount }} unvaccinated cattle
-              </dd>
+              <dd class="govuk-summary-list__value">{{ farmDetails.vaccinationStatus }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Vaccination booster</dt>
+              <dd class="govuk-summary-list__value">{{ farmDetails.vaccinationBooster }}</dd>
             </div>
           {% endif %}
         </dl>

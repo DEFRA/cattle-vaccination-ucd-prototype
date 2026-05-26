@@ -43,9 +43,9 @@
      /v1-2/select-vaccinated-animals and /v1-2/skin-test-list so the
      same flag reads the same across every v1-2 table. */
   .app-ear-tag__part--last4--duplicate {
-    border: 0;
-    border-top: 4px solid #000;
-    border-bottom: 4px solid #000;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
   }
   .app-dob-cell--under-age {
     text-decoration: underline;
@@ -62,69 +62,6 @@
      single line. */
   .govuk-table .govuk-checkboxes__item { padding-left: 28px; margin-bottom: 0; }
   .govuk-table .govuk-checkboxes__label { padding-top: 0; padding-bottom: 0; }
-
-  /* "All" select-all checkbox in the table header. The standard
-     small-checkbox component reserves vertical space for the control
-     itself; without these overrides the "All" label sits lower than
-     the plain-text headers next to it. Zeroing out the item's
-     min-height + the label's vertical padding (and forcing
-     vertical-align: middle on every header cell in this table) brings
-     all the column headings onto the same baseline. */
-  .govuk-table th .govuk-checkboxes { margin: 0; }
-  .govuk-table th .govuk-checkboxes__item { min-height: 0; padding-left: 28px; }
-  .govuk-table th .govuk-checkboxes__label {
-    font-weight: 700;
-    padding-top: 0;
-    padding-bottom: 0;
-    line-height: 1.25;
-  }
-  .govuk-table .govuk-table__header { vertical-align: middle; }
-
-  /* The first column carries a small checkbox + "All" label and
-     nothing else; the GDS label is inline-block with its own left
-     padding (to clear the box), so it needs enough horizontal room
-     to sit beside the box. We give the column a fixed width that's
-     just wide enough for the box + label, which both shrinks the
-     visual gap between "All" and "Ear tag number" and stops the
-     label wrapping below the box. */
-  .govuk-table .govuk-table__header:first-child,
-  .govuk-table .govuk-table__cell:first-child {
-    width: 6rem;
-  }
-  .govuk-table th .govuk-checkboxes__label,
-  .govuk-table th .govuk-checkboxes__item {
-    white-space: nowrap;
-  }
-
-  /* Pull the small checkbox box back to the left of its container.
-     The GDS small-checkbox component absolute-positions the input
-     about 36px from the left edge of the __item to leave room for an
-     optional hint that we don't use here; the negative margin-left
-     undoes that offset so the box and its "All" / row label sit
-     tight together. */
-  .govuk-checkboxes--small .govuk-checkboxes__input {
-    margin-left: -36px;
-  }
-
-  /* Body cells centre-align with the rest of the row so each tick
-     box, ear tag, DOB, sex and breed sit on a common vertical line
-     (mirrors /v1-2/select-vaccinated-animals). */
-  .govuk-table .govuk-table__cell { vertical-align: middle; }
-
-  /* Page-boundary divider row. Renders before every chunk of 20
-     reactors so the on-screen marking table mirrors the page breaks
-     on the printed sheet. Each divider is a white card with a light
-     border (1px / #b1b4b6, 16/20 padding) and an H2 "Page N of M"
-     heading sized to the GOV.UK medium scale. Matches the divider
-     used on /v1-2/select-vaccinated-animals. */
-  .app-page-divider td {
-    border: 1px solid #b1b4b6;
-    background-color: #ffffff;
-    padding: 16px 20px;
-  }
-  .app-page-divider h2 {
-    margin: 0;
-  }
 </style>
 
 <div class="govuk-grid-row">
@@ -177,14 +114,7 @@
         <table class="govuk-table">
           <thead class="govuk-table__head">
             <tr class="govuk-table__row">
-              <th scope="col" class="govuk-table__header">
-                <div class="govuk-checkboxes govuk-checkboxes--small">
-                  <div class="govuk-checkboxes__item">
-                    <input class="govuk-checkboxes__input" id="select-all-reactors" type="checkbox">
-                    <label class="govuk-label govuk-checkboxes__label" for="select-all-reactors">All</label>
-                  </div>
-                </div>
-              </th>
+              <th scope="col" class="govuk-table__header">Select</th>
               <th scope="col" class="govuk-table__header">Ear tag number</th>
               <th scope="col" class="govuk-table__header">DOB</th>
               <th scope="col" class="govuk-table__header">Sex</th>
@@ -192,29 +122,13 @@
               <th scope="col" class="govuk-table__header">TB Vax</th>
             </tr>
           </thead>
-          {# Page divider logic. The reactor picker chunks 20 cattle
-             per page to mirror the printed-list page breaks. The
-             first divider sits above the first row ("Page 1 of M")
-             so every animal is clearly grouped under a page. The
-             table has 6 columns, so the divider td uses colspan=6. #}
-          {% set _pageSize = 20 %}
-          {% set _totalPages = ((animals.length + _pageSize - 1) / _pageSize) | int %}
-          {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
           <tbody class="govuk-table__body">
             {% for animal in animals %}
-              {% if loop.index0 % _pageSize == 0 %}
-                {% set _pageNumber = (loop.index0 / _pageSize) | int + 1 %}
-                <tr class="app-page-divider">
-                  <td colspan="6">
-                    <h2 class="govuk-heading-m">Page {{ _pageNumber }} of {{ _totalPages }}</h2>
-                  </td>
-                </tr>
-              {% endif %}
               <tr class="govuk-table__row">
                 <td class="govuk-table__cell">
                   <div class="govuk-checkboxes govuk-checkboxes--small">
                     <div class="govuk-checkboxes__item">
-                      <input class="govuk-checkboxes__input js-reactor-checkbox" id="reactor-{{ loop.index }}" name="reactors" type="checkbox" value="{{ animal.officialId }}" {% if animal.officialId in selectedReactors %}checked{% endif %}>
+                      <input class="govuk-checkboxes__input" id="reactor-{{ loop.index }}" name="reactors" type="checkbox" value="{{ animal.officialId }}" {% if animal.officialId in selectedReactors %}checked{% endif %}>
                       <label class="govuk-label govuk-checkboxes__label" for="reactor-{{ loop.index }}">
                         <span class="govuk-visually-hidden">{{ animal.officialId }} reacted</span>
                       </label>

@@ -20,7 +20,7 @@
     {% endif %}
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
-    <h1 class="govuk-heading-l">What will you do first?</h1>
+    <h1 class="govuk-heading-l">How do you want to record the cattle?</h1>
 
     <form action="/v1-2/vaccination-approach" method="post" novalidate>
 
@@ -38,11 +38,13 @@
         items: [
           {
             value: "mark-vaccinated",
-            text: "Record the cattle that were vaccinated"
+            text: "Record vaccinated cattle first",
+            hint: { text: "Select the cattle you vaccinated. Add reasons for any you could not vaccinate." }
           },
           {
             value: "mark-not-vaccinated",
-            text: "Record the cattle that were not vaccinated"
+            text: "Record cattle not vaccinated first",
+            hint: { text: "Select the cattle you could not vaccinate and add reasons. All other cattle will be marked as vaccinated." }
           }
         ]
       }) }}
