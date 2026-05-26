@@ -1,12 +1,22 @@
 {
+  "name": "cattle-vaccination-ucd-prototype",
+  "version": "0.1.0",
+  "description": "cattle-vaccination-ucd-prototype. GOV.UK Prototype Kit with CDP Platform running capabilities",
+  "author": "Defra DDTS",
+  "license": "(OGL-UK-3, MIT) see licenses in /LICENSES",
   "scripts": {
     "dev": "govuk-prototype-kit dev",
     "serve": "govuk-prototype-kit serve",
-    "start": "govuk-prototype-kit start"
+    "start": "govuk-prototype-kit start",
+    "format": "prettier --write \"**/*.{cjs,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{cjs,js,json,md}\""
   },
   "dependencies": {
-    "@govuk-prototype-kit/common-templates": "3.0.0",
-    "govuk-frontend": "6.1.0",
-    "govuk-prototype-kit": "13.19.1"
+    "@govuk-prototype-kit/common-templates": "2.0.1",
+    "govuk-frontend": "5.11.1",
+    "govuk-prototype-kit": "13.18.0"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2"
   }
 }
