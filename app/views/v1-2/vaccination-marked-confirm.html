@@ -17,7 +17,7 @@
   <div class="govuk-grid-column-two-thirds">
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
-    <h1 class="govuk-heading-l">Check the cattle you've marked</h1>
+    <h1 class="govuk-heading-l">Check the cattle you've selected</h1>
 
     {% if isMarkVaxFirst %}
       <p class="govuk-body">
@@ -50,24 +50,15 @@
     }) }}
 
     <form action="/v1-2/vaccination-marked-confirm" method="post" novalidate>
-      {# The catch-all "Go back and change what I've marked" link has
-         been removed – each row in the summary list above now has its
-         own "Change" action that deep-links straight to the relevant
-         group on /v1-2/select-vaccinated-animals, which is the more
-         direct way to edit a specific decision. #}
-      {% if countRemaining > 0 %}
-        {{ govukButton({
-          text: ("Continue to mark the remaining cattle" if isMarkVaxFirst else "Continue to confirm the vaccinated cattle"),
-          name: "confirmAction",
-          value: "continue"
-        }) }}
-      {% else %}
-        {{ govukButton({
-          text: "Continue",
-          name: "confirmAction",
-          value: "continue"
-        }) }}
-      {% endif %}
+      {# Each row in the summary list above carries its own "Change"
+         action that deep-links straight to the relevant group on
+         /v1-2/select-vaccinated-animals, so there's no separate
+         "Go back and change" link beside the Continue button. #}
+      {{ govukButton({
+        text: "Continue",
+        name: "confirmAction",
+        value: "continue"
+      }) }}
     </form>
 
   </div>

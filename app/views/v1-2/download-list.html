@@ -342,7 +342,20 @@
      room for an inline DUP badge after the last-4 box without
      overflowing into the next column, but stays tight so non-DUP
      rows don't leave a wide gap to the right of the digits. */
-  .app-col-ear-tag { width: 10.5rem; text-align: right !important; }
+  /* Header-less tick column that sits to the left of the ear-tag
+     column. Widened to 2.9rem (5/3 of the previous 1.75rem so it's
+     two-thirds larger), giving the vet a more generous box to mark
+     each row by hand without taking real estate from the data
+     columns. Padding is stripped on the right edge and the matching
+     left edge of the ear-tag column is also flush, so the tick box
+     sits directly against the ear-tag digits with no visible gap
+     between the two cells. */
+  .app-col-tick    { width: 2.9rem; text-align: center !important; padding-left: 2px !important; padding-right: 0 !important; }
+  .app-col-ear-tag { width: 10.5rem; text-align: right !important; padding-left: 0 !important; }
+  /* Notes column on the far right – wide writable space the vet can
+     use to jot observations against each animal. Left-aligned and
+     padded so handwriting has room without crowding the table border. */
+  .app-col-write-notes { text-align: left !important; padding-left: 8px !important; padding-right: 8px !important; }
   .app-col-age      { width: 3.5rem; text-align: center !important; }
   .app-col-sex      { width: 3.5rem; text-align: center !important; }
   .app-col-breed    { width: 4.5rem; text-align: left !important; }
@@ -486,12 +499,20 @@
     padding: 0;
     font-weight: 700;
   }
+  /* Duplicate last-4 segment – emphasised with a heavy 4px top and
+     bottom band wrapping just the four bold digits, no side borders.
+     The rest of the row keeps its normal printed-table styling, so
+     only the duplicated number itself jumps off the page. */
   .app-ear-tag__part--last4--duplicate {
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 2px;
+    border: 0;
+    border-top: 4px solid #000;
+    border-bottom: 4px solid #000;
   }
-  .app-dob-cell--check {
+  /* TB Vax cells where the vaccination is in the 11–12 month window
+     get the value underlined so the vet sees at a glance which
+     animals are due a booster. Matches the duplicate underline above
+     so the print sheet has one consistent emphasis style. */
+  .app-vax-cell--check {
     text-decoration: underline;
     text-decoration-thickness: 2px;
     text-underline-offset: 2px;
@@ -625,8 +646,11 @@
                data pages, with a simpler 5-column table the vet can
                write any unlisted cattle into by hand. #}
             <div class="app-sheet app-sheet--{{ previewOrientation or 'portrait' }} app-sheet--text-{{ previewTextSize or 'standard' }} app-sheet--spacing-{{ previewSpacing or 'standard' }} app-blank-sheet">
+              <div class="app-sheet-header">
+                <span class="app-sheet-header__range">Blank page</span>
+              </div>
               <h2 class="govuk-heading-m" style="font-family: Arial, Helvetica, sans-serif; margin-bottom: 8px;">
-                {{ data['herd']['farm'] }} - Additional cattle
+                {{ data['herd']['farm'] }} - Blank page
               </h2>
               <p class="govuk-body" style="font-family: Arial, Helvetica, sans-serif; margin-bottom: 16px;">
                 This page left blank to capture unexpected cattle.
@@ -673,25 +697,26 @@
                   <tr>
                     <th scope="col" class="app-col-tick" aria-label="Mark"></th>
                     <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+                    <th scope="col" class="app-col-notes">Eligibility</th>
+                    <th scope="col" class="app-col-vax">TB Vax</th>
                     {% for column in fieldColumns %}
                       {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
                       <th scope="col">{{ headingText }}</th>
                     {% endfor %}
-                    <th scope="col" class="app-col-vax">TB Vax</th>
-                    <th scope="col">Vaccinated</th>
-                    <th scope="col" class="app-col-notes">Remarks</th>
+                    <th scope="col" class="app-col-write-notes">Notes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for row in pagedRows %}
                   <tr>
-                    <td>{{ row.officialId }}</td>
+                    <td class="app-col-tick"></td>
+                    <td class="app-col-ear-tag">{{ row.officialId }}</td>
+                    <td class="app-col-notes">{{ row.eligibilityLabel }}</td>
+                    <td class="app-col-vax{% if row.isRecentlyVaccinated %} app-vax-cell--check{% endif %}">{{ row.vaccinationDate or '-' }}</td>
                     {% for cell in row.cells %}
                       <td>{{ cell.value }}</td>
                     {% endfor %}
-                    <td class="app-col-vax">{{ row.vaccinationDate or '-' }}</td>
-                    <td></td>
-                    <td>{% if row.isRecentlyVaccinated %}Check last vaccination date{% endif %}</td>
+                    <td class="app-col-write-notes"></td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -782,6 +807,8 @@
                   <tr>
                     <th scope="col" class="app-col-tick" aria-label="Mark"></th>
                     <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+                    <th scope="col" class="app-col-notes">Eligibility</th>
+                    <th scope="col" class="app-col-vax">TB Vax</th>
                     {% for column in fieldColumns %}
                       {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
                       {% set columnClass = "app-col-narrow" %}
@@ -791,9 +818,7 @@
                       {% if headingText == "Breed" %}{% set columnClass = "app-col-breed" %}{% endif %}
                       <th scope="col" class="{{ columnClass }}">{{ headingText }}</th>
                     {% endfor %}
-                    <th scope="col" class="app-col-vax">TB Vax</th>
-                    <th scope="col" class="app-col-vaccinated">Vaccinated</th>
-                    <th scope="col">Remarks</th>
+                    <th scope="col" class="app-col-write-notes">Notes</th>
                   </tr>
                 </thead>
                 {% for row in pagedRows %}
@@ -810,6 +835,8 @@
                               {% if row.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
                       </div>
                     </td>
+                    <td class="app-col-notes">{{ row.eligibilityLabel }}</td>
+                    <td class="app-col-vax{% if row.isRecentlyVaccinated %} app-vax-cell--check{% endif %}">{{ row.vaccinationDate or '-' }}</td>
                     {% for cell in row.cells %}
                       {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
                       {% set cellClass = "app-col-narrow" %}
@@ -817,19 +844,9 @@
                       {% if cellHeading == "DOB" %}{% set cellClass = "app-col-dob" %}{% endif %}
                       {% if cellHeading == "Sex" %}{% set cellClass = "app-col-sex" %}{% endif %}
                       {% if cellHeading == "Breed" %}{% set cellClass = "app-col-breed" %}{% endif %}
-                      {# Recently-vaccinated animals underline the DOB so
-                         the vet sees at a glance which animals need a
-                         date check before vaccinating. The Remarks
-                         column also still prints "Check last
-                         vaccination date" for the same row. #}
-                      {% if cellHeading == "DOB" and row.isRecentlyVaccinated %}
-                        {% set cellClass = cellClass + " app-dob-cell--check" %}
-                      {% endif %}
                       <td class="{{ cellClass }}">{{ cell.value }}</td>
                     {% endfor %}
-                    <td class="app-col-vax">{{ row.vaccinationDate or '-' }}</td>
-                    <td class="app-col-vaccinated"></td>
-                    <td>{% if row.isRecentlyVaccinated %}Check last vaccination date{% endif %}</td>
+                    <td class="app-col-write-notes"></td>
                   </tr>
                 </tbody>
                 {% endfor %}

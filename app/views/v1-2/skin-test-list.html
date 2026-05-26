@@ -611,14 +611,15 @@
     padding: 0;
     font-weight: 700;
   }
-  /* Duplicate animal: underline the last-4 segment so the vet can
-     spot the animal at a glance. Replaces the older inverted-box
-     treatment – the underline is lighter on the page but still
-     scannable when paired with the bold last-4. */
+  /* Duplicate last-4 segment – emphasised with a heavy 4px top and
+     bottom band wrapping just the four bold digits, no side borders.
+     Matches the duplicate treatment on /v1-2/download-list and
+     /v1-2/select-vaccinated-animals so the same flag reads the same
+     across every v1-2 table. */
   .app-ear-tag__part--last4--duplicate {
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 2px;
+    border: 0;
+    border-top: 4px solid #000;
+    border-bottom: 4px solid #000;
   }
   /* "Check the DOB" – animal is around the 42-day minimum testing
      age (35–49 days). Underline the DOB value so the vet sees the
@@ -772,10 +773,9 @@
        choice is discoverable; the button next to it opens the form
        panel for the few vets who want to change defaults. The "View"
        value reflects the currently chosen page size on the printed
-       sheet (the listLook radios map to 20 / 30 / 40 cattle per page). #}
+       sheet (the listLook radios map to 20 / 40 cattle per page). #}
     {% set viewCount = 20 %}
     {% if listLook == 'compact' %}{% set viewCount = 40 %}{% endif %}
-    {% if listLook == 'medium' %}{% set viewCount = 30 %}{% endif %}
     <p class="app-list-summary govuk-body">
       <strong>{{ totalCattle or (sicctPreviewCount + divaPreviewCount) }} cattle on this farm</strong>
       &middot; View: {{ viewCount }} cattle per page
@@ -797,7 +797,6 @@
             hint: { text: "Decide how many cattle you want to see on each page." },
             items: [
               { value: "easy",    text: "20", checked: (listLook or 'easy') == 'easy' },
-              { value: "medium",    text: "30", checked: (listLook or 'medium') == 'medium' },
               { value: "compact", text: "40",      checked: listLook == 'compact' }
             ]
           }) }}
@@ -910,10 +909,6 @@
               </table>
 
               <div class="app-sheet-footer">
-                <span class="app-sheet-footer__range">Blank entries</span>
-                <span class="app-sheet-footer__page">
-                  Page {{ _currentPageClamped }} of {{ _totalPages }}
-                </span>
                 <span class="app-sheet-footer__farm">
                   {{ data['herd']['farm'] }} - {{ data['herd']['cph'] or data['selectedCattle'] }}
                 </span>
@@ -933,14 +928,12 @@
                 <thead>
                   <tr>
                     <th scope="col" class="app-col-ear-tag">Ear tag number</th>
-                    {% for column in fieldColumns %}
-                      {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
-                      <th scope="col">{{ headingText }}</th>
-                    {% endfor %}
+                    {% if hasVaxColumn %}
+                      <th scope="col" class="app-col-vax">TB Vax</th>
+                    {% endif %}
                     {% if group.key == 'combined' %}
                       <th scope="col" class="app-col-test">Test</th>
                     {% endif %}
-                    <th scope="col" class="app-col-vax">TB Vax</th>
                     <th scope="col">Pre A (mm)</th>
                     <th scope="col">Pre B (mm)</th>
                     <th scope="col">Post A (mm)</th>
@@ -948,20 +941,23 @@
                     <th scope="col">Reaction desc. A</th>
                     <th scope="col">Reaction desc. B</th>
                     <th scope="col">Overall result</th>
+                    {% for column in fieldColumns %}
+                      {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
+                      <th scope="col">{{ headingText }}</th>
+                    {% endfor %}
                     <th scope="col" class="app-col-notes">Notes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for row in pagedRows %}
                   <tr>
-                    <td>{{ row.officialId }}</td>
-                    {% for cell in row.cells %}
-                      <td>{{ cell.value }}</td>
-                    {% endfor %}
+                    <td class="app-col-ear-tag">{{ row.officialId }}</td>
+                    {% if hasVaxColumn %}
+                      <td class="app-col-vax{% if row.isVaxCheckDue %} app-vax-cell--check{% endif %}">{{ row.vaccinationDate or '-' }}</td>
+                    {% endif %}
                     {% if group.key == 'combined' %}
                       <td class="app-col-test">{{ row.assignedTest }}</td>
                     {% endif %}
-                    <td class="app-col-vax{% if row.isVaxCheckDue %} app-vax-cell--check{% endif %}">{{ row.vaccinationDate or '-' }}</td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -981,6 +977,26 @@
           {% else %}
             <div class="app-sheet app-sheet--{{ previewOrientation or 'portrait' }} app-sheet--text-{{ previewTextSize or 'standard' }} app-sheet--spacing-{{ previewSpacing or 'standard' }}{% if listLook == 'compact' %} app-sheet--compact{% endif %}">
 
+              {# Top-of-sheet header. On page 1 the title
+                 "<Farm> - <Test> list" sits on the left and the
+                 boxed ear-tag range on the right, so the two appear
+                 on the same line. On pages 2+ the title is omitted
+                 and only the range is shown – the range is right-
+                 aligned either way (margin-left: auto). Matches the
+                 equivalent header on /v1-2/download-list. #}
+              {% if pagedRows.length > 0 %}
+                <div class="app-sheet-header">
+                  {% if _currentPageClamped == 1 %}
+                    <span class="app-sheet-header__title">
+                      {{ data['herd']['farm'] }} - {{ group.label }} list
+                    </span>
+                  {% endif %}
+                  <span class="app-sheet-header__range">
+                    {{ (pagedRows | first).earTagParts.last4 }}–{{ (pagedRows | last).earTagParts.last4 }}
+                  </span>
+                </div>
+              {% endif %}
+
               {# Metadata table (CPH, count, date, DIVA batch number)
                  only appears on page 1. The data is the same on every
                  sheet, so reprinting it on pages 2+ wastes space that
@@ -993,9 +1009,6 @@
               {% if _currentPageClamped == 1 %}
                 <table class="govuk-table govuk-!-margin-bottom-0"
                        style="min-width: 900px; table-layout: fixed;">
-                  <caption class="govuk-table__caption govuk-table__caption--m">
-                    {{ data['herd']['farm'] }} - {{ data['herd']['cph'] or data['selectedCattle'] }}
-                  </caption>
                   <tr class="govuk-table__row">
                     <td class="govuk-table__cell">
                       <strong>Sorted by:</strong><br/>{{ sortByLabel or 'Ear tag number' }}
@@ -1005,7 +1018,11 @@
                     </td>
                     <td class="govuk-table__cell">
                       <strong>List created:</strong><br/>
-                      <span class="js-date-printed"></span>
+                      {% if listCreatedFormatted %}
+                        <span>{{ listCreatedFormatted }}</span>
+                      {% else %}
+                        <span class="js-date-printed"></span>
+                      {% endif %}
                     </td>
                   </tr>
                 </table>
@@ -1022,37 +1039,51 @@
                   <thead>
                     <tr>
                       {% if group.key == 'combined' %}
-                        {# Combined SICCT + DIVA list: four equal columns
-                           – Day 1, Day 2, SICCT batch number and DIVA
-                           batch number sit side by side at 25% each. #}
-                        <th scope="col" style="width: 25%;">Day 1 date:</th>
-                        <th scope="col" style="width: 25%;">Day 2 date:</th>
-                        <th scope="col" style="width: 25%;">SICCT batch number:</th>
-                        <th scope="col" style="width: 25%;">DIVA batch number:</th>
+                        {# Legacy combined SICCT + DIVA list (v1-1). Keeps
+                           Day 1 / Day 2 and both batch numbers; time
+                           fields are added so each visit is timestamped. #}
+                        <th scope="col" style="width: 16%;">Day 1 date:</th>
+                        <th scope="col" style="width: 16%;">Day 1 time:</th>
+                        <th scope="col" style="width: 16%;">Day 2 date:</th>
+                        <th scope="col" style="width: 16%;">Day 2 time:</th>
+                        <th scope="col" style="width: 18%;">SICCT batch number:</th>
+                        <th scope="col" style="width: 18%;">DIVA batch number:</th>
                       {% elif group.key == 'diva' %}
-                        {# DIVA-only: Day 1 / Day 2 take 25% each and
-                           DIVA batch number takes the remaining 50% so
-                           the vet has plenty of room to write a long
-                           batch reference. #}
-                        <th scope="col" style="width: 25%;">Day 1 date:</th>
-                        <th scope="col" style="width: 25%;">Day 2 date:</th>
-                        <th scope="col" style="width: 50%;">DIVA batch number:</th>
+                        {# DIVA is a single-visit test, so the entry
+                           table carries one combined "Test date and
+                           time" column (no Day 2), followed by the
+                           DIVA batch number, vaccine expiry date,
+                           diluent batch number and diluent date.
+                           Five columns at 20% each. #}
+                        <th scope="col" style="width: 20%;">Test date and time:</th>
+                        <th scope="col" style="width: 20%;">DIVA batch number:</th>
+                        <th scope="col" style="width: 20%;">Vaccine expiry date:</th>
+                        <th scope="col" style="width: 20%;">Diluent batch number:</th>
+                        <th scope="col" style="width: 20%;">Diluent expiry date:</th>
                       {% else %}
-                        {# SICCT-only: Day 1 / Day 2 take 25% each and
-                           SICCT batch number takes the remaining 50%. #}
-                        <th scope="col" style="width: 25%;">Day 1 date:</th>
-                        <th scope="col" style="width: 25%;">Day 2 date:</th>
-                        <th scope="col" style="width: 50%;">SICCT batch number:</th>
+                        {# SICCT: Day 1 + Day 2 each carry the date
+                           and the time in a single combined column;
+                           the SICCT batch number, vaccine expiry
+                           date, diluent batch number and diluent
+                           date follow. Six columns at roughly equal
+                           width. #}
+                        <th scope="col" style="width: 18%;">Day 1 date and time:</th>
+                        <th scope="col" style="width: 18%;">Day 2 date and time:</th>
+                        <th scope="col" style="width: 16%;">SICCT batch number:</th>
+                        <th scope="col" style="width: 16%;">Vaccine expiry date:</th>
+                        <th scope="col" style="width: 16%;">Diluent batch number:</th>
+                        <th scope="col" style="width: 16%;">Diluent expiry date:</th>
                       {% endif %}
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td></td>
-                      <td></td>
-                      <td></td>
                       {% if group.key == 'combined' %}
-                        <td></td>
+                        <td></td><td></td><td></td><td></td><td></td><td></td>
+                      {% elif group.key == 'diva' %}
+                        <td></td><td></td><td></td><td></td><td></td>
+                      {% else %}
+                        <td></td><td></td><td></td><td></td><td></td><td></td>
                       {% endif %}
                     </tr>
                   </tbody>
@@ -1081,6 +1112,16 @@
                 <thead>
                   <tr>
                     <th scope="col" class="app-col-ear-tag" rowspan="2">Ear tag number</th>
+                    {% if hasVaxColumn %}
+                      <th scope="col" class="app-col-vax" rowspan="2">TB Vax</th>
+                    {% endif %}
+                    {% if group.key == 'combined' %}
+                      <th scope="col" class="app-col-test" rowspan="2">Test</th>
+                    {% endif %}
+                    <th scope="col" colspan="{{ skinColspan }}">Skin measurement (mm)</th>
+                    <th scope="col" class="app-col-overall" rowspan="2">
+                      <span class="app-vertical-heading">Overall<br>result</span>
+                    </th>
                     {% for column in fieldColumns %}
                       {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
                       {% set columnClass = "app-col-narrow" %}
@@ -1090,14 +1131,6 @@
                       {% if headingText == "Breed" %}{% set columnClass = "app-col-breed" %}{% endif %}
                       <th scope="col" class="{{ columnClass }}" rowspan="2">{{ headingText }}</th>
                     {% endfor %}
-                    {% if group.key == 'combined' %}
-                      <th scope="col" class="app-col-test" rowspan="2">Test</th>
-                    {% endif %}
-                    <th scope="col" class="app-col-vax" rowspan="2">TB Vax</th>
-                    <th scope="col" colspan="{{ skinColspan }}">Skin measurement (mm)</th>
-                    <th scope="col" class="app-col-overall" rowspan="2">
-                      <span class="app-vertical-heading">Overall<br>result</span>
-                    </th>
                     <th scope="col" class="app-col-notes" rowspan="2">Notes</th>
                   </tr>
                   <tr>
@@ -1148,29 +1181,12 @@
                                 {% if row.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
                         </div>
                       </td>
-                      {% for cell in row.cells %}
-                        {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
-                        {% set cellClass = "app-col-narrow" %}
-                        {% if cellHeading == "Age" %}{% set cellClass = "app-col-age" %}{% endif %}
-                        {% if cellHeading == "DOB" %}{% set cellClass = "app-col-dob" %}{% endif %}
-                        {% if cellHeading == "Sex" %}{% set cellClass = "app-col-sex" %}{% endif %}
-                        {% if cellHeading == "Breed" %}{% set cellClass = "app-col-breed" %}{% endif %}
-                        {# Under-test-age cattle get an underlined DOB
-                           so the vet sees at a glance which animals are
-                           too young (the Notes column also still shows
-                           "Check age"). #}
-                        {% if cellHeading == "DOB" and row.isUnderTestAge %}
-                          {% set cellClass = cellClass + " app-dob-cell--under-age" %}
-                        {% endif %}
-                        <td class="{{ cellClass }}">{{ cell.value }}</td>
-                      {% endfor %}
+                      {% if hasVaxColumn %}
+                        <td class="app-col-vax{% if row.isVaxCheckDue %} app-vax-cell--check{% endif %}">{{ row.vaccinationDate or '-' }}</td>
+                      {% endif %}
                       {% if isCombinedGroup %}
                         <td class="app-col-test">
                           {% if row.assignedTest == 'Either' %}
-                            {# Compact mode keeps "Either" inline – two
-                               pen-tick boxes sit horizontally so the vet
-                               can mark which test was used without
-                               making the row two lines tall. #}
                             <span class="app-test-choice">
                               <span class="app-test-choice__box" aria-hidden="true"></span>SICCT
                             </span>
@@ -1182,7 +1198,6 @@
                           {% endif %}
                         </td>
                       {% endif %}
-                      <td class="app-col-vax{% if row.isVaxCheckDue %} app-vax-cell--check{% endif %}">{{ row.vaccinationDate or '-' }}</td>
                       {# DIVA is bovine-only, no Avian/Bovine split.
                          When the list also contains SICCT rows (the
                          combined Both list) we keep an empty greyed
@@ -1195,11 +1210,10 @@
                         <td class="app-col-label app-col-label--na"></td>
                       {% endif %}
                       {% if rowIsDiva or not isCompactLayout %}
-                        {# DIVA rows (any layout) and comfy DIVA rows
-                           keep the original empty cells – DIVA's
-                           bovine-only reading still needs a single
-                           writing box per measurement column. #}
-                        <td class="app-col-skin"></td>
+                        {# DIVA rows are single-visit, so the body
+                           carries one Reading box and one Reaction
+                           desc box. SICCT compact rows fall into the
+                           split-cell branch below. #}
                         <td class="app-col-skin"></td>
                         <td class="app-col-reaction"></td>
                       {% else %}
@@ -1227,6 +1241,22 @@
                         </td>
                       {% endif %}
                       <td class="app-col-overall"></td>
+                      {% for cell in row.cells %}
+                        {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
+                        {% set cellClass = "app-col-narrow" %}
+                        {% if cellHeading == "Age" %}{% set cellClass = "app-col-age" %}{% endif %}
+                        {% if cellHeading == "DOB" %}{% set cellClass = "app-col-dob" %}{% endif %}
+                        {% if cellHeading == "Sex" %}{% set cellClass = "app-col-sex" %}{% endif %}
+                        {% if cellHeading == "Breed" %}{% set cellClass = "app-col-breed" %}{% endif %}
+                        {# Under-test-age cattle get an underlined DOB
+                           so the vet sees at a glance which animals are
+                           too young (the Notes column also still shows
+                           "Check age"). #}
+                        {% if cellHeading == "DOB" and row.isUnderTestAge %}
+                          {% set cellClass = cellClass + " app-dob-cell--under-age" %}
+                        {% endif %}
+                        <td class="{{ cellClass }}">{{ cell.value }}</td>
+                      {% endfor %}
                       <td class="app-col-notes">{% if row.isUnderTestAge %}Check age{% endif %}</td>
                     </tr>
                   {% else %}
@@ -1241,18 +1271,9 @@
                                 {% if row.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
                         </div>
                       </td>
-                      {% for cell in row.cells %}
-                        {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
-                        {% set cellClass = "app-col-narrow" %}
-                        {% if cellHeading == "Age" %}{% set cellClass = "app-col-age" %}{% endif %}
-                        {% if cellHeading == "DOB" %}{% set cellClass = "app-col-dob" %}{% endif %}
-                        {% if cellHeading == "Sex" %}{% set cellClass = "app-col-sex" %}{% endif %}
-                        {% if cellHeading == "Breed" %}{% set cellClass = "app-col-breed" %}{% endif %}
-                        {% if cellHeading == "DOB" and row.isUnderTestAge %}
-                          {% set cellClass = cellClass + " app-dob-cell--under-age" %}
-                        {% endif %}
-                        <td class="{{ cellClass }}" rowspan="2">{{ cell.value }}</td>
-                      {% endfor %}
+                      {% if hasVaxColumn %}
+                        <td class="app-col-vax{% if row.isVaxCheckDue %} app-vax-cell--check{% endif %}" rowspan="2">{{ row.vaccinationDate or '-' }}</td>
+                      {% endif %}
                       {% if isCombinedGroup %}
                         <td class="app-col-test" rowspan="2">
                           {% if row.assignedTest == 'Either' %}
@@ -1271,7 +1292,6 @@
                           {% endif %}
                         </td>
                       {% endif %}
-                      <td class="app-col-vax{% if row.isVaxCheckDue %} app-vax-cell--check{% endif %}" rowspan="2">{{ row.vaccinationDate or '-' }}</td>
                       {# "Either" rows are rendered with the SICCT 2-row
                          scaffolding so the vet has space to record
                          either test, but the A / B labels are dropped
@@ -1284,6 +1304,18 @@
                       <td class="app-col-skin"></td>
                       <td class="app-col-reaction"></td>
                       <td class="app-col-overall" rowspan="2"></td>
+                      {% for cell in row.cells %}
+                        {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
+                        {% set cellClass = "app-col-narrow" %}
+                        {% if cellHeading == "Age" %}{% set cellClass = "app-col-age" %}{% endif %}
+                        {% if cellHeading == "DOB" %}{% set cellClass = "app-col-dob" %}{% endif %}
+                        {% if cellHeading == "Sex" %}{% set cellClass = "app-col-sex" %}{% endif %}
+                        {% if cellHeading == "Breed" %}{% set cellClass = "app-col-breed" %}{% endif %}
+                        {% if cellHeading == "DOB" and row.isUnderTestAge %}
+                          {% set cellClass = cellClass + " app-dob-cell--under-age" %}
+                        {% endif %}
+                        <td class="{{ cellClass }}" rowspan="2">{{ cell.value }}</td>
+                      {% endfor %}
                       <td class="app-col-notes" rowspan="2">{% if row.isUnderTestAge %}Check age{% endif %}</td>
                     </tr>
                     <tr>
