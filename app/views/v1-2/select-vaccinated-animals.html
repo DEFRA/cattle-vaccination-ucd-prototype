@@ -156,23 +156,13 @@
       <div>
         <form action="/v1-2/select-vaccinated-animals" method="post" novalidate>
           <div class="app-panel govuk-!-margin-bottom-4">
-            <h2 class="govuk-heading-m govuk-!-margin-bottom-2">{{ activeReviewGroupLabel }}</h2>
-            {% if activeReviewGroup == 'remaining' %}
-              <p class="govuk-body govuk-!-margin-bottom-2">{{ totalRemaining }} of {{ totalAnimals }} cattle still need a decision.</p>
-              {% if totalRemaining > 0 %}
-                <p class="govuk-body govuk-!-margin-bottom-0">
-                  {% if markingPhase == 'vaccinated' %}
-                    Select cattle from the table and mark them as vaccinated.
-                  {% else %}
-                    Select cattle from the table, then choose how to mark them.
-                  {% endif %}
-                </p>
-              {% else %}
-                <p class="govuk-body govuk-!-margin-bottom-0">All cattle have been marked. Review the summary or continue.</p>
-              {% endif %}
-            {% else %}
-              <p class="govuk-body govuk-!-margin-bottom-0">These cattle have been banked in this group. Select any cattle you want to move back to the remaining list and change.</p>
-            {% endif %}
+            {# Live "X of Y selected" counter. The `data-total` value
+               is the server-rendered total cattle count; the inner
+               .js-selected-count span is updated by the script at the
+               bottom of the page on every checkbox change. #}
+            <p class="govuk-body govuk-!-margin-bottom-0">
+              You've selected <span class="js-selected-count">{{ selectedIds.length or 0 }}</span> of {{ totalAnimals }} cattle
+            </p>
           </div>
 
           {% if errors and errors['selectedAnimals'] %}
@@ -316,7 +306,7 @@
                      here as an extra step – it's no longer needed
                      because the redirect is automatic. #}
                   {{ govukButton({
-                    text: "Mark selected as vaccinated",
+                    text: "Continue",
                     name: "markAction",
                     value: "mark"
                   }) }}
@@ -381,42 +371,20 @@
       <aside>
         <div class="app-summary-card">
           <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Summary</h2>
-          <dl class="govuk-summary-list govuk-summary-list--no-border">
+          <dl class="govuk-summary-list govuk-summary-list--no-border govuk-!-margin-bottom-0">
             <div class="govuk-summary-list__row">
               <dt class="govuk-summary-list__key">Total cattle</dt>
               <dd class="govuk-summary-list__value">{{ totalAnimals }}</dd>
             </div>
             <div class="govuk-summary-list__row">
-              <dt class="govuk-summary-list__key">Still to mark</dt>
+              <dt class="govuk-summary-list__key">To do</dt>
               <dd class="govuk-summary-list__value">{{ totalRemaining }}</dd>
             </div>
             <div class="govuk-summary-list__row">
-              <dt class="govuk-summary-list__key">Marked</dt>
+              <dt class="govuk-summary-list__key">Done</dt>
               <dd class="govuk-summary-list__value">{{ totalMarked }}</dd>
             </div>
           </dl>
-
-          <ul class="govuk-list govuk-!-margin-bottom-0">
-            <li class="govuk-!-margin-bottom-2">
-              <form action="/v1-2/select-vaccinated-animals" method="post">
-                <input type="hidden" name="markAction" value="view-group">
-                <button class="app-link-button" type="submit" name="reviewGroup" value="remaining">
-                  Still to be marked ({{ totalRemaining }})
-                </button>
-              </form>
-            </li>
-
-            {% for bucket in summaryBuckets %}
-              <li class="govuk-!-margin-bottom-2">
-                <form action="/v1-2/select-vaccinated-animals" method="post">
-                  <input type="hidden" name="markAction" value="view-group">
-                  <button class="app-link-button" type="submit" name="reviewGroup" value="{{ bucket.key }}">
-                    {{ bucket.label }} ({{ bucket.count }})
-                  </button>
-                </form>
-              </li>
-            {% endfor %}
-          </ul>
         </div>
         {% if selectedAnimalSummary.length %}
           <div class="app-summary-card">
@@ -445,10 +413,15 @@
       return
     }
 
+    var selectedCountEls = Array.prototype.slice.call(document.querySelectorAll('.js-selected-count'))
+
     function syncSelectAll() {
       var checkedCount = checkboxes.filter(function (checkbox) { return checkbox.checked }).length
       selectAll.checked = checkedCount === checkboxes.length
       selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length
+      // Keep the "You've selected X of Y cattle" counter in the
+      // grey panel above the table in sync with the checked boxes.
+      selectedCountEls.forEach(function (el) { el.textContent = checkedCount })
     }
 
     selectAll.addEventListener('change', function () {

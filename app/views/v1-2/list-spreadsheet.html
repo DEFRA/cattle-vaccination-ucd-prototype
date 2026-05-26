@@ -1,40 +1,41 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Spreadsheet is ready – GOV.UK
-{% endblock %}
-
-{% block beforeContent %}
-{{ govukBackLink({
-  text: "Back",
-  href: "/v1-2/list-format"
-}) }}
+  Spreadsheet ready to download – GOV.UK
 {% endblock %}
 
 {% block content %}
 {% set isSkinTest = data['journey'] == 'prepare-skin-test' %}
 {% set listKind = "skin test" if isSkinTest else "vaccination" %}
 {% set downloadUrl = "/v1-2/skin-test-list?download=csv" if isSkinTest else "/v1-2/download-list?download=csv" %}
+{% set pdfUrl = "/v1-2/skin-test-list" if isSkinTest else "/v1-2/download-list" %}
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 
-    <h1 class="govuk-heading-l">You can now download your spreadsheet</h1>
+    {{ govukPanel({
+      titleText: "Spreadsheet ready to download"
+    }) }}
 
     <p class="govuk-body">
       You can now download the {{ listKind }} list as a spreadsheet.
     </p>
 
-    <ul class="govuk-list govuk-!-margin-bottom-6">
-      <li>
-        <a class="govuk-link" href="{{ downloadUrl }}">Download your {{ listKind }} list (CSV)</a>
-      </li>
-    </ul>
+    <p class="govuk-body">
+      <a class="govuk-link" href="/v1-2/dashboard">Save to download later</a>
+    </p>
 
     {{ govukButton({
-      text: "Save spreadsheet to download later",
-      href: "/v1-2/dashboard"
+      text: "Download",
+      href: downloadUrl
     }) }}
+
+    <p class="govuk-body">
+      You can also see your list as a
+      <a class="govuk-link" href="{{ pdfUrl }}">PDF</a>
+      or
+      <a class="govuk-link" href="/v1-2/handheld-info">send it to your handheld</a>.
+    </p>
 
     {# Onward journey – mirror of download-list-confirmed but with
        wording adapted for the spreadsheet flow. #}

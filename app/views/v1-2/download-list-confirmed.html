@@ -1,7 +1,7 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Vaccination list is ready – GOV.UK
+  Download available – GOV.UK
 {% endblock %}
 
 {% block content %}
@@ -10,30 +10,40 @@
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 
-    <h1 class="govuk-heading-l">You can now print your list</h1>
+    {{ govukPanel({
+      titleText: "Download available"
+    }) }}
 
     <p class="govuk-body">
       You can now download or print the vaccination list.
     </p>
 
+    <p class="govuk-body">
+      <a class="govuk-link" href="/v1-2/dashboard">Save to download later</a>
+    </p>
+
     {% if isCsv %}
-      <ul class="govuk-list govuk-!-margin-bottom-6">
-        <li>
-          <a class="govuk-link" href="/v1-2/download-list?download=csv">Download vaccination list (CSV)</a>
-        </li>
-      </ul>
+      {{ govukButton({
+        text: "Download",
+        href: "/v1-2/download-list?download=csv"
+      }) }}
     {% else %}
-      <ul class="govuk-list govuk-!-margin-bottom-6">
-        <li>
-          <a class="govuk-link" href="/v1-2/download-list?print=1">Download your vaccination list (PDF)</a>
-        </li>
-      </ul>
+      {{ govukButton({
+        text: "Download",
+        href: "/v1-2/download-list?print=1"
+      }) }}
     {% endif %}
 
-    {{ govukButton({
-      text: "Save list to print later",
-      href: "/v1-2/dashboard"
-    }) }}
+    <p class="govuk-body">
+      You can also see your list as a
+      {% if isCsv %}
+        <a class="govuk-link" href="/v1-2/download-list">PDF</a>
+      {% else %}
+        <a class="govuk-link" href="/v1-2/list-spreadsheet">spreadsheet</a>
+      {% endif %}
+      or
+      <a class="govuk-link" href="/v1-2/handheld-info">send it to your handheld</a>.
+    </p>
 
     {# Onward journey – mirror of skin-test-list-confirmed but with the
        options relevant to a vaccination visit. #}

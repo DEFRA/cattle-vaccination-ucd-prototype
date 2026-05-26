@@ -74,7 +74,8 @@
     {# Prepared lists for this farm – sit separately from the active
        task list so they don't compete with the next thing the vet
        needs to do. Vet can still get back to a list to view, edit or
-       reprint it. #}
+       reprint it. The "Date created" line matches the date printed on
+       the list itself so the row and the printed sheet read in sync. #}
     {% if preparedLists and preparedLists.length > 0 %}
       <h2 class="govuk-heading-m govuk-!-margin-top-6">Prepared lists</h2>
       <ul class="app-task-list">
@@ -83,6 +84,9 @@
             <h3 class="govuk-heading-s app-task-list__title">
               <a class="govuk-link" href="{{ list.href }}">{{ list.title }}</a>
             </h3>
+            {% if list.dateCreated %}
+              <p class="govuk-body-s app-task-list__progress">Date created: {{ list.dateCreated }}</p>
+            {% endif %}
             <p class="govuk-body-s app-task-list__progress">{{ list.actionText }}</p>
           </li>
         {% endfor %}

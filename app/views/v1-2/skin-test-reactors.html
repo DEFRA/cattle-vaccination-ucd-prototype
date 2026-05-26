@@ -37,6 +37,11 @@
     padding: 0;
     font-weight: 700;
   }
+  /* Duplicate last-4 segment – emphasised with a heavy 4px top and
+     bottom band wrapping just the four bold digits, no side borders.
+     Matches the duplicate treatment on /v1-2/download-list,
+     /v1-2/select-vaccinated-animals and /v1-2/skin-test-list so the
+     same flag reads the same across every v1-2 table. */
   .app-ear-tag__part--last4--duplicate {
     text-decoration: underline;
     text-decoration-thickness: 2px;
@@ -80,7 +85,7 @@
     </h1>
 
     <p class="govuk-body">
-      Select all cattle that reacted or showed an inconclusive result.
+      Select all cattle that seemed to show a detectable reaction.
     </p>
 
   </div>
@@ -173,4 +178,38 @@
 
   </div>
 </div>
+
+<script>
+  // Wire the header "All" checkbox to every row checkbox – ticking
+  // it ticks all rows, unticking it clears them, and editing an
+  // individual row keeps the header in sync (including the
+  // indeterminate state when only some rows are selected).
+  document.addEventListener('DOMContentLoaded', function () {
+    var selectAll = document.getElementById('select-all-reactors')
+    var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-reactor-checkbox'))
+
+    if (!selectAll || !checkboxes.length) {
+      return
+    }
+
+    function syncSelectAll () {
+      var checkedCount = checkboxes.filter(function (checkbox) { return checkbox.checked }).length
+      selectAll.checked = checkedCount === checkboxes.length
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length
+    }
+
+    selectAll.addEventListener('change', function () {
+      checkboxes.forEach(function (checkbox) {
+        checkbox.checked = selectAll.checked
+      })
+      syncSelectAll()
+    })
+
+    checkboxes.forEach(function (checkbox) {
+      checkbox.addEventListener('change', syncSelectAll)
+    })
+
+    syncSelectAll()
+  })
+</script>
 {% endblock %}

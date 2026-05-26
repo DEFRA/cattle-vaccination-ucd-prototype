@@ -39,7 +39,7 @@
     {% set someoneElseHtml %}
       {{ govukInput({
         label: {
-          text: "First name"
+          text: "Their first name"
         },
         id: "firstName",
         name: "firstName",
@@ -49,7 +49,7 @@
 
       {{ govukInput({
         label: {
-          text: "Last name"
+          text: "Their last name"
         },
         id: "lastName",
         name: "lastName",
@@ -74,7 +74,7 @@
           },
           {
             value: "authorised-tester",
-            text: "An authorised tuberculin tester"
+            text: "Authorised tuberculin tester"
           },
           {
             value: "other",
@@ -111,7 +111,7 @@
           },
           {
             value: "someone-else",
-            text: "Someone else in our organisation",
+            text: "Someone else",
             conditional: {
               html: someoneElseHtml
             }

@@ -136,12 +136,48 @@
   .app-sheet--portrait { max-width: 100%; }
   .app-sheet--landscape { max-width: 100%; }
 
+  /* Header printed above the list on every A4 sheet. On page 1 the
+     left slot holds the "<Farm> - vaccination list" title (replacing
+     the old govuk-table caption) and the right slot holds the boxed
+     ear-tag range. On pages 2+ the title slot is empty and the
+     range sits on the right (margin-left: auto pushes it across).
+     Mirrors the footer-right slot so each loose page is identifiable
+     at a glance whether the vet sees the head or the foot. */
+  .app-sheet-header {
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #0b0c0c;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #0b0c0c;
+  }
+  .app-sheet-header__title {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 700;
+    font-size: 1.5em;
+    line-height: 1.2;
+  }
+  .app-sheet-header__range {
+    margin-left: auto;
+    display: inline-block;
+    padding: 4px 8px;
+    background-color: #0b0c0c;
+    color: #ffffff;
+    font-size: 1.2em;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
   /* Footer printed under the list on every A4 sheet. Three slots:
-     the boxed ear-tag range on the left (matches the boxed last-4
-     in the ear-tag column above), "Page X of Y" centred so the vet
-     can flick through a printed stack and read the page indicator at
-     a glance, and an empty third slot to keep the centred page
-     indicator visually balanced. */
+     the farm name and CPH on the left so each loose printed page is
+     identifiable even if it gets separated from the cover sheet,
+     "Page X of Y" centred so the vet can flick through a printed
+     stack and read the page indicator at a glance, and the boxed
+     ear-tag range on the right (matches the boxed last-4 in the
+     ear-tag column above). */
   .app-sheet-footer {
     margin-top: 14px;
     padding-top: 10px;
@@ -153,8 +189,18 @@
     font-family: Arial, Helvetica, sans-serif;
     color: #0b0c0c;
   }
-  .app-sheet-footer__range {
+  .app-sheet-footer__farm {
     justify-self: start;
+    font-weight: 700;
+    text-align: left;
+  }
+  .app-sheet-footer__page {
+    justify-self: center;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .app-sheet-footer__range {
+    justify-self: end;
     display: inline-block;
     /* Black-fill page-footer range box: a little larger than the
        boxed last-4 in the ear-tag column so it stands out at the
@@ -169,16 +215,6 @@
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-  }
-  .app-sheet-footer__page {
-    justify-self: center;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-  .app-sheet-footer__farm {
-    justify-self: end;
-    font-weight: 700;
-    text-align: right;
   }
   .app-sheet--text-tiny { font-size: 11px; }
   .app-sheet--text-small { font-size: 14px; }
@@ -334,13 +370,41 @@
   .app-col-skin     { width: 5rem;   text-align: center !important; }
   .app-col-reaction { width: 6.5rem; text-align: center !important; }
   .app-col-overall  { width: 5rem;   text-align: center !important; }
-  .app-col-notes    { width: 6rem; }
-  /* Vaccinated column – writable empty box for the vet to tick or
-     write the visit date once the animal has been vaccinated. Wide
-     enough for the full "Vaccinated" header text plus comfortable
-     horizontal padding so it doesn't overflow into the Remarks
+  /* Eligibility column – the label can be as long as
+     "Eligible on 19/05/2026", so give the column enough room to
+     fit that without wrapping, and left-align the text so all the
+     labels read in a tidy column rather than being centred. */
+  .app-col-notes    { width: 9.5rem; text-align: left !important; padding-left: 8px !important; padding-right: 8px !important; }
+  /* Vaccinated column – two small tick boxes labelled Y and N so the
+     vet can mark whether each animal was vaccinated on the visit.
+     Slightly wider than before so both boxes + labels sit comfortably
+     under the "Vaccinated" header without crowding the Remarks
      column. */
-  .app-col-vaccinated { width: 6.5rem; text-align: center !important; padding-left: 8px !important; padding-right: 8px !important; }
+  .app-col-vaccinated { width: 7.5rem; text-align: center !important; padding-left: 8px !important; padding-right: 8px !important; }
+  /* Yes / No tick pair rendered inside each Vaccinated cell. Each
+     box is an empty bordered square the vet ticks with a pen on the
+     printed sheet. The Y / N label sits to the left of its box. */
+  .app-tick-pair {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    line-height: 1;
+  }
+  .app-tick {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    font-size: 0.85em;
+  }
+  .app-tick__box {
+    display: inline-block;
+    width: 0.95em;
+    height: 0.95em;
+    border: 1px solid #0b0c0c;
+    box-sizing: border-box;
+  }
   /* Thicker border between animals (each animal = 1 row wrapped in a tbody) */
   .app-record-table tbody + tbody th,
   .app-record-table tbody + tbody td {
@@ -570,6 +634,7 @@
               <table class="app-record-table app-blank-table">
                 <thead>
                   <tr>
+                    <th scope="col" class="app-col-tick" aria-label="Mark"></th>
                     <th scope="col" class="app-col-ear-tag">Ear tag number</th>
                     <th scope="col" class="app-col-dob">DOB</th>
                     <th scope="col" class="app-col-sex">Sex</th>
@@ -580,6 +645,7 @@
                 <tbody>
                   {% for _i in range(0, 25) %}
                     <tr>
+                      <td class="app-col-tick"></td>
                       <td></td>
                       <td></td>
                       <td></td>
@@ -591,13 +657,13 @@
               </table>
 
               <div class="app-sheet-footer">
-                <span class="app-sheet-footer__range">Additional</span>
-                <span class="app-sheet-footer__page">
-                  Page {{ _currentPageClamped }} of {{ _totalPages }}
-                </span>
                 <span class="app-sheet-footer__farm">
                   {{ data['herd']['farm'] }} - {{ data['herd']['cph'] or data['selectedCattle'] }}
                 </span>
+                <span class="app-sheet-footer__page">
+                  Page {{ _currentPageClamped }} of {{ _totalPages }}
+                </span>
+                <span class="app-sheet-footer__range">Blank page</span>
               </div>
             </div>
           {% elif isCsv %}
@@ -605,6 +671,7 @@
               <table class="app-record-table">
                 <thead>
                   <tr>
+                    <th scope="col" class="app-col-tick" aria-label="Mark"></th>
                     <th scope="col" class="app-col-ear-tag">Ear tag number</th>
                     {% for column in fieldColumns %}
                       {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
@@ -633,18 +700,39 @@
           {% else %}
             <div class="app-sheet app-sheet--{{ previewOrientation or 'portrait' }} app-sheet--text-{{ previewTextSize or 'standard' }} app-sheet--spacing-{{ previewSpacing or 'standard' }}">
 
+              {# Top-of-sheet header. On page 1 the title
+                 "<Farm> - vaccination list" sits on the left and the
+                 boxed ear-tag range on the right, so the two appear on
+                 the same line. On pages 2+ the title is omitted and
+                 only the range is shown – the range is right-aligned
+                 either way (margin-left: auto). Mirrors the boxed
+                 ear-tag range in the footer so the page's range is
+                 visible at the top right as well as the bottom right. #}
+              {% if pagedRows.length > 0 %}
+                <div class="app-sheet-header">
+                  {% if _currentPageClamped == 1 %}
+                    <span class="app-sheet-header__title">
+                      {{ data['herd']['farm'] }} - {{ group.label }} list
+                    </span>
+                  {% endif %}
+                  <span class="app-sheet-header__range">
+                    {{ (pagedRows | first).earTagParts.last4 }}–{{ (pagedRows | last).earTagParts.last4 }}
+                  </span>
+                </div>
+              {% endif %}
+
               {# Metadata table (CPH, count, date) only appears on
                  page 1. The data is the same on every sheet, so
                  reprinting it on pages 2+ wastes space that the
                  records table can use for more rows. The page-1
                  sheet remains the "cover" sheet and the rest are
-                 pure data continuations. #}
+                 pure data continuations. The govuk-table caption
+                 used to hold "<Farm> - vaccination list"; that title
+                 has moved into the sheet header above so it can sit
+                 on the same line as the ear-tag range. #}
               {% if _currentPageClamped == 1 %}
                 <table class="govuk-table govuk-!-margin-bottom-0"
                        style="min-width: 900px; table-layout: fixed;">
-                  <caption class="govuk-table__caption govuk-table__caption--m">
-                    {{ data['herd']['farm'] }} - {{ group.label }} list
-                  </caption>
                   <tr class="govuk-table__row">
                     <td class="govuk-table__cell">
                       <strong>CPH:</strong><br/>{{ data['herd']['cph'] or data['selectedCattle'] }}
@@ -670,14 +758,16 @@
                 <table class="app-entry-table">
                   <thead>
                     <tr>
-                      <th scope="col" style="width: 25%;">Day 1 date:</th>
-                      <th scope="col" style="width: 25%;">Vaccine batch number:</th>
-                      <th scope="col" style="width: 25%;">Vaccine expiry date:</th>
-                      <th scope="col" style="width: 25%;">Diluent batch number:</th>
+                      <th scope="col" style="width: 20%;">Today's date:</th>
+                      <th scope="col" style="width: 20%;">Vaccine batch number:</th>
+                      <th scope="col" style="width: 20%;">Vaccine expiry date:</th>
+                      <th scope="col" style="width: 20%;">Diluent batch number:</th>
+                      <th scope="col" style="width: 20%;">Diluent date:</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
+                      <td></td>
                       <td></td>
                       <td></td>
                       <td></td>
@@ -690,6 +780,7 @@
               <table class="app-record-table">
                 <thead>
                   <tr>
+                    <th scope="col" class="app-col-tick" aria-label="Mark"></th>
                     <th scope="col" class="app-col-ear-tag">Ear tag number</th>
                     {% for column in fieldColumns %}
                       {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
@@ -708,7 +799,8 @@
                 {% for row in pagedRows %}
                 <tbody class="{% if row.isVaccinated %}app-row--vaccinated{% endif %}">
                   <tr>
-                    <td>
+                    <td class="app-col-tick"></td>
+                    <td class="app-col-ear-tag">
                       <div class="app-ear-tag">
                         <span class="app-ear-tag__prefix">{{ row.earTagParts.prefix }}</span>
                         <span class="app-ear-tag__part app-ear-tag__part--herd">{{ row.earTagParts.herd }}</span>
@@ -743,22 +835,22 @@
                 {% endfor %}
               </table>
 
-              {# Per-sheet footer. Boxed ear-tag range on the left
-                 (styled like the last-4 box in the ear-tag column);
-                 "Page X of Y" in the centre so the vet can flick
-                 through a printed stack; farm name and CPH on the
-                 right so each loose printed page is identifiable
-                 even if it gets separated from the cover sheet. #}
+              {# Per-sheet footer. Farm name and CPH on the left so
+                 each loose printed page is identifiable even if it
+                 gets separated from the cover sheet; "Page X of Y"
+                 in the centre so the vet can flick through a printed
+                 stack; boxed ear-tag range on the right (styled like
+                 the last-4 box in the ear-tag column). #}
               {% if pagedRows.length > 0 %}
                 <div class="app-sheet-footer">
-                  <span class="app-sheet-footer__range">
-                    {{ (pagedRows | first).earTagParts.last4 }}–{{ (pagedRows | last).earTagParts.last4 }}
+                  <span class="app-sheet-footer__farm">
+                    {{ data['herd']['farm'] }} - {{ data['herd']['cph'] or data['selectedCattle'] }}
                   </span>
                   <span class="app-sheet-footer__page">
                     Page {{ _currentPageClamped }} of {{ _totalPages }}
                   </span>
-                  <span class="app-sheet-footer__farm">
-                    {{ data['herd']['farm'] }} - {{ data['herd']['cph'] or data['selectedCattle'] }}
+                  <span class="app-sheet-footer__range">
+                    {{ (pagedRows | first).earTagParts.last4 }}–{{ (pagedRows | last).earTagParts.last4 }}
                   </span>
                 </div>
               {% endif %}
