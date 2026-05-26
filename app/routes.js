@@ -875,42 +875,49 @@ const v11AnimalsByCph = buildV11Dataset()
 const v12AnimalsByCph = Object.assign({}, v11AnimalsByCph)
 if (v12AnimalsByCph['12/312/6802']) {
   const millHouse = v11AnimalsByCph['12/312/6802']
-  // Mill House Farm's herd is set up to exercise the full skin-test
-  // reporting loop. Vaccinated cattle stay below 25% of the herd so
-  // the demo shows a predominantly unvaccinated farm. The 38-animal
-  // herd splits into:
-  //   - 30 unvaccinated cattle (indices 0–29)  → SICCT side (~79%)
-  //   - 2  recently vaccinated cattle (30–31)  → DIVA side, NOT overdue
-  //                                              (vaccinated 1–2 months
-  //                                              ago, inside the 12-month
-  //                                              protection window).
-  //   - 6  overdue cattle (indices 32–37)      → DIVA side, vaccinated
-  //                                              12–14 months ago and
-  //                                              flagged as overdue for
-  //                                              revaccination on the
-  //                                              herd briefing.
-  // Total vaccinated: 8 of 38 = ~21% (below 25%).
-  // Dates are anchored to the prototype's demo date (early May 2026)
-  // so the windows render predictably.
-  const recentVaxDates = ['04/26', '03/26']
+  // Mill House Farm is now a DIVA-only herd – every animal is BCG
+  // vaccinated, so the auto-setup flow derives prepareSkinTestType
+  // to 'DIVA' and the skin-test journey skips both the first-test
+  // picker and the SICCT loop. The 38-animal herd splits across
+  // three vaccination windows so the printed Eligibility column
+  // shows a realistic mix:
+  //   - 8  recently vaccinated cattle (indices 0–7)    → "Vaccinated"
+  //                                                       (1–9 months
+  //                                                       ago, inside
+  //                                                       the 46-week
+  //                                                       protection
+  //                                                       window).
+  //   - 5  cattle vaccinated 10–11 months ago (8–12)   → "Revaccination
+  //                                                       due DD/MM/YYYY"
+  //                                                       (over 46 weeks
+  //                                                       but inside the
+  //                                                       calendar year).
+  //   - 25 overdue cattle (indices 13–37)               → "Revaccination
+  //                                                       overdue"
+  //                                                       (vaccinated
+  //                                                       12+ months
+  //                                                       ago).
+  // Dates are anchored to the prototype's demo date (early May 2026).
+  const recentVaxDates = ['08/25', '11/25', '02/26', '04/26']
+  const dueVaxDates = ['06/25', '07/25']
   const overdueVaxDates = ['03/25', '04/25', '05/25']
-  const unvaccinatedCount = 30
-  const recentlyVaccinatedCount = 2
+  const recentlyVaccinatedCount = 8
+  const dueCount = 5
   v12AnimalsByCph['12/312/6802'] = millHouse.map(function (a, idx) {
-    if (idx < unvaccinatedCount) {
-      return Object.assign({}, a, {
-        vaccinationStatus: 'Not vaccinated',
-        vaccinationDate: ''
-      })
-    }
-    const offset = idx - unvaccinatedCount
-    if (offset < recentlyVaccinatedCount) {
+    if (idx < recentlyVaccinatedCount) {
       return Object.assign({}, a, {
         vaccinationStatus: 'Vaccinated',
-        vaccinationDate: recentVaxDates[offset % recentVaxDates.length]
+        vaccinationDate: recentVaxDates[idx % recentVaxDates.length]
       })
     }
-    const overdueOffset = offset - recentlyVaccinatedCount
+    const offset = idx - recentlyVaccinatedCount
+    if (offset < dueCount) {
+      return Object.assign({}, a, {
+        vaccinationStatus: 'Vaccinated',
+        vaccinationDate: dueVaxDates[offset % dueVaxDates.length]
+      })
+    }
+    const overdueOffset = offset - dueCount
     return Object.assign({}, a, {
       vaccinationStatus: 'Vaccinated',
       vaccinationDate: overdueVaxDates[overdueOffset % overdueVaxDates.length]
