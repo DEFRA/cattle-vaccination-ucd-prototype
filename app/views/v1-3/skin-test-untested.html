@@ -1,0 +1,141 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Were any cattle not tested? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref or "/v1-3/skin-test-reactors"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Ear tag rendering – matches the rest of the v1-2 skin-test
+     tables. The wrapper prints at the regular weight; only the last
+     4 digits are bold so the vet's eye lands on the individual
+     number. Duplicates underline the last-4 segment; under-test-age
+     cattle (DOB < 44 days ago) underline the DOB value. These are
+     content-presentation concerns that sit on top of the standard
+     GOV.UK table. */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 {
+    padding: 0;
+    font-weight: 700;
+  }
+  .app-ear-tag__part--last4--duplicate {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  .app-dob-cell--under-age {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  .app-vax-cell--check {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  /* The selection checkbox sits inside a govuk-table__cell. Drop the
+     usual govuk-checkboxes vertical margin so the row stays a clean
+     single line. */
+  .govuk-table .govuk-checkboxes__item { padding-left: 28px; margin-bottom: 0; }
+  .govuk-table .govuk-checkboxes__label { padding-top: 0; padding-bottom: 0; }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-three-quarters">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
+    <h1 class="govuk-heading-l">Identify the cattle</h1>
+
+    {% if animals.length == 0 %}
+      <p class="govuk-body">
+        Every animal on this visit has been accounted for. You can continue to the review step.
+      </p>
+      <form action="/v1-3/skin-test-untested" method="post" novalidate>
+        {{ govukButton({ text: "Continue to review" }) }}
+      </form>
+    {% else %}
+      <p class="govuk-body">
+        Select all cattle that were not tested.
+      </p>
+
+      <form action="/v1-3/skin-test-untested" method="post" novalidate>
+
+        {# Standard GOV.UK design system table. Each row is one
+           animal; the first cell carries the selection checkbox the
+           vet ticks to mark a not-tested animal. The ear-tag / DOB
+           columns reuse the same content-presentation classes as
+           the other v1-2 skin-test tables. #}
+        <table class="govuk-table">
+          <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+              <th scope="col" class="govuk-table__header">Select</th>
+              <th scope="col" class="govuk-table__header">Ear tag number</th>
+              <th scope="col" class="govuk-table__header">DOB</th>
+              <th scope="col" class="govuk-table__header">Sex</th>
+              <th scope="col" class="govuk-table__header">Breed</th>
+              <th scope="col" class="govuk-table__header">TB Vax</th>
+            </tr>
+          </thead>
+          <tbody class="govuk-table__body">
+            {% for animal in animals %}
+              <tr class="govuk-table__row">
+                <td class="govuk-table__cell">
+                  <div class="govuk-checkboxes govuk-checkboxes--small">
+                    <div class="govuk-checkboxes__item">
+                      <input class="govuk-checkboxes__input" id="untested-{{ loop.index }}" name="untested" type="checkbox" value="{{ animal.officialId }}" {% if animal.officialId in selectedUntested %}checked{% endif %}>
+                      <label class="govuk-label govuk-checkboxes__label" for="untested-{{ loop.index }}">
+                        <span class="govuk-visually-hidden">{{ animal.officialId }} was not tested</span>
+                      </label>
+                    </div>
+                  </div>
+                </td>
+                <td class="govuk-table__cell">
+                  <div class="app-ear-tag">
+                    <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--check">{{ animal.earTagParts.check }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ animal.earTagParts.individualStart }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--last4{% if animal.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                          {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
+                  </div>
+                </td>
+                <td class="govuk-table__cell{% if animal.isUnderTestAge %} app-dob-cell--under-age{% endif %}">{{ animal.dob }}</td>
+                <td class="govuk-table__cell">{{ animal.sex }}</td>
+                <td class="govuk-table__cell">{{ animal.breed }}</td>
+                <td class="govuk-table__cell{% if animal.isVaxCheckDue %} app-vax-cell--check{% endif %}">{{ animal.vaccinationDate or '-' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <div class="govuk-button-group">
+          {{ govukButton({ text: "Continue" }) }}
+        </div>
+
+      </form>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

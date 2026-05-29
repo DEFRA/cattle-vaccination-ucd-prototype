@@ -1,0 +1,301 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Which cattle reacted to the skin test? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/skin-test-reactors-any"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Ear tag rendering – matches the rest of the v1-2 skin-test
+     tables. The wrapper prints at the regular weight; only the last
+     4 digits are bold so the vet's eye lands on the individual
+     number. Duplicates underline the last-4 segment; under-test-age
+     cattle (DOB < 44 days ago) underline the DOB value. These are
+     content-presentation concerns that sit on top of the standard
+     GOV.UK table – the rest of the table layout uses the stock
+     `govuk-table` classes so the row spacing, header weight and
+     cell padding match every other GOV.UK service. */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 {
+    padding: 0;
+    font-weight: 700;
+  }
+  /* Duplicate last-4 segment – emphasised with a heavy 4px top and
+     bottom band wrapping just the four bold digits, no side borders.
+     Matches the duplicate treatment on /v1-3/download-list,
+     /v1-3/select-vaccinated-animals and /v1-3/skin-test-list so the
+     same flag reads the same across every v1-2 table. */
+  .app-ear-tag__part--last4--duplicate {
+    border: 0;
+    border-top: 4px solid #000;
+    border-bottom: 4px solid #000;
+  }
+  .app-dob-cell--under-age {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  .app-vax-cell--check {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  /* The selection checkbox sits inside a govuk-table__cell. Drop the
+     usual govuk-checkboxes vertical margin so the row stays a clean
+     single line. */
+  .govuk-table .govuk-checkboxes__item { padding-left: 28px; margin-bottom: 0; }
+  .govuk-table .govuk-checkboxes__label { padding-top: 0; padding-bottom: 0; }
+
+  /* "All" select-all checkbox in the table header. The standard
+     small-checkbox component reserves vertical space for the control
+     itself; without these overrides the "All" label sits lower than
+     the plain-text headers next to it. Zeroing out the item's
+     min-height + the label's vertical padding (and forcing
+     vertical-align: middle on every header cell in this table) brings
+     all the column headings onto the same baseline. */
+  .govuk-table th .govuk-checkboxes { margin: 0; }
+  .govuk-table th .govuk-checkboxes__item { min-height: 0; padding-left: 28px; }
+  .govuk-table th .govuk-checkboxes__label {
+    font-weight: 700;
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 1.25;
+  }
+  .govuk-table .govuk-table__header { vertical-align: middle; }
+
+  /* The first column carries a small checkbox + "All" label and
+     nothing else; the GDS label is inline-block with its own left
+     padding (to clear the box), so it needs enough horizontal room
+     to sit beside the box. We give the column a fixed width that's
+     just wide enough for the box + label, which both shrinks the
+     visual gap between "All" and "Ear tag number" and stops the
+     label wrapping below the box. */
+  .govuk-table .govuk-table__header:first-child,
+  .govuk-table .govuk-table__cell:first-child {
+    width: 6rem;
+  }
+  .govuk-table th .govuk-checkboxes__label,
+  .govuk-table th .govuk-checkboxes__item {
+    white-space: nowrap;
+  }
+
+  /* Pull the small checkbox box back to the left of its container.
+     The GDS small-checkbox component absolute-positions the input
+     about 36px from the left edge of the __item to leave room for an
+     optional hint that we don't use here; the negative margin-left
+     undoes that offset so the box and its "All" / row label sit
+     tight together. */
+  .govuk-checkboxes--small .govuk-checkboxes__input {
+    margin-left: -36px;
+  }
+
+  /* Body cells centre-align with the rest of the row so each tick
+     box, ear tag, DOB, sex and breed sit on a common vertical line
+     (mirrors /v1-3/select-vaccinated-animals). */
+  .govuk-table .govuk-table__cell { vertical-align: middle; }
+
+  /* Page-boundary divider row. Renders before every chunk of 20
+     reactors so the on-screen marking table mirrors the page breaks
+     on the printed sheet. Each divider is a white card with a light
+     border (1px / #b1b4b6, 16/20 padding) and an H2 "Page N of M"
+     heading sized to the GOV.UK medium scale. Matches the divider
+     used on /v1-3/select-vaccinated-animals. */
+  .app-page-divider td {
+    border: 1px solid #b1b4b6;
+    background-color: #ffffff;
+    padding: 16px 20px;
+  }
+  .app-page-divider h2 {
+    margin: 0;
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-three-quarters">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {# v1-2 covers both tests in one combined picker for the Both
+       journey, so the caption drops the per-test label. Single-test
+       and v1-1 Both journeys still see the SICCT / DIVA caption. #}
+    {% set captionLabel = currentTestLabel or data['skinTestType'] or 'Skin test' %}
+    {% if isCombinedBoth %}
+      <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    {% else %}
+      <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ captionLabel }}</span>
+    {% endif %}
+    <h1 class="govuk-heading-l">
+      Identify the cattle
+    </h1>
+
+    <p class="govuk-body">
+      Select all cattle that seemed to show a detectable reaction.
+    </p>
+
+  </div>
+</div>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-three-quarters">
+
+    <form action="/v1-3/skin-test-reactors" method="post" novalidate>
+
+      <fieldset class="govuk-fieldset" aria-describedby="reactor-error">
+        <legend class="govuk-visually-hidden">Cattle that reacted</legend>
+
+        {% if errors and errors['reactors'] %}
+          <p id="reactor-error" class="govuk-error-message">
+            <span class="govuk-visually-hidden">Error:</span> {{ errors['reactors'].text }}
+          </p>
+        {% endif %}
+
+        {# Standard GOV.UK design system table. Each row is one
+           animal; the first cell carries the selection checkbox the
+           vet ticks to mark a reactor. The ear-tag / DOB / vaccination
+           columns reuse the same content-presentation classes as the
+           other v1-2 skin-test tables (bold last-4, underlines for
+           duplicates and under-age cattle). #}
+        <table class="govuk-table">
+          <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+              <th scope="col" class="govuk-table__header">
+                <div class="govuk-checkboxes govuk-checkboxes--small">
+                  <div class="govuk-checkboxes__item">
+                    <input class="govuk-checkboxes__input" id="select-all-reactors" type="checkbox">
+                    <label class="govuk-label govuk-checkboxes__label" for="select-all-reactors">All</label>
+                  </div>
+                </div>
+              </th>
+              <th scope="col" class="govuk-table__header">Ear tag number</th>
+              <th scope="col" class="govuk-table__header">DOB</th>
+              <th scope="col" class="govuk-table__header">Sex</th>
+              <th scope="col" class="govuk-table__header">Breed</th>
+              <th scope="col" class="govuk-table__header">TB Vax</th>
+            </tr>
+          </thead>
+          {# Page divider logic. The reactor picker chunks 20 cattle
+             per page to mirror the printed-list page breaks. The
+             first divider sits above the first row ("Page 1 of M")
+             so every animal is clearly grouped under a page. The
+             table has 6 columns, so the divider td uses colspan=6. #}
+          {% set _pageSize = 20 %}
+          {% set _totalPages = ((animals.length + _pageSize - 1) / _pageSize) | int %}
+          {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+          <tbody class="govuk-table__body">
+            {% for animal in animals %}
+              {% if loop.index0 % _pageSize == 0 %}
+                {% set _pageNumber = (loop.index0 / _pageSize) | int + 1 %}
+                <tr class="app-page-divider">
+                  <td colspan="6">
+                    <h2 class="govuk-heading-m">Page {{ _pageNumber }} of {{ _totalPages }}</h2>
+                  </td>
+                </tr>
+              {% endif %}
+              <tr class="govuk-table__row">
+                <td class="govuk-table__cell">
+                  <div class="govuk-checkboxes govuk-checkboxes--small">
+                    <div class="govuk-checkboxes__item">
+                      <input class="govuk-checkboxes__input js-reactor-checkbox" id="reactor-{{ loop.index }}" name="reactors" type="checkbox" value="{{ animal.officialId }}" {% if animal.officialId in selectedReactors %}checked{% endif %}>
+                      <label class="govuk-label govuk-checkboxes__label" for="reactor-{{ loop.index }}">
+                        <span class="govuk-visually-hidden">{{ animal.officialId }} reacted</span>
+                      </label>
+                    </div>
+                  </div>
+                </td>
+                <td class="govuk-table__cell">
+                  <div class="app-ear-tag">
+                    <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--check">{{ animal.earTagParts.check }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ animal.earTagParts.individualStart }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--last4{% if animal.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                          {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
+                  </div>
+                </td>
+                <td class="govuk-table__cell{% if animal.isUnderTestAge %} app-dob-cell--under-age{% endif %}">{{ animal.dob }}</td>
+                <td class="govuk-table__cell">{{ animal.sex }}</td>
+                <td class="govuk-table__cell">{{ animal.breed }}</td>
+                <td class="govuk-table__cell{% if animal.isVaxCheckDue %} app-vax-cell--check{% endif %}">{{ animal.vaccinationDate or '-' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </fieldset>
+
+      <div class="govuk-button-group">
+        {{ govukButton({ text: "Continue" }) }}
+      </div>
+
+    </form>
+
+    {# Skip link – the vet may have answered "Yes" on the gate page
+       but, on seeing the cattle, decided that none of them
+       reacted after all. Posting to /skip records zero reactors
+       for this phase and routes onward (next phase for Both, or
+       the all-tested gate). #}
+    <form action="/v1-3/skin-test-reactors/skip" method="post" class="govuk-!-margin-top-4">
+      <p class="govuk-body govuk-!-margin-bottom-0">
+        <button type="submit"
+                class="govuk-link"
+                style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
+          None of these cattle reacted
+        </button>
+      </p>
+    </form>
+
+  </div>
+</div>
+
+<script>
+  // Wire the header "All" checkbox to every row checkbox – ticking
+  // it ticks all rows, unticking it clears them, and editing an
+  // individual row keeps the header in sync (including the
+  // indeterminate state when only some rows are selected).
+  document.addEventListener('DOMContentLoaded', function () {
+    var selectAll = document.getElementById('select-all-reactors')
+    var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-reactor-checkbox'))
+
+    if (!selectAll || !checkboxes.length) {
+      return
+    }
+
+    function syncSelectAll () {
+      var checkedCount = checkboxes.filter(function (checkbox) { return checkbox.checked }).length
+      selectAll.checked = checkedCount === checkboxes.length
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length
+    }
+
+    selectAll.addEventListener('change', function () {
+      checkboxes.forEach(function (checkbox) {
+        checkbox.checked = selectAll.checked
+      })
+      syncSelectAll()
+    })
+
+    checkboxes.forEach(function (checkbox) {
+      checkbox.addEventListener('change', syncSelectAll)
+    })
+
+    syncSelectAll()
+  })
+</script>
+{% endblock %}

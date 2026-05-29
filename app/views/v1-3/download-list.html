@@ -1,0 +1,937 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  List of cattle to vaccinate – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/list-format"
+}) }}
+{% endblock %}
+
+{% block content %}
+{% set fieldColumns = previewColumns or [] %}
+{% set selectedPreviewOptions = previewOptions or [] %}
+{% set isCsv = downloadFormat == 'csv' %}
+
+{# v1-2: vaccination list. A single group of cattle to vaccinate.
+   Each preview is paginated so a single "page" of the preview maps
+   to one A4 sheet (default 25 rows). #}
+{% set _pageSize = pageSize or 25 %}
+{% set _currentPage = currentPage or 1 %}
+{% set previewGroups = [{
+  key: 'vaccination',
+  label: 'vaccination',
+  rows: previewRows,
+  count: previewCount
+}] %}
+
+<style>
+  .app-page-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 30px;
+    align-items: start;
+  }
+  /* v1-2 settings sit in a horizontal bar above the list. The
+     individual fieldsets line up across the row and wrap onto new
+     rows on narrower screens. */
+  .app-filter-bar {
+    border: 1px solid #b1b4b6;
+    background: #f8f8f8;
+    padding: 20px;
+    margin: 0 0 24px;
+    font-family: "GDS Transport", arial, sans-serif;
+  }
+  /* "List settings" disclosure – a clearer block with a secondary
+     button as the trigger so it reads as a real action, not a small
+     link. The summary line above is bumped up to standard body size. */
+  .app-list-summary {
+    margin: 0 0 12px;
+    color: #0b0c0c;
+  }
+  .app-list-settings {
+    margin: 0 0 24px;
+  }
+  .app-list-settings__toggle {
+    list-style: none;
+    cursor: pointer;
+    display: inline-block;
+  }
+  .app-list-settings__toggle::-webkit-details-marker { display: none; }
+  .app-list-settings__toggle::marker { display: none; content: ''; }
+  .app-list-settings__panel {
+    margin-top: 20px;
+    border: 1px solid #b1b4b6;
+    background: #f8f8f8;
+    padding: 24px;
+  }
+  /* Flip the open/close caret on the button-styled summary. */
+  .app-list-settings__toggle .app-list-settings__caret { display: inline-block; margin-left: 6px; }
+  details[open] > .app-list-settings__toggle .app-list-settings__caret { transform: rotate(180deg); }
+  .app-filter-bar__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px 30px;
+    align-items: start;
+  }
+  .app-filter-bar__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #b1b4b6;
+  }
+  .app-filter-bar .govuk-form-group { margin-bottom: 0; }
+  .app-filter-bar .govuk-radios,
+  .app-filter-bar .govuk-checkboxes { margin-bottom: 0; }
+  .app-filter-panel {
+    border: 1px solid #b1b4b6;
+    background: #f8f8f8;
+    padding: 20px;
+    top: 20px;
+    font-family: "GDS Transport", arial, sans-serif;
+  }
+  .app-filter-panel .govuk-label,
+  .app-filter-panel .govuk-fieldset__legend,
+  .app-filter-panel .govuk-radios__label,
+  .app-filter-panel .govuk-checkboxes__label,
+  .app-filter-panel .govuk-button,
+  .app-filter-panel .govuk-link,
+  .app-filter-panel .govuk-body,
+  .app-filter-panel .govuk-body-s {
+    font-size: 19px;
+    line-height: 1.31579;
+  }
+  .app-filter-panel .govuk-heading-m {
+    font-family: "GDS Transport", arial, sans-serif;
+  }
+  .app-filter-panel .govuk-radios,
+  .app-filter-panel .govuk-checkboxes,
+  .app-filter-panel .govuk-form-group:last-child {
+    margin-bottom: 0;
+  }
+  .app-results-header {
+    margin-bottom: 20px;
+  }
+  .app-results-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .app-sheet, .app-sheet * { font-family: Arial, Helvetica, sans-serif; }
+  .app-sheet {
+    background: #ffffff;
+    border: 2px solid #0b0c0c;
+    padding: 18px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .app-sheet--portrait { max-width: 100%; }
+  .app-sheet--landscape { max-width: 100%; }
+
+  /* Header printed above the list on every A4 sheet. On page 1 the
+     left slot holds the "<Farm> - vaccination list" title (replacing
+     the old govuk-table caption) and the right slot holds the boxed
+     ear-tag range. On pages 2+ the title slot is empty and the
+     range sits on the right (margin-left: auto pushes it across).
+     Mirrors the footer-right slot so each loose page is identifiable
+     at a glance whether the vet sees the head or the foot. */
+  .app-sheet-header {
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #0b0c0c;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #0b0c0c;
+  }
+  .app-sheet-header__title {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 700;
+    font-size: 1.5em;
+    line-height: 1.2;
+  }
+  .app-sheet-header__range {
+    margin-left: auto;
+    display: inline-block;
+    padding: 4px 8px;
+    background-color: #0b0c0c;
+    color: #ffffff;
+    font-size: 1.2em;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  /* Footer printed under the list on every A4 sheet. Three slots:
+     the farm name and CPH on the left so each loose printed page is
+     identifiable even if it gets separated from the cover sheet,
+     "Page X of Y" centred so the vet can flick through a printed
+     stack and read the page indicator at a glance, and the boxed
+     ear-tag range on the right (matches the boxed last-4 in the
+     ear-tag column above). */
+  .app-sheet-footer {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid #0b0c0c;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 10px;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #0b0c0c;
+  }
+  .app-sheet-footer__farm {
+    justify-self: start;
+    font-weight: 700;
+    text-align: left;
+  }
+  .app-sheet-footer__page {
+    justify-self: center;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .app-sheet-footer__range {
+    justify-self: end;
+    display: inline-block;
+    /* Black-fill page-footer range box: a little larger than the
+       boxed last-4 in the ear-tag column so it stands out at the
+       bottom of each printed page when the vet flicks through the
+       stack. The font-size scales with the sheet (1.2em of whatever
+       the Easy / Compact text size is) so it stays proportionally
+       larger than the table content above. */
+    padding: 4px 8px;
+    background-color: #0b0c0c;
+    color: #ffffff;
+    font-size: 1.2em;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .app-sheet--text-tiny { font-size: 11px; }
+  .app-sheet--text-small { font-size: 14px; }
+  .app-sheet--text-standard { font-size: 16px; }
+  .app-sheet--text-large { font-size: 19px; }
+
+  /* The page-1 metadata table is a govuk-table, which defaults to
+     ~19px from GOV.UK Frontend. Inside the printable sheet we want
+     it to match the records table below (which inherits the sheet's
+     text-size class), so all of the metadata header / cell text
+     tracks the same font-size scale as the rest of the printed
+     sheet. The caption stays slightly larger as a section heading. */
+  .app-sheet .govuk-table,
+  .app-sheet .govuk-table__header,
+  .app-sheet .govuk-table__cell {
+    font-size: inherit;
+    line-height: 1.25;
+  }
+
+  /* Default padding (also used for "standard" spacing). Cells always get at
+     least this much room so text never touches the border. Tightened
+     so every column reads at the same compact visual weight. */
+  .app-record-table th,
+  .app-record-table td {
+    padding: 4px 6px;
+  }
+  .app-sheet--spacing-xtight .app-record-table th,
+  .app-sheet--spacing-xtight .app-record-table td { padding: 2px 3px; }
+  .app-sheet--spacing-tight .app-record-table th,
+  .app-sheet--spacing-tight .app-record-table td { padding: 3px 5px; }
+  .app-sheet--spacing-standard .app-record-table th,
+  .app-sheet--spacing-standard .app-record-table td { padding: 4px 6px; }
+  .app-sheet--spacing-spaced .app-record-table th,
+  .app-sheet--spacing-spaced .app-record-table td { padding: 6px 8px; }
+
+  .app-record-table {
+    width: 100%;
+    /* Force the table to keep its minimum usable width. When the viewport
+       is narrower, the wrapping .app-sheet will scroll horizontally. */
+    min-width: 900px;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  /* Vaccination date / batch number entry table. Sits directly under
+     the metadata table on page 1 (6px gap above) and uses width:100%
+     so it never extends past the records table below. Each body cell
+     is an empty bordered box, the same height as the empty Vaccinated
+     cells in the records table, so the vet can write the visit date
+     and batch number into the box by hand on the printed sheet. */
+  .app-entry-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    margin-top: 6px;
+    margin-bottom: 12px;
+  }
+  .app-entry-table th {
+    text-align: left;
+    font-weight: 700;
+    padding: 4px 6px;
+    line-height: 1.2;
+    color: #0b0c0c;
+  }
+  /* Metadata table labels (CPH, Cattle on this list, Date list was
+     made) are styled to match the entry-table headers below: solid
+     black, bold, Arial, same line-height. Without this override the
+     govuk-table cell colour can render slightly muted / off-black
+     compared to the entry-table headers. */
+  .app-sheet .govuk-table__cell,
+  .app-sheet .govuk-table__cell strong {
+    color: #0b0c0c;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 400;
+  }
+  .app-sheet .govuk-table__cell strong {
+    font-weight: 700;
+  }
+  .app-entry-table td {
+    border: 1px solid #0b0c0c;
+    height: 2.4em;
+    padding: 4px 6px;
+  }
+
+  /* Blank "Additional cattle" sheet that follows the last data page.
+     Same look and feel as the records table but with a simpler set of
+     columns (Ear tag, DOB, Sex, Breed, Remarks) and a long stack of
+     empty rows the vet can write into by hand. The Remarks column has
+     no fixed width so it absorbs whatever's left over after the four
+     fixed-width columns – it always reaches the right edge of the
+     table. The page-break rule ensures the blank page prints onto its
+     own A4 sheet rather than continuing the previous page. */
+  .app-blank-sheet {
+    margin-top: 24px;
+  }
+  @media print {
+    .app-blank-sheet {
+      page-break-before: always;
+    }
+  }
+  .app-blank-table th:not([class*="app-col-"]),
+  .app-blank-table td:not([class*="app-col-"]) {
+    /* Remarks column – no width, takes the remaining space. */
+    width: auto;
+  }
+  .app-record-table th,
+  .app-record-table td {
+    border: 1px solid #0b0c0c;
+    vertical-align: middle;
+    box-sizing: border-box;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+  .app-record-table th {
+    background: #ffffff;
+    text-align: center;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .app-record-table td {
+    height: 2.4em;
+  }
+  /* Column widths are generous enough for every value (including padding) so
+     no text is squished against a border. The ear-tag column allows
+     room for an inline DUP badge after the last-4 box without
+     overflowing into the next column, but stays tight so non-DUP
+     rows don't leave a wide gap to the right of the digits. */
+  /* Header-less tick column that sits to the left of the ear-tag
+     column. Widened to 2.9rem (5/3 of the previous 1.75rem so it's
+     two-thirds larger), giving the vet a more generous box to mark
+     each row by hand without taking real estate from the data
+     columns. Padding is stripped on the right edge and the matching
+     left edge of the ear-tag column is also flush, so the tick box
+     sits directly against the ear-tag digits with no visible gap
+     between the two cells. */
+  .app-col-tick    { width: 2.9rem; text-align: center !important; padding-left: 2px !important; padding-right: 0 !important; }
+  .app-col-ear-tag { width: 10.5rem; text-align: right !important; padding-left: 0 !important; }
+  /* Notes column on the far right – wide writable space the vet can
+     use to jot observations against each animal. Left-aligned and
+     padded so handwriting has room without crowding the table border. */
+  .app-col-write-notes { text-align: left !important; padding-left: 8px !important; padding-right: 8px !important; }
+  .app-col-age      { width: 3.5rem; text-align: center !important; }
+  .app-col-sex      { width: 3.5rem; text-align: center !important; }
+  .app-col-breed    { width: 4.5rem; text-align: left !important; }
+  .app-col-dob      { width: 7rem;   text-align: right !important; font-variant-numeric: tabular-nums; }
+  .app-col-narrow   { width: 3.5rem; text-align: center !important; }
+  /* "Test" column on the combined SICCT/DIVA list. Width is tuned
+     to fit "SICCT" / "DIVA" comfortably; horizontal padding is
+     inherited from the table so it lines up with every other column
+     instead of looking chunkier. */
+  .app-col-test     { width: 4rem; text-align: center !important; }
+  /* VAX column – shows the month/year (MM/YY) the animal was BCG
+     vaccinated, or empty for unvaccinated. Wide enough to fit a
+     5-character date string (e.g. "01/25") at every text size, with
+     tabular numerals so dates line up vertically down the column. */
+  .app-col-vax      { width: 4.5rem; text-align: center !important; font-variant-numeric: tabular-nums; }
+  .app-col-label    { width: 2.75rem; text-align: center !important; font-weight: 700; background: #ffffff; }
+  /* DIVA is bovine-only, so the Site cell is left blank. Shade it
+     so the vet can see at a glance that the row is single-line and
+     no value is expected there. */
+  .app-col-label--na { background: #f3f2f1; }
+  /* Skin measurement boxes (Pre, Post) and the Reaction desc /
+     Overall result columns. Wider than the previous 3.5/4.5rem so
+     the input boxes have actual writing space rather than being
+     squished against vertical headings. */
+  .app-col-skin     { width: 5rem;   text-align: center !important; }
+  .app-col-reaction { width: 6.5rem; text-align: center !important; }
+  .app-col-overall  { width: 5rem;   text-align: center !important; }
+  /* Eligibility column – the label can be as long as
+     "Eligible on 19/05/2026", so give the column enough room to
+     fit that without wrapping, and left-align the text so all the
+     labels read in a tidy column rather than being centred. */
+  .app-col-notes    { width: 9.5rem; text-align: left !important; padding-left: 8px !important; padding-right: 8px !important; }
+  /* Vaccinated column – two small tick boxes labelled Y and N so the
+     vet can mark whether each animal was vaccinated on the visit.
+     Slightly wider than before so both boxes + labels sit comfortably
+     under the "Vaccinated" header without crowding the Remarks
+     column. */
+  .app-col-vaccinated { width: 7.5rem; text-align: center !important; padding-left: 8px !important; padding-right: 8px !important; }
+  /* Yes / No tick pair rendered inside each Vaccinated cell. Each
+     box is an empty bordered square the vet ticks with a pen on the
+     printed sheet. The Y / N label sits to the left of its box. */
+  .app-tick-pair {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    line-height: 1;
+  }
+  .app-tick {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    font-size: 0.85em;
+  }
+  .app-tick__box {
+    display: inline-block;
+    width: 0.95em;
+    height: 0.95em;
+    border: 1px solid #0b0c0c;
+    box-sizing: border-box;
+  }
+  /* Thicker border between animals (each animal = 1 row wrapped in a tbody) */
+  .app-record-table tbody + tbody th,
+  .app-record-table tbody + tbody td {
+    border-top: 2px solid #0b0c0c;
+  }
+  /* The ear-tag value and its flags live in a single inline-grid column.
+     The column's width tracks whichever child is wider (normally the ear
+     tag), so the flags are right-aligned to the *right edge of the
+     last-5-digit individual box* – not the right edge of the whole cell. */
+  .app-ear-tag-wrapper {
+    display: inline-grid;
+    grid-template-columns: max-content;
+  }
+  /* Flags shown below the ear tag.
+     - Right-aligned within the wrapper's grid column.
+     - Each flag uses the darkest ink from the GDS palette with white text.
+     - Vaccinated sits first; DUP always sits furthest right when both are
+       present, with visible space between them. */
+  .app-ear-tag-flags {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 6px;
+    line-height: 1;
+  }
+  .app-tag-dark {
+    /* VAX / DUP flags: light-grey background, dark-grey text
+       (a shade lighter than the body black), matching the GDS
+       secondary text colour #505a5f. */
+    display: inline-block;
+    background-color: #f3f2f1;
+    color: #505a5f;
+    font-family: "GDS Transport", arial, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    text-transform: uppercase;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  /* Inside the printed records table, the VAX flag uses the same
+     compact padding as the boxed last-4 in the ear-tag column above
+     so the two "boxes" sitting on the same row line up at the same
+     visual weight. (Duplicates are now shown by inverting the
+     last-4 box, so there's no DUP badge to match.) */
+  .app-record-table .app-tag-dark {
+    padding: 2px 3px;
+  }
+  .app-vertical-heading {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    display: inline-block;
+    line-height: 1;
+    padding: 4px 0;
+  }
+  /* Ear tag rendering – matches /v1-3/skin-test-list and the rest of
+     the v1-2 data-entry tables. The wrapper prints at the regular
+     weight; only the last 4 digits are bold so the vet's eye lands
+     on the individual number. There's no surrounding box – the
+     bolder weight alone makes them stand out. Duplicates underline
+     the last-4 segment; recently-vaccinated animals underline the
+     DOB value (this is the equivalent of the skin-test list's
+     "under-test-age" flag for the vaccination journey). */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 {
+    padding: 0;
+    font-weight: 700;
+  }
+  /* Duplicate last-4 segment – emphasised with a heavy 4px top and
+     bottom band wrapping just the four bold digits, no side borders.
+     The rest of the row keeps its normal printed-table styling, so
+     only the duplicated number itself jumps off the page. */
+  .app-ear-tag__part--last4--duplicate {
+    border: 0;
+    border-top: 4px solid #000;
+    border-bottom: 4px solid #000;
+  }
+  /* TB Vax cells where the vaccination is in the 11–12 month window
+     get the value underlined so the vet sees at a glance which
+     animals are due a booster. Matches the duplicate underline above
+     so the print sheet has one consistent emphasis style. */
+  .app-vax-cell--check {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  @media (max-width: 900px) {
+    .app-page-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media print {
+    /* Hide the page chrome AND the on-screen-only headings/actions so only
+       the printable sheet ends up on the printed page. The H1 "List of
+       cattle to vaccinate", the "Preview" heading + its intro paragraph,
+       the inset text, the settings bar, the pagination and the
+       "Print this list" button rows are all dropped. */
+    .govuk-back-link, .govuk-button, .govuk-link, .app-filter-panel,
+    .app-filter-bar, .app-list-summary, .app-list-settings,
+    .govuk-details, .govuk-inset-text,
+    .govuk-pagination, .govuk-caption-l,
+    .govuk-header, .govuk-footer, .govuk-phase-banner,
+    .govuk-breadcrumbs, .govuk-service-navigation,
+    h1, .app-results-header, .app-results-actions { display: none !important; }
+    body, .govuk-width-container, .govuk-main-wrapper {
+      margin: 0 !important;
+      padding: 0 !important;
+      max-width: none !important;
+    }
+    .app-sheet { margin: 0; border: 1px solid #0b0c0c; }
+    .app-record-table thead { display: table-header-group; }
+    /* Keep each animal's row together on the same printed page */
+    .app-record-table tbody { page-break-inside: avoid; break-inside: avoid; }
+    @page { size: A4 portrait; margin: 10mm; }
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    {# Caption shows the current list. #}
+    <span class="govuk-caption-l">
+      {{ data['herd']['farm'] }} 
+    </span>
+    <h1 class="govuk-heading-l govuk-!-margin-bottom-4">
+      List of cattle to vaccinate
+    </h1>
+
+    {# Summary line + secondary-button disclosure.
+       The summary line above always reflects the current state so the
+       choice is discoverable; the button next to it opens the form
+       panel for the few vets who want to change defaults. The "View"
+       value mirrors the current Cattle-on-each-page setting (20 or
+       40) so vets see at a glance how dense the printed sheet will
+       be. #}
+    {% set viewCount = 40 if listLook == 'compact' else 20 %}
+    <p class="app-list-summary govuk-body">
+      <strong>{{ totalCattle or previewCount }} cattle on this farm</strong>
+      &middot; View: {{ viewCount }} cattle per page
+    </p>
+
+    <details class="app-list-settings">
+      <summary class="app-list-settings__toggle govuk-button govuk-button--secondary" role="button" data-module="govuk-button">
+        Change list settings
+        <span class="app-list-settings__caret" aria-hidden="true">▾</span>
+      </summary>
+      <div class="app-list-settings__panel">
+        <form method="post" action="/v1-3/download-list">
+
+          {{ govukRadios({
+            idPrefix: "listLook",
+            name: "listLook",
+            classes: "govuk-radios--small",
+            fieldset: { legend: { text: "Cattle on each page", classes: "govuk-fieldset__legend--s" } },
+            hint: { text: "Decide how many cattle you want to see on each page." },
+            items: [
+              { value: "easy",    text: "20", checked: (listLook or 'easy') == 'easy' },
+              { value: "compact", text: "40", checked: listLook == 'compact' }
+            ]
+          }) }}
+
+          {{ govukRadios({
+            idPrefix: "sortBy",
+            name: "sortBy",
+            classes: "govuk-radios--small govuk-!-margin-top-4",
+            fieldset: { legend: { text: "Sort the list by", classes: "govuk-fieldset__legend--s" } },
+            items: [
+              { value: "Ear-tag number (last 5 digits)", text: "Ear tag (last 4 digits)", hint: { text: "Default" }, checked: (data['vaccinationSortBy'] or 'Ear-tag number (last 5 digits)') == "Ear-tag number (last 5 digits)" },
+              { value: "Age", text: "Age", checked: data['vaccinationSortBy'] == "Age" },
+              { value: "Sex", text: "Sex", checked: data['vaccinationSortBy'] == "Sex" }
+            ]
+          }) }}
+
+          <div class="govuk-button-group govuk-!-margin-top-4">
+            {{ govukButton({ text: "Apply changes", classes: "govuk-!-margin-bottom-0" }) }}
+            <a class="govuk-link" href="/v1-3/download-list/reset">Clear my settings</a>
+          </div>
+        </form>
+      </div>
+    </details>
+
+    <div>
+        <div class="app-results-header">
+          <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Preview</h2>
+          <p class="govuk-body govuk-!-margin-bottom-0">You can adjust the list settings to create the list layout you want.</p>
+        </div>
+
+        {% for group in previewGroups %}
+          {# Pagination: slice the rows for this preview down to the
+             current page so it represents one A4 sheet at a time.
+             A blank "Additional cattle" page is appended after the
+             data pages, so _totalPages = data pages + 1 and the
+             blank page is at _totalPages. On the blank page we don't
+             slice any data rows – we render the blank sheet instead. #}
+          {% set _dataPages = ((group.count + _pageSize - 1) / _pageSize) | int %}
+          {% if _dataPages < 1 %}{% set _dataPages = 1 %}{% endif %}
+          {% set _totalPages = _dataPages + 1 %}
+          {% set _currentPageClamped = _currentPage %}
+          {% if _currentPageClamped > _totalPages %}{% set _currentPageClamped = _totalPages %}{% endif %}
+          {% set _isBlankPage = _currentPageClamped == _totalPages %}
+          {% if _isBlankPage %}
+            {% set pagedRows = [] %}
+          {% else %}
+            {% set _start = (_currentPageClamped - 1) * _pageSize %}
+            {% set _end = _start + _pageSize %}
+            {% set pagedRows = group.rows.slice(_start, _end) %}
+          {% endif %}
+
+          {% if group.count == 0 %}
+            <p class="govuk-body">There are no cattle on this farm for the {{ group.label }} list.</p>
+          {% elif _isBlankPage %}
+            {# Blank "Additional cattle" page – the final paginated
+               sheet for this group. Same .app-sheet wrapper as the
+               data pages, with a simpler 5-column table the vet can
+               write any unlisted cattle into by hand. #}
+            <div class="app-sheet app-sheet--{{ previewOrientation or 'portrait' }} app-sheet--text-{{ previewTextSize or 'standard' }} app-sheet--spacing-{{ previewSpacing or 'standard' }} app-blank-sheet">
+              <div class="app-sheet-header">
+                <span class="app-sheet-header__range">Blank page</span>
+              </div>
+              <h2 class="govuk-heading-m" style="font-family: Arial, Helvetica, sans-serif; margin-bottom: 8px;">
+                {{ data['herd']['farm'] }} - Blank page
+              </h2>
+              <p class="govuk-body" style="font-family: Arial, Helvetica, sans-serif; margin-bottom: 16px;">
+                This page left blank to capture unexpected cattle.
+              </p>
+              <table class="app-record-table app-blank-table">
+                <thead>
+                  <tr>
+                    <th scope="col" class="app-col-tick" aria-label="Mark"></th>
+                    <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+                    <th scope="col" class="app-col-dob">DOB</th>
+                    <th scope="col" class="app-col-sex">Sex</th>
+                    <th scope="col" class="app-col-breed">Breed</th>
+                    <th scope="col">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for _i in range(0, 25) %}
+                    <tr>
+                      <td class="app-col-tick"></td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+
+              <div class="app-sheet-footer">
+                <span class="app-sheet-footer__farm">
+                  {{ data['herd']['farm'] }} - {{ data['herd']['cph'] or data['selectedCattle'] }}
+                </span>
+                <span class="app-sheet-footer__page">
+                  Page {{ _currentPageClamped }} of {{ _totalPages }}
+                </span>
+                <span class="app-sheet-footer__range">Blank page</span>
+              </div>
+            </div>
+          {% elif isCsv %}
+            <div class="app-sheet">
+              <table class="app-record-table">
+                <thead>
+                  <tr>
+                    <th scope="col" class="app-col-tick" aria-label="Mark"></th>
+                    <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+                    <th scope="col" class="app-col-notes">Eligibility</th>
+                    <th scope="col" class="app-col-vax">TB Vax</th>
+                    {% for column in fieldColumns %}
+                      {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
+                      <th scope="col">{{ headingText }}</th>
+                    {% endfor %}
+                    <th scope="col" class="app-col-write-notes">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in pagedRows %}
+                  <tr>
+                    <td class="app-col-tick"></td>
+                    <td class="app-col-ear-tag">{{ row.officialId }}</td>
+                    <td class="app-col-notes">{{ row.eligibilityLabel }}</td>
+                    <td class="app-col-vax{% if row.isRecentlyVaccinated %} app-vax-cell--check{% endif %}">{{ row.vaccinationDate or '-' }}</td>
+                    {% for cell in row.cells %}
+                      <td>{{ cell.value }}</td>
+                    {% endfor %}
+                    <td class="app-col-write-notes"></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="app-sheet app-sheet--{{ previewOrientation or 'portrait' }} app-sheet--text-{{ previewTextSize or 'standard' }} app-sheet--spacing-{{ previewSpacing or 'standard' }}">
+
+              {# Top-of-sheet header. On page 1 the title
+                 "<Farm> - vaccination list" sits on the left and the
+                 boxed ear-tag range on the right, so the two appear on
+                 the same line. On pages 2+ the title is omitted and
+                 only the range is shown – the range is right-aligned
+                 either way (margin-left: auto). Mirrors the boxed
+                 ear-tag range in the footer so the page's range is
+                 visible at the top right as well as the bottom right. #}
+              {% if pagedRows.length > 0 %}
+                <div class="app-sheet-header">
+                  {% if _currentPageClamped == 1 %}
+                    <span class="app-sheet-header__title">
+                      {{ data['herd']['farm'] }} - {{ group.label }} list
+                    </span>
+                  {% endif %}
+                  <span class="app-sheet-header__range">
+                    {{ (pagedRows | first).earTagParts.last4 }}–{{ (pagedRows | last).earTagParts.last4 }}
+                  </span>
+                </div>
+              {% endif %}
+
+              {# Metadata table (CPH, count, date) only appears on
+                 page 1. The data is the same on every sheet, so
+                 reprinting it on pages 2+ wastes space that the
+                 records table can use for more rows. The page-1
+                 sheet remains the "cover" sheet and the rest are
+                 pure data continuations. The govuk-table caption
+                 used to hold "<Farm> - vaccination list"; that title
+                 has moved into the sheet header above so it can sit
+                 on the same line as the ear-tag range. #}
+              {% if _currentPageClamped == 1 %}
+                <table class="govuk-table govuk-!-margin-bottom-0"
+                       style="min-width: 900px; table-layout: fixed;">
+                  <tr class="govuk-table__row">
+                    <td class="govuk-table__cell">
+                      <strong>CPH:</strong><br/>{{ data['herd']['cph'] or data['selectedCattle'] }}
+                    </td>
+                    <td class="govuk-table__cell">
+                      <strong>Cattle on this list:</strong><br/>{{ group.count }}
+                    </td>
+                    <td class="govuk-table__cell">
+                      <strong>Date list was made;</strong><br/>
+                      <span class="js-date-printed"></span>
+                    </td>
+                  </tr>
+                </table>
+
+                {# Data-entry fields the vet fills in by hand on the
+                   printed sheet: vaccination date and batch number,
+                   recorded once for the whole visit. Each value is a
+                   writable empty box, sized like the Vaccinated boxes
+                   in the records table. The table sits directly under
+                   the metadata above (only 6px top gap) and uses
+                   width:100% so it never extends past the records
+                   table below. #}
+                <table class="app-entry-table">
+                  <thead>
+                    <tr>
+                      <th scope="col" style="width: 20%;">Today's date:</th>
+                      <th scope="col" style="width: 20%;">Vaccine batch number:</th>
+                      <th scope="col" style="width: 20%;">Vaccine expiry date:</th>
+                      <th scope="col" style="width: 20%;">Diluent batch number:</th>
+                      <th scope="col" style="width: 20%;">Diluent expiry date:</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              {% endif %}
+
+              <table class="app-record-table">
+                <thead>
+                  <tr>
+                    <th scope="col" class="app-col-tick" aria-label="Mark"></th>
+                    <th scope="col" class="app-col-ear-tag">Ear tag number</th>
+                    <th scope="col" class="app-col-notes">Eligibility</th>
+                    <th scope="col" class="app-col-vax">TB Vax</th>
+                    {% for column in fieldColumns %}
+                      {% set headingText = "Age" if column == "Age (youngest to oldest)" else column %}
+                      {% set columnClass = "app-col-narrow" %}
+                      {% if headingText == "Age" %}{% set columnClass = "app-col-age" %}{% endif %}
+                      {% if headingText == "DOB" %}{% set columnClass = "app-col-dob" %}{% endif %}
+                      {% if headingText == "Sex" %}{% set columnClass = "app-col-sex" %}{% endif %}
+                      {% if headingText == "Breed" %}{% set columnClass = "app-col-breed" %}{% endif %}
+                      <th scope="col" class="{{ columnClass }}">{{ headingText }}</th>
+                    {% endfor %}
+                    <th scope="col" class="app-col-write-notes">Notes</th>
+                  </tr>
+                </thead>
+                {% for row in pagedRows %}
+                <tbody class="{% if row.isVaccinated %}app-row--vaccinated{% endif %}">
+                  <tr>
+                    <td class="app-col-tick"></td>
+                    <td class="app-col-ear-tag">
+                      <div class="app-ear-tag">
+                        <span class="app-ear-tag__prefix">{{ row.earTagParts.prefix }}</span>
+                        <span class="app-ear-tag__part app-ear-tag__part--herd">{{ row.earTagParts.herd }}</span>
+                        <span class="app-ear-tag__part app-ear-tag__part--check">{{ row.earTagParts.check }}</span>
+                        <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ row.earTagParts.individualStart }}</span>
+                        <span class="app-ear-tag__part app-ear-tag__part--last4{% if row.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                              {% if row.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
+                      </div>
+                    </td>
+                    <td class="app-col-notes">{{ row.eligibilityLabel }}</td>
+                    <td class="app-col-vax{% if row.isRecentlyVaccinated %} app-vax-cell--check{% endif %}">{{ row.vaccinationDate or '-' }}</td>
+                    {% for cell in row.cells %}
+                      {% set cellHeading = "Age" if cell.key == "Age (youngest to oldest)" else cell.key %}
+                      {% set cellClass = "app-col-narrow" %}
+                      {% if cellHeading == "Age" %}{% set cellClass = "app-col-age" %}{% endif %}
+                      {% if cellHeading == "DOB" %}{% set cellClass = "app-col-dob" %}{% endif %}
+                      {% if cellHeading == "Sex" %}{% set cellClass = "app-col-sex" %}{% endif %}
+                      {% if cellHeading == "Breed" %}{% set cellClass = "app-col-breed" %}{% endif %}
+                      <td class="{{ cellClass }}">{{ cell.value }}</td>
+                    {% endfor %}
+                    <td class="app-col-write-notes"></td>
+                  </tr>
+                </tbody>
+                {% endfor %}
+              </table>
+
+              {# Per-sheet footer. Farm name and CPH on the left so
+                 each loose printed page is identifiable even if it
+                 gets separated from the cover sheet; "Page X of Y"
+                 in the centre so the vet can flick through a printed
+                 stack; boxed ear-tag range on the right (styled like
+                 the last-4 box in the ear-tag column). #}
+              {% if pagedRows.length > 0 %}
+                <div class="app-sheet-footer">
+                  <span class="app-sheet-footer__farm">
+                    {{ data['herd']['farm'] }} - {{ data['herd']['cph'] or data['selectedCattle'] }}
+                  </span>
+                  <span class="app-sheet-footer__page">
+                    Page {{ _currentPageClamped }} of {{ _totalPages }}
+                  </span>
+                  <span class="app-sheet-footer__range">
+                    {{ (pagedRows | first).earTagParts.last4 }}–{{ (pagedRows | last).earTagParts.last4 }}
+                  </span>
+                </div>
+              {% endif %}
+
+            </div>
+
+          {% endif %}
+
+          {# GOV.UK pagination – one page of the preview maps to one
+             A4 sheet. Sits outside the if/elif/else above so it
+             renders on the data sheets, on the CSV preview, and on
+             the blank "Additional cattle" page – any view that has
+             more than one page. Hidden for empty groups (no rows). #}
+          {% if _totalPages > 1 and group.count > 0 %}
+            {% set _paginationItems = [] %}
+            {% for _p in range(1, _totalPages + 1) %}
+              {% set _paginationItems = _paginationItems.concat([{
+                number: _p,
+                href: "?page=" + _p|string,
+                current: _p == _currentPageClamped
+              }]) %}
+            {% endfor %}
+            {{ govukPagination({
+              classes: "govuk-!-margin-top-6",
+              previous: { href: "?page=" + (_currentPageClamped - 1)|string } if _currentPageClamped > 1 else null,
+              next: { href: "?page=" + (_currentPageClamped + 1)|string } if _currentPageClamped < _totalPages else null,
+              items: _paginationItems
+            }) }}
+          {% endif %}
+        {% endfor %}
+
+        {# One shared script fills in the "date list was made" cell for
+           every preview sheet on the page. #}
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            var stamp = new Intl.DateTimeFormat('en-GB', {
+              weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+            }).format(new Date())
+            var nodes = document.querySelectorAll('.js-date-printed')
+            for (var i = 0; i < nodes.length; i++) nodes[i].textContent = stamp
+          })
+        </script>
+
+        {# Primary action moves the vet on to the confirmation / success
+           step. #}
+        <div class="app-results-actions govuk-!-margin-top-4">
+          {{ govukButton({
+            text: "Continue",
+            href: "/v1-3/download-list-confirmed"
+          }) }}
+        </div>
+
+      </div>
+
+  </div>
+</div>
+
+<script>
+  // If the user arrived from the success page with ?print=1, open the
+  // print dialog automatically so they don't have to hunt for it.
+  (function () {
+    if (/[?&]print=1\b/.test(window.location.search)) {
+      window.setTimeout(function () { window.print() }, 200)
+    }
+  })()
+</script>
+{% endblock %}

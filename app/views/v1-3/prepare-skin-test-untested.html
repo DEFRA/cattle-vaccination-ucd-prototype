@@ -1,0 +1,217 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Mark cattle that will not be tested – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref or "/v1-3/skin-test-list"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  .app-page-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 30px;
+    align-items: start;
+  }
+  .app-filter-panel {
+    border: 1px solid #b1b4b6;
+    background: #f8f8f8;
+    padding: 20px;
+    top: 20px;
+    font-family: "GDS Transport", arial, sans-serif;
+  }
+  .app-filter-panel .govuk-fieldset__legend,
+  .app-filter-panel .govuk-radios__label,
+  .app-filter-panel .govuk-checkboxes__label,
+  .app-filter-panel .govuk-button,
+  .app-filter-panel .govuk-link,
+  .app-filter-panel .govuk-body {
+    font-size: 19px;
+    line-height: 1.31579;
+  }
+  .app-filter-panel .govuk-heading-m {
+    font-family: "GDS Transport", arial, sans-serif;
+  }
+  .app-filter-panel .govuk-radios,
+  .app-filter-panel .govuk-checkboxes,
+  .app-filter-panel .govuk-form-group:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Standard GOV.UK table styling – only the per-row content
+     presentation classes below are custom (ear-tag formatting,
+     vaccination flag). */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 { padding: 0; font-weight: 700; }
+  .app-ear-tag__part--last4--duplicate {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  .app-vax-flag {
+    display: inline-block;
+    background: #f3f2f1;
+    color: #505a5f;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    margin-left: 8px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .govuk-table .govuk-checkboxes__item { padding-left: 28px; margin-bottom: 0; }
+  .govuk-table .govuk-checkboxes__label { padding-top: 0; padding-bottom: 0; }
+
+  @media (max-width: 900px) {
+    .app-page-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['prepareSkinTestType'] or 'Skin test list') | replace('Both', 'DIVA and SICCT') }}</span>
+    <h1 class="govuk-heading-l">Remove cattle</h1>
+
+    {% if animals.length == 0 %}
+      <p class="govuk-body">
+        No cattle on this farm match the test type you've chosen.
+      </p>
+      <form action="/v1-3/prepare-skin-test-untested" method="post" novalidate>
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+    {% else %}
+      <p class="govuk-body">
+        Select cattle to be removed.
+      </p>
+
+      <div class="app-page-grid">
+
+        {# ---- List settings panel (sort) – submits to a separate route
+               so applying a new sort doesn't disturb the checkboxes. The
+               vet's current ticks are preserved in session and re-applied
+               below when this page is re-rendered after a sort change. #}
+        <form method="post" action="/v1-3/prepare-skin-test-untested/settings" class="app-filter-panel">
+          <h2 class="govuk-heading-m govuk-!-margin-bottom-3">List settings</h2>
+          <p class="govuk-body govuk-!-margin-bottom-4">Reorder the cattle below to suit how you'll work through them on the farm.</p>
+
+          {{ govukRadios({
+            idPrefix: "sortBy",
+            name: "sortBy",
+            classes: "govuk-!-margin-bottom-4",
+            fieldset: { legend: { text: "Sort by", classes: "govuk-fieldset__legend--s" } },
+            items: [
+              { value: "Ear-tag number (last 5 digits)", text: "Ear tag number (last 4 digits)", checked: (sortBy or 'Ear-tag number (last 5 digits)') == "Ear-tag number (last 5 digits)" },
+              { value: "Ear-tag number",                 text: "Ear tag number (full)",          checked: sortBy == "Ear-tag number" },
+              { value: "Age",                            text: "Age",                            checked: sortBy == "Age" },
+              { value: "Sex",                            text: "Sex",                            checked: sortBy == "Sex" },
+              { value: "Breed",                          text: "Breed",                          checked: sortBy == "Breed" },
+              { value: "DOB",                            text: "DOB",                            checked: sortBy == "DOB" }
+            ]
+          }) }}
+
+          {{ govukRadios({
+            idPrefix: "sortDirection",
+            name: "sortDirection",
+            classes: "govuk-!-margin-bottom-4",
+            fieldset: { legend: { text: "Order", classes: "govuk-fieldset__legend--s" } },
+            items: [
+              { value: "asc",  text: "Ascending",  checked: (sortDirection or 'asc') == "asc" },
+              { value: "desc", text: "Descending", checked: sortDirection == "desc" }
+            ]
+          }) }}
+
+          <div class="govuk-button-group">
+            {{ govukButton({ text: "Apply changes" }) }}
+            <a class="govuk-link" href="/v1-3/prepare-skin-test-untested/settings/reset">Clear settings</a>
+          </div>
+        </form>
+
+        {# ---- Main form: per-animal checkboxes + Continue ----------- #}
+        <div>
+          <form action="/v1-3/prepare-skin-test-untested" method="post" novalidate>
+
+            <table class="govuk-table">
+              <thead class="govuk-table__head">
+                <tr class="govuk-table__row">
+                  <th scope="col" class="govuk-table__header">Select</th>
+                  <th scope="col" class="govuk-table__header">Ear tag number</th>
+                  <th scope="col" class="govuk-table__header">DOB</th>
+                  <th scope="col" class="govuk-table__header">Sex</th>
+                  <th scope="col" class="govuk-table__header">Breed</th>
+                  <th scope="col" class="govuk-table__header">Age</th>
+                </tr>
+              </thead>
+              <tbody class="govuk-table__body">
+                {% for animal in animals %}
+                  <tr class="govuk-table__row">
+                    <td class="govuk-table__cell">
+                      <div class="govuk-checkboxes govuk-checkboxes--small">
+                        <div class="govuk-checkboxes__item">
+                          <input class="govuk-checkboxes__input" id="untested-{{ loop.index }}" name="untested" type="checkbox" value="{{ animal.officialId }}" {% if animal.officialId in selectedUntested %}checked{% endif %}>
+                          <label class="govuk-label govuk-checkboxes__label" for="untested-{{ loop.index }}">
+                            <span class="govuk-visually-hidden">{{ animal.officialId }} will not be tested</span>
+                          </label>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="govuk-table__cell">
+                      <div class="app-ear-tag">
+                        <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
+                        <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
+                        <span class="app-ear-tag__part app-ear-tag__part--check">{{ animal.earTagParts.check }}</span>
+                        <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ animal.earTagParts.individualStart }}</span>
+                        <span class="app-ear-tag__part app-ear-tag__part--last4{% if animal.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                              {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
+                      </div>
+                      {% if animal.isVaccinated %}<strong class="app-vax-flag" title="BCG vaccinated">VAX</strong>{% endif %}
+                    </td>
+                    <td class="govuk-table__cell">{{ animal.dob }}</td>
+                    <td class="govuk-table__cell">{{ animal.sex }}</td>
+                    <td class="govuk-table__cell">{{ animal.breed }}</td>
+                    <td class="govuk-table__cell">{{ animal.age }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+
+            <div class="govuk-button-group">
+              {{ govukButton({ text: "Continue" }) }}
+            </div>
+
+            <p class="govuk-body govuk-!-margin-top-2">
+              <a class="govuk-link" href="/v1-3/prepare-skin-test-untested?skip=1">Skip — every animal will be tested</a>
+            </p>
+
+          </form>
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

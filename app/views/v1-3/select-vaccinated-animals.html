@@ -1,0 +1,511 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Select and mark cattle – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/enter-diluent-batch-details"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  .app-marking-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 30px;
+    align-items: start;
+  }
+  .app-panel {
+    border: 1px solid #b1b4b6;
+    padding: 16px 20px;
+    background: #f8f8f8;
+  }
+  /* Tighten the panel's own heading/paragraph margins so the panel
+     reads as a single tight block of summary text. */
+  .app-panel > :first-child { margin-top: 0; }
+  .app-panel > :last-child { margin-bottom: 0; }
+  .app-table-wrap {
+    margin-bottom: 16px;
+  }
+  /* Ear-tag content presentation – matches the rest of the v1-2
+     skin-test tables. The wrapper prints at the regular weight; only
+     the last 4 digits are bold so the vet's eye lands on the
+     individual number. There's no surrounding box. Duplicates
+     underline the last-4 segment. The TB Vax cell underlines when
+     the BCG vaccination is around 9 months old; the DOB cell
+     underlines when the calf is around 42 days old. The rest of the
+     table uses the stock GOV.UK govuk-table styling. */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 { padding: 0; font-weight: 700; }
+  /* Duplicate last-4 segment – emphasised with a heavy 4px top and
+     bottom band wrapping just the four bold digits, no side borders.
+     The rest of the row keeps the standard govuk-table styling, so
+     only the duplicated number itself jumps off the page. */
+  .app-ear-tag__part--last4--duplicate {
+    border: 0;
+    border-top: 4px solid #000;
+    border-bottom: 4px solid #000;
+  }
+  /* Page-boundary divider row. Renders between groups of N rows
+     (where N is whatever page size the vet chose on the download
+     list – 20 for Easy, 40 for Compact) so the on-screen marking
+     table mirrors the page breaks on the printed sheet. The row
+     spans every column and is styled as a white card with a light
+     grey border (16/20 padding), reading as a clear section break
+     between groups of animals. The page number itself is an H2. */
+  .app-page-divider td {
+    border: 1px solid #b1b4b6;
+    background-color: #ffffff;
+    padding: 16px 20px;
+  }
+  .app-page-divider h2 {
+    margin: 0;
+  }
+  .app-dob-cell--under-age,
+  .app-vax-cell--check {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  /* Checkbox cells inside the govuk-table – use the standard GDS
+     small-checkbox spacing for the visual, but strip the default
+     vertical margin so rows stay a clean single line. */
+  .govuk-table .govuk-checkboxes__item { margin-bottom: 0; }
+
+  /* The "All" header checkbox sits in a <th>. The standard small
+     checkbox has 38 px of left padding to leave room for the
+     control; with the label visible ("All") we want the same
+     spacing as a normal checkbox so the label sits clear of the
+     control. Vertical alignment is centred against the header
+     text. */
+  .govuk-table th .govuk-checkboxes {
+    margin: 0;
+  }
+  .govuk-table th .govuk-checkboxes__item {
+    min-height: 0;
+  }
+  .govuk-table th .govuk-checkboxes__label {
+    font-weight: 700;
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 1.25;
+  }
+  /* Every header and body cell in this table aligns around a common
+     vertical centre. Without this the plain-text columns (Ear tag
+     number, DOB, Sex, Breed) sit at the top of the row while the
+     checkbox column's label sits lower, because the GDS checkbox
+     component reserves vertical space for the control itself.
+     vertical-align: middle puts them all on the same line, in both
+     the header and the body. */
+  .app-table-wrap .govuk-table__header,
+  .app-table-wrap .govuk-table__cell {
+    vertical-align: middle;
+  }
+  /* Centre the row-level checkbox vertically in the cell so it
+     lines up with the rest of the row's content. */
+  .govuk-table__cell .govuk-checkboxes__item {
+    min-height: auto;
+    line-height: 1.2;
+  }
+  .app-summary-card {
+    border: 1px solid #b1b4b6;
+    padding: 16px;
+    margin-bottom: 16px;
+    background: #fff;
+  }
+  .app-selected-list {
+    max-height: 180px;
+    overflow: auto;
+    margin-top: 10px;
+  }
+  .app-link-button {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: #1d70b8;
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+  }
+  .app-link-button:hover {
+    color: #003078;
+  }
+  .app-link-button:focus {
+    outline: 3px solid #ffdd00;
+    background: #ffdd00;
+    box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
+    text-decoration: none;
+  }
+  @media (max-width: 1200px) {
+    .app-marking-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 640px) {
+    .app-record-table th,
+    .app-record-table td {
+      padding: 10px 12px;
+    }
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {% set isMarkNotVax = data['vaccinationApproach'] == 'mark-not-vaccinated' %}
+
+    {% if markingPhase == 'vaccinated' %}
+      <h1 class="govuk-heading-l govuk-!-margin-bottom-2">Which cattle were vaccinated?</h1>
+      {% if isMarkNotVax %}
+        <p class="govuk-body govuk-!-margin-bottom-4">You've marked the cattle that were not vaccinated. Now confirm the remaining cattle are vaccinated and continue.</p>
+      {% else %}
+        <p class="govuk-body govuk-!-margin-bottom-4">Select all the cattle that were vaccinated on the recent visit.</p>
+      {% endif %}
+    {% else %}
+      {% if isMarkNotVax %}
+        <h1 class="govuk-heading-l govuk-!-margin-bottom-2">Select cattle that were not vaccinated for {{ herd.farm or data['selectedCattleLabel'] or data['selectedCattle'] }}</h1>
+        <p class="govuk-body govuk-!-margin-bottom-4">Select the cattle that were not vaccinated and add a reason. When you have finished, the remaining cattle will be marked as vaccinated.</p>
+      {% else %}
+        <h1 class="govuk-heading-l govuk-!-margin-bottom-2">Optional: Give a reason</h1>
+        <p class="govuk-body govuk-!-margin-bottom-4">Share the reason why the cattle were not vaccinated on this visit.</p>
+      {% endif %}
+    {% endif %}
+
+    <div class="app-marking-layout">
+      <div>
+        <form action="/v1-3/select-vaccinated-animals" method="post" novalidate>
+          <div class="app-panel govuk-!-margin-bottom-4">
+            {# Live "X of Y selected" counter. The `data-total` value
+               is the server-rendered total cattle count; the inner
+               .js-selected-count span is updated by the script at the
+               bottom of the page on every checkbox change. #}
+            <p class="govuk-body govuk-!-margin-bottom-0">
+              You've selected <span class="js-selected-count">{{ selectedIds.length or 0 }}</span> of {{ totalAnimals }} cattle
+            </p>
+          </div>
+
+          {% if errors and errors['selectedAnimals'] %}
+            <p id="selected-animals" class="govuk-error-message">
+              <span class="govuk-visually-hidden">Error:</span> {{ errors['selectedAnimals'].text }}
+            </p>
+          {% endif %}
+
+          {% if activeRows.length %}
+            <div class="app-table-wrap" id="selected-animals">
+              {# Standard GOV.UK design system table – this is a
+                 selection page (checkbox per row), not a printable
+                 data-entry form, so it uses the stock govuk-table
+                 classes. Content-presentation rules sit on top:
+                 bold last-4 in the ear tag, underline for duplicates,
+                 underline for DOB / TB Vax cells that need checking. #}
+              <table class="govuk-table">
+                <thead class="govuk-table__head">
+                  <tr class="govuk-table__row">
+                    <th scope="col" class="govuk-table__header">
+                      <div class="govuk-checkboxes govuk-checkboxes--small">
+                        <div class="govuk-checkboxes__item">
+                          <input class="govuk-checkboxes__input" id="select-all-active" type="checkbox">
+                          <label class="govuk-label govuk-checkboxes__label" for="select-all-active">All</label>
+                        </div>
+                      </div>
+                    </th>
+                    <th scope="col" class="govuk-table__header">Ear tag number</th>
+                    <th scope="col" class="govuk-table__header">DOB</th>
+                    <th scope="col" class="govuk-table__header">Sex</th>
+                    <th scope="col" class="govuk-table__header">Breed</th>
+                  </tr>
+                </thead>
+                {# Page divider logic. cattlePerPage is the page size
+                   the vet chose on the download list (20 or 40). The
+                   first divider sits before any rows ("Page 1") so
+                   every animal is clearly grouped under a page; each
+                   subsequent divider falls between row N and row N+1
+                   so it lines up with where the printed sheet would
+                   page-break. The total page count is computed from
+                   the number of active rows. The table now has 5
+                   columns, so the divider td uses colspan="5". #}
+                {% set _pageSize = cattlePerPage or 20 %}
+                {% set _totalPages = ((activeRows.length + _pageSize - 1) / _pageSize) | int %}
+                {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+                <tbody class="govuk-table__body">
+                  {% for row in activeRows %}
+                    {% if loop.index0 % _pageSize == 0 %}
+                      {% set _pageNumber = (loop.index0 / _pageSize) | int + 1 %}
+                      <tr class="app-page-divider">
+                        <td colspan="5">
+                          <h2 class="govuk-heading-m">Page {{ _pageNumber }} of {{ _totalPages }}</h2>
+                        </td>
+                      </tr>
+                    {% endif %}
+                    <tr class="govuk-table__row">
+                      <td class="govuk-table__cell">
+                        <div class="govuk-checkboxes govuk-checkboxes--small">
+                          <div class="govuk-checkboxes__item">
+                            <input class="govuk-checkboxes__input js-animal-checkbox" id="animal-{{ loop.index }}" name="selectedAnimals" type="checkbox" value="{{ row.id }}" {% if row.id in selectedIds %}checked{% endif %}>
+                            <label class="govuk-label govuk-checkboxes__label" for="animal-{{ loop.index }}">
+                              <span class="govuk-visually-hidden">Select {{ row.officialId }}</span>
+                            </label>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="govuk-table__cell">
+                        <div class="app-ear-tag">
+                          <span class="app-ear-tag__prefix">{{ row.earTagParts.prefix }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--herd">{{ row.earTagParts.herd }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--check">{{ row.earTagParts.check }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ row.earTagParts.individualStart }}</span>
+                          <span class="app-ear-tag__part app-ear-tag__part--last4{% if row.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                                {% if row.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
+                        </div>
+                      </td>
+                      <td class="govuk-table__cell{% if row.isUnderTestAge %} app-dob-cell--under-age{% endif %}">{{ row.dob }}</td>
+                      <td class="govuk-table__cell">{{ row.sex }}</td>
+                      <td class="govuk-table__cell">{{ row.breed }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            {# Show the reason picker whenever the vet is recording or
+               editing reasons – either marking new cattle in the
+               "remaining" group during the reasons phase, or viewing a
+               banked reason group via a "Change" link from the
+               confirmation page. The vaccinated group stays edit-only
+               via "Move back to remaining" because moving an animal
+               there is the only way to change it to a different
+               status. #}
+            {% set reasonGroupKeys = ['not-found', 'deceased', 'withdrawn-export', 'withdrawn-slaughter', 'withdrawn-owner', 'other'] %}
+            {% set isReasonView = activeReviewGroup in reasonGroupKeys %}
+            {% set showReasonPicker = (activeReviewGroup == 'remaining' and markingPhase == 'reasons') or isReasonView %}
+
+            {% if activeReviewGroup == 'remaining' or isReasonView %}
+              {% if showReasonPicker %}
+                {{ govukRadios({
+                  idPrefix: "selectedStatus",
+                  name: "selectedStatus",
+                  value: formValues['selectedStatus'] or (activeReviewGroup if isReasonView),
+                  fieldset: {
+                    legend: {
+                      text: ("Change reason to" if isReasonView else "Reason"),
+                      classes: "govuk-fieldset__legend--m"
+                    }
+                  },
+                  errorMessage: { text: errors['selectedStatus'].text } if errors and errors['selectedStatus'],
+                  items: [
+                    {
+                      value: "not-found",
+                      text: "Cattle not found"
+                    },
+                    {
+                      value: "deceased",
+                      text: "Cattle deceased"
+                    },
+                    {
+                      value: "withdrawn-export",
+                      text: "Cattle withdrawn for export purposes"
+                    },
+                    {
+                      value: "withdrawn-slaughter",
+                      text: "Cattle withdrawn for slaughter"
+                    },
+                    {
+                      value: "withdrawn-owner",
+                      text: "Cattle withdrawn by the livestock owner"
+                    },
+                    {
+                      value: "other",
+                      text: "Other reason",
+                      conditional: {
+                        html: govukInput({
+                          label: {
+                            text: "Type a reason"
+                          },
+                          id: "otherReason",
+                          name: "otherReason",
+                          value: formValues['otherReason'],
+                          errorMessage: { text: errors['otherReason'].text } if errors and errors['otherReason']
+                        })
+                      }
+                    }
+                  ]
+                }) }}
+              {% endif %}
+
+              <div class="govuk-button-group govuk-!-margin-bottom-8">
+                {% if markingPhase == 'vaccinated' and activeReviewGroup == 'remaining' %}
+                  {# Continue routes the vet to /v1-3/vaccination-
+                     marked-confirm where they can review what's been
+                     selected, then continue on to mark any
+                     unvaccinated cattle with reasons. The separate
+                     "Review what you've marked" button used to sit
+                     here as an extra step – it's no longer needed
+                     because the redirect is automatic. #}
+                  {{ govukButton({
+                    text: "Continue",
+                    name: "markAction",
+                    value: "mark"
+                  }) }}
+                {% elif isReasonView %}
+                  {{ govukButton({
+                    text: "Update reason for selected cattle",
+                    name: "markAction",
+                    value: "mark"
+                  }) }}
+                  {{ govukButton({
+                    text: "Move selected back to remaining cattle",
+                    classes: "govuk-button--secondary",
+                    name: "markAction",
+                    value: "reset"
+                  }) }}
+                {% else %}
+                  {{ govukButton({
+                    text: "Mark selected cattle",
+                    name: "markAction",
+                    value: "mark"
+                  }) }}
+                  {# Inverse flow: once the vet has marked the cattle
+                     that were NOT vaccinated, this shortcut bulk-
+                     marks the remaining cattle as vaccinated and
+                     routes through the same confirmation screen. The
+                     confirmation screen then bumps the vet on to
+                     check the cattle that have been auto-marked. #}
+                  {% if isMarkNotVax and totalRemaining > 0 %}
+                    {{ govukButton({
+                      text: "Review what you've marked",
+                      classes: "govuk-button--secondary",
+                      name: "markAction",
+                      value: "bulk-vaccinate-remaining"
+                    }) }}
+                  {% endif %}
+                {% endif %}
+              </div>
+            {% else %}
+              <div class="govuk-button-group govuk-!-margin-bottom-8">
+                {{ govukButton({
+                  text: "Move selected back to remaining cattle",
+                  classes: "govuk-button--secondary",
+                  name: "markAction",
+                  value: "reset"
+                }) }}
+              </div>
+            {% endif %}
+          {% else %}
+            <p class="govuk-body">There are no cattle in this group.</p>
+          {% endif %}
+
+          {# "Confirm and continue" used to sit here when every animal
+             had been accounted for. v1-2 now redirects the vet
+             straight to /v1-3/vaccination-marked-confirm as soon as
+             the last remaining animal is marked, so this button is no
+             longer needed – the confirmation step happens
+             automatically. #}
+
+          {# Skip link – only shown on the reasons phase, on the
+             remaining group, when there are still cattle to give a
+             reason for. Bulk-marks every remaining animal as "no
+             reason given" and routes the vet through the existing
+             confirmation page. Styled as a govuk-link button so it
+             reads as a quieter alternative to the main action above. #}
+          {% if markingPhase == 'reasons' and activeReviewGroup == 'remaining' and totalRemaining > 0 %}
+            <p class="govuk-body">
+              <button type="submit"
+                      name="markAction"
+                      value="skip-no-reason"
+                      class="govuk-link"
+                      style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
+                Skip and mark as no reason given
+              </button>
+            </p>
+          {% endif %}
+        </form>
+      </div>
+
+      <aside>
+        <div class="app-summary-card">
+          <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Summary</h2>
+          <dl class="govuk-summary-list govuk-summary-list--no-border govuk-!-margin-bottom-0">
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Total cattle</dt>
+              <dd class="govuk-summary-list__value">{{ totalAnimals }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">To do</dt>
+              <dd class="govuk-summary-list__value">{{ totalRemaining }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Done</dt>
+              <dd class="govuk-summary-list__value">{{ totalMarked }}</dd>
+            </div>
+          </dl>
+        </div>
+        {% if selectedAnimalSummary.length %}
+          <div class="app-summary-card">
+            <h2 class="govuk-heading-s govuk-!-margin-bottom-2">Currently selected</h2>
+            <p class="govuk-body govuk-!-margin-bottom-2">{{ selectedAnimalSummary.length }} cattle selected.</p>
+            <div class="app-selected-list">
+              <ul class="govuk-list govuk-list--bullet govuk-!-font-size-16 govuk-!-margin-bottom-0">
+                {% for item in selectedAnimalSummary %}
+                  <li>{{ item }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var selectAll = document.getElementById('select-all-active')
+    var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-animal-checkbox'))
+
+    if (!selectAll || !checkboxes.length) {
+      return
+    }
+
+    var selectedCountEls = Array.prototype.slice.call(document.querySelectorAll('.js-selected-count'))
+
+    function syncSelectAll() {
+      var checkedCount = checkboxes.filter(function (checkbox) { return checkbox.checked }).length
+      selectAll.checked = checkedCount === checkboxes.length
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length
+      // Keep the "You've selected X of Y cattle" counter in the
+      // grey panel above the table in sync with the checked boxes.
+      selectedCountEls.forEach(function (el) { el.textContent = checkedCount })
+    }
+
+    selectAll.addEventListener('change', function () {
+      checkboxes.forEach(function (checkbox) {
+        checkbox.checked = selectAll.checked
+      })
+      syncSelectAll()
+    })
+
+    checkboxes.forEach(function (checkbox) {
+      checkbox.addEventListener('change', syncSelectAll)
+    })
+
+    syncSelectAll()
+  })
+</script>
+{% endblock %}

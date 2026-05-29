@@ -1,0 +1,66 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check the cattle you've selected – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/select-vaccinated-animals"
+}) }}
+{% endblock %}
+
+{% block content %}
+{% set isMarkVaxFirst = vaccinationApproach != 'mark-not-vaccinated' %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    <h1 class="govuk-heading-l">Check the cattle you've selected</h1>
+
+    {% if isMarkVaxFirst %}
+      <p class="govuk-body">
+        You've marked <strong>{{ countMarked }} of {{ totalAnimals }}</strong>
+        cattle as vaccinated.
+        {# The "next you'll add a reason…" sentence was removed once
+           the v1-3 journey introduced the /give-unvaccinated-reasons
+           prompt – the vet may choose to skip the reasons table
+           entirely, so we no longer assert what comes next here. #}
+        {% if countRemaining == 0 %}
+          All cattle have been marked.
+        {% endif %}
+      </p>
+    {% else %}
+      <p class="govuk-body">
+        You've marked <strong>{{ countMarked }} of {{ totalAnimals }}</strong>
+        cattle as not vaccinated and given a reason for each.
+        {% if countRemaining > 0 %}
+          The remaining <strong>{{ countRemaining }}</strong>
+          {{ 'animal' if countRemaining == 1 else 'animals' }} will be marked
+          as vaccinated. Check the list below before you continue.
+        {% else %}
+          All cattle have been marked.
+        {% endif %}
+      </p>
+    {% endif %}
+
+    {{ govukSummaryList({
+      rows: summaryRows
+    }) }}
+
+    <form action="/v1-3/vaccination-marked-confirm" method="post" novalidate>
+      {# Each row in the summary list above carries its own "Change"
+         action that deep-links straight to the relevant group on
+         /v1-3/select-vaccinated-animals, so there's no separate
+         "Go back and change" link beside the Continue button. #}
+      {{ govukButton({
+        text: "Continue",
+        name: "confirmAction",
+        value: "continue"
+      }) }}
+    </form>
+
+  </div>
+</div>
+{% endblock %}

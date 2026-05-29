@@ -1,0 +1,111 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Which skin tests do you want to use? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/select-visit-task"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {% if data['herd'] %}
+      <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+      <h1 class="govuk-heading-l">Which skin tests do you want to use?</h1>
+
+      {# Recommendation summary. The text depends on whether the herd
+         has any BCG vaccinated animals (herdHasVaccinated, set by the
+         route handler):
+           - includes vaccinated animals → Defra recommends DIVA for
+             the whole herd.
+           - fully unvaccinated herd     → either SICCT or DIVA can be
+             used, so no single test is recommended. #}
+      {% if herdHasVaccinated %}
+        {% set warningHeadline = "This herd includes vaccinated animals" %}
+        {% set warningReason = "Defra recommends you use the DIVA skin test for all animals in the herd." %}
+      {% else %}
+        {% set warningHeadline = "Unvaccinated herd" %}
+        {% set warningReason = "You can use either SICCT or DIVA skin tests for all unvaccinated animals in the herd." %}
+      {% endif %}
+
+      <div class="govuk-inset-text">
+        <p class="govuk-body govuk-!-margin-bottom-2">
+          <strong>{{ warningHeadline }}</strong>
+        </p>
+        <p class="govuk-body govuk-!-margin-bottom-0 govuk-hint">
+          {{ warningReason }}
+        </p>
+      </div>
+
+      <form action="/v1-3/prepare-skin-test-recommendation" method="post" novalidate>
+
+        {# Three choices: use a single skin test for the whole herd
+           (SICCT or DIVA), or sort the cattle into separate lists.
+           When the herd has vaccinated animals DIVA is the recommended
+           single test, so it carries the "(recommended)" suffix and is
+           listed first. For a fully unvaccinated herd neither is
+           recommended and SICCT leads. #}
+        {% set sicctItem = {
+          value: "sicct",
+          text: "Use the SICCT skin test",
+          hint: { text: "You'll use a single skin test for the whole herd." }
+        } %}
+        {% if herdHasVaccinated %}
+          {% set divaText = "Use the DIVA skin test (recommended)" %}
+        {% else %}
+          {% set divaText = "Use the DIVA skin test" %}
+        {% endif %}
+        {% set divaItem = {
+          value: "diva",
+          text: divaText,
+          hint: { text: "You'll use a single skin test for the whole herd." }
+        } %}
+        {% set manualItem = {
+          value: "manual",
+          text: "I'll choose which skin test type to use",
+          hint: { text: "You'll sort all the cattle into separate lists for DIVA and SICCT skin tests." }
+        } %}
+
+        {% if herdHasVaccinated %}
+          {% set radioItems = [divaItem, sicctItem, manualItem] %}
+        {% else %}
+          {% set radioItems = [sicctItem, divaItem, manualItem] %}
+        {% endif %}
+
+        {{ govukRadios({
+          idPrefix: "prepareSkinTestChoice",
+          name: "prepareSkinTestChoice",
+          value: data['prepareSkinTestChoice'],
+          errorMessage: { text: errors['prepareSkinTestChoice'].text } if errors and errors['prepareSkinTestChoice'],
+          fieldset: {
+            legend: {
+              text: "Which skin tests do you want to use?",
+              classes: "govuk-visually-hidden"
+            }
+          },
+          items: radioItems
+        }) }}
+
+        {{ govukButton({ text: "Continue" }) }}
+
+      </form>
+    {% else %}
+      <h1 class="govuk-heading-l">No farm selected</h1>
+      <p class="govuk-body">
+        <a href="/v1-3/search" class="govuk-link">Go back and select a farm</a>
+      </p>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  How would you like to view your list? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{# For skin-test prep the natural back step is the
+   recommended-vs-manual picker; vaccination prep goes back to
+   /select-visit-task as before. #}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/prepare-skin-test-recommendation" if data['journey'] == 'prepare-skin-test' else "/v1-3/select-visit-task"
+}) }}
+{% endblock %}
+
+{% block content %}
+{% set isSkinTest = data['journey'] == 'prepare-skin-test' %}
+{% set listKind = "skin test" if isSkinTest else "vaccination" %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <form action="/v1-3/list-format" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "listFormat",
+        name: "listFormat",
+        fieldset: {
+          legend: {
+            html: '<span class="govuk-caption-l">' + (data['herd']['farm'] or 'Selected farm') + '</span>How do you want this list?',
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        value: data['listFormat'],
+        errorMessage: { text: errors['listFormat'].text } if errors and errors['listFormat'],
+        items: [
+          {
+            value: "pdf",
+            text: "As a print-friendly PDF",
+            hint: { text: "Format the list, preview it, and print it for the visit" }
+          },
+          {
+            value: "spreadsheet",
+            text: "In a spreadsheet",
+            hint: { text: "Download a CSV file you can open as a spreadsheet" }
+          },
+          {
+            value: "handheld",
+            text: "Make it compatible with my handheld device",
+            hint: { text: "Send it to a device associated with this account" }
+          }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,180 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check herd details – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/search-results"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <h1 class="govuk-heading-l">{{ data['herd']['farm'] }}</h1>
+    <p class="govuk-body">
+      Check this is the correct holding before you continue.
+    </p>
+
+    {% if data['herd'] %}
+      {# Two summary lists separated by a "source of data" note. The
+         first block is CTS-sourced demographic / contact data – farm,
+         location, herd composition and the farmer's contact details.
+         The note belongs between the two lists so it visibly applies
+         to the rows above it. The second block is APHA-held disease-
+         control data – TB status, testing cadence, risk area and the
+         vaccination programme. Choosing a different farm is a
+         navigation action, not a field edit, so it sits as a link
+         below the primary CTA (not as a "Change" action inside the
+         list). #}
+      <dl class="govuk-summary-list">
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Farm</dt>
+          <dd class="govuk-summary-list__value">{{ data['herd']['farm'] }}</dd>
+        </div>
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">CPH</dt>
+          <dd class="govuk-summary-list__value">{{ data['herd']['cph'] }}</dd>
+        </div>
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Address</dt>
+          <dd class="govuk-summary-list__value">{{ data['herd']['address'] }}</dd>
+        </div>
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Total cattle</dt>
+          <dd class="govuk-summary-list__value">{{ data['herd']['cattle'] }}</dd>
+        </div>
+        {% if farmDetails %}
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Bulls</dt>
+            <dd class="govuk-summary-list__value">{{ farmDetails.bulls }}</dd>
+          </div>
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Type of cattle</dt>
+            <dd class="govuk-summary-list__value">{{ farmDetails.type }}</dd>
+          </div>
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Contact</dt>
+            <dd class="govuk-summary-list__value">{{ farmDetails.contact }}</dd>
+          </div>
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">Phone number</dt>
+            <dd class="govuk-summary-list__value">{{ farmDetails.phone }}</dd>
+          </div>
+        {% endif %}
+      </dl>
+
+      <p class="govuk-body govuk-!-margin-bottom-4">
+        This information comes from the
+        <a class="govuk-link" href="https://www.gov.uk/cattle-tracing-online">Cattle Tracing System</a>.
+        It may not be up to date.
+      </p>
+
+      {% if tbStatus or farmDetails %}
+        <dl class="govuk-summary-list">
+          {% if tbStatus %}
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Status</dt>
+              <dd class="govuk-summary-list__value">
+                <strong>{{ tbStatus.status }}</strong> — {{ tbStatus.statusFullName }}
+              </dd>
+            </div>
+          {% endif %}
+          {% if farmDetails %}
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Last TB test day 1</dt>
+              <dd class="govuk-summary-list__value">{{ farmDetails.lastTbTestDay2 }}</dd>
+            </div>
+            {# Last TB test type uses one of four plain-English values:
+               Pre-movement test, Short interval test, Check test, or
+               Whole herd test. Pre-movement carries an inline hint
+               because the last test may only cover the animals being
+               moved off the farm, not the whole herd. #}
+            {% if farmDetails.lastTbTestType %}
+              <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">Last TB test type</dt>
+                <dd class="govuk-summary-list__value">
+                  {{ farmDetails.lastTbTestType }}
+                  {% if farmDetails.lastTbTestType == 'Pre-movement test' %}
+                    <br>
+                    <span class="govuk-hint govuk-!-margin-bottom-0 govuk-!-margin-top-1">
+                      This may only cover a small number of animals being moved off the farm, not the whole herd.
+                    </span>
+                  {% endif %}
+                </dd>
+              </div>
+            {% endif %}
+            {# "Last whole herd test" only appears when the last TB test
+               wasn't a whole herd test (e.g. Pre-movement or Check
+               test). For Whole herd / Short interval entries it's
+               omitted to avoid duplicating the date above. #}
+            {% if farmDetails.lastWholeHerdTestDay2 %}
+              <div class="govuk-summary-list__row">
+                <dt class="govuk-summary-list__key">Last whole herd test</dt>
+                <dd class="govuk-summary-list__value">{{ farmDetails.lastWholeHerdTestDay2 }}</dd>
+              </div>
+            {% endif %}
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Risk area</dt>
+              <dd class="govuk-summary-list__value">{{ farmDetails.riskArea }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Test interval</dt>
+              <dd class="govuk-summary-list__value">{{ farmDetails.testInterval }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Next skin test</dt>
+              <dd class="govuk-summary-list__value">
+                {{ farmDetails.nextSkinTest }}
+                {% if farmDetails.nextSkinTestOverdue %}
+                  <strong class="govuk-tag govuk-tag--red govuk-!-margin-left-1">Overdue</strong>
+                {% endif %}
+              </dd>
+            </div>
+            {# Vaccination status breaks the herd into vaccinated /
+               unvaccinated counts, with an inline note for the number
+               of vaccinated cattle that are now overdue revaccination
+               (vaccinated 12+ months ago). The counts come from CTS
+               and the vaccination programme record, both of which can
+               lag the situation on the ground – the "currently
+               recorded" wording flags that the figures may not be
+               fully up to date. #}
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Vaccination status</dt>
+              <dd class="govuk-summary-list__value">
+                Currently recorded:<br>
+                {{ vaccinatedCount }} vaccinated cattle ({{ overdueRevaccinationCount }} are overdue revaccination)<br>
+                {{ unvaccinatedCount }} unvaccinated cattle
+              </dd>
+            </div>
+          {% endif %}
+        </dl>
+      {% endif %}
+
+      {{ govukButton({
+        text: "Continue",
+        href: "/v1-3/select-visit-task"
+      }) }}
+
+      {# Navigation link – kept out of the summary list so the list stays
+         review-only. Sits directly below the primary CTA so the
+         hierarchy is clear. #}
+      <p class="govuk-body govuk-!-margin-top-2">
+        <a class="govuk-link" href="/v1-3/search">Choose a different farm</a>
+      </p>
+    {% else %}
+      <p class="govuk-body">No herd details were found.</p>
+      <p class="govuk-body">
+        <a href="/v1-3/search" class="govuk-link">Go back and select a farm</a>
+      </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

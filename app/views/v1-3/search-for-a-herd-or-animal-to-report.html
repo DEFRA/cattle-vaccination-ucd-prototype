@@ -1,0 +1,48 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Search for a herd or animal – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/dashboard"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {% if data['reportIntent'] == 'skin-test' %}
+      <h1 class="govuk-heading-l">You're reporting skin test results</h1>
+    {% else %}
+      <h1 class="govuk-heading-l">You're reporting completed vaccinations to APHA</h1>
+    {% endif %}
+    <p class="govuk-body">
+      The information you provide will be updated in Sam, the online system for submitting bovine tuberculosis (TB) test results in the UK.
+    </p>
+    <form action="/v1-3/search-for-a-herd-or-animal-to-report" method="post" novalidate>
+      {{ govukInput({
+        label: {
+          text: "Enter a CPH, farm name or ear tag",
+          classes: "govuk-label--m"
+        },
+        hint: {
+          text: "For example, 12/345/6789 or Hill Farm"
+        },
+        id: "reportSearch",
+        name: "reportSearch",
+        value: data['reportSearch'],
+        errorMessage: { text: errors['reportSearch'].text } if errors and errors['reportSearch']
+      }) }}
+
+      {{ govukButton({ text: "Search" }) }}
+    </form>
+  </div>
+</div>
+{% endblock %}

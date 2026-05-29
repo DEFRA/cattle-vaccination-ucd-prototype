@@ -1,0 +1,71 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check the cattle on each list – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref or "/v1-3/prepare-skin-test-assign-cattle"
+}) }}
+{% endblock %}
+
+{% block content %}
+{# Summary page after the vet picks cattle for the first chosen list.
+   The unticked animals were auto-assigned to the other list, so the
+   vet can either continue to the printable list or jump back into
+   either picker via the Change link. Mirrors the GDS "Check your
+   answers" pattern used on /v1-3/skin-test-confirm-test. #}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    <h1 class="govuk-heading-l">Check the cattle on each list</h1>
+
+    <p class="govuk-body">
+      You picked cattle for the <strong>{{ firstTestLabel }}</strong> list.
+      The remaining cattle were added to the <strong>{{ otherTestLabel }}</strong> list automatically.
+    </p>
+
+    {# Per-list value cell – stacked, minimal lines: total and the
+       vaccination-status split, nothing else. #}
+    {% macro listSummary(summary, listName, otherListName) %}
+      {% if summary.total > 0 %}
+        <p class="govuk-body govuk-!-margin-bottom-0">{{ summary.total }} animals</p>
+        <p class="govuk-body govuk-hint govuk-!-margin-bottom-0">{{ summary.vaccinated }} vaccinated · {{ summary.unvaccinated }} unvaccinated</p>
+      {% else %}
+        0 animals
+      {% endif %}
+    {% endmacro %}
+
+    <dl class="govuk-summary-list">
+      <div class="govuk-summary-list__row">
+        <dt class="govuk-summary-list__key">Cattle on the SICCT list</dt>
+        <dd class="govuk-summary-list__value">
+          {{ listSummary(sicctSummary, 'SICCT', 'DIVA') }}
+        </dd>
+        <dd class="govuk-summary-list__actions">
+          <a class="govuk-link" href="/v1-3/prepare-skin-test-assign-cattle/edit/sicct">Change<span class="govuk-visually-hidden"> cattle on the SICCT list</span></a>
+        </dd>
+      </div>
+      <div class="govuk-summary-list__row">
+        <dt class="govuk-summary-list__key">Cattle on the DIVA list</dt>
+        <dd class="govuk-summary-list__value">
+          {{ listSummary(divaSummary, 'DIVA', 'SICCT') }}
+        </dd>
+        <dd class="govuk-summary-list__actions">
+          <a class="govuk-link" href="/v1-3/prepare-skin-test-assign-cattle/edit/diva">Change<span class="govuk-visually-hidden"> cattle on the DIVA list</span></a>
+        </dd>
+      </div>
+    </dl>
+
+    <form action="/v1-3/prepare-skin-test-assign-confirm" method="post" novalidate>
+      {{ govukButton({
+        text: "Continue to the " + firstTestLabel + " list"
+      }) }}
+    </form>
+
+  </div>
+</div>
+{% endblock %}

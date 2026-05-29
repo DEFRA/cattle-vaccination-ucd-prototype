@@ -1,0 +1,56 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Which test do you want to record first? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/skin-test-type"
+}) }}
+{% endblock %}
+
+{% block content %}
+{# v1-3: only rendered when the vet said they did BOTH tests on
+   /v1-3/skin-test-type. The choice determines which batch-details
+   page the vet sees next; the other test is captured straight after
+   via the existing Both-journey loop. Single-test journeys skip this
+   page entirely. #}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+
+    <form action="/v1-3/skin-test-record-first" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "skinTestFirstOrder",
+        name: "skinTestFirstOrder",
+        value: data['skinTestFirstOrder'],
+        fieldset: {
+          legend: {
+            text: "Which test do you want to record first?",
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        hint: { text: "You will record the other test straight after this one." },
+        errorMessage: { text: errors['skinTestFirstOrder'].text } if errors and errors['skinTestFirstOrder'],
+        items: [
+          { value: "sicct", text: "SICCT" },
+          { value: "diva",  text: "DIVA" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

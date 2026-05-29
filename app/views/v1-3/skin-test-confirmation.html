@@ -1,0 +1,259 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check and send – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/skin-test-measurements" if showSicct else "/v1-3/skin-test-diva"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if data['addedAnotherEarTag'] %}
+      {{ govukNotificationBanner({
+        titleText: "Success",
+        type: "success",
+        html: "<h3 class='govuk-notification-banner__heading'>Added " + data['addedAnotherEarTag'] + " to this report</h3>"
+      }) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    <h1 class="govuk-heading-l">Check and send</h1>
+
+    <p class="govuk-body">
+      Review what you've recorded before submitting.
+    </p>
+
+    {# Batch numbers entered on /skin-test-type are rendered as
+       bullet lists when there's more than one, or a plain line when
+       there's just one – matches how the vet entered them. When the
+       vet hasn't recorded anything earlier in the journey the page
+       falls back to a sensible dummy value so the prototype can be
+       demoed without forcing data entry. #}
+    {% set sicctBatchesHtml %}
+      {% if sicctBatches and sicctBatches.length > 1 %}
+        <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
+          {% for batch in sicctBatches %}<li>{{ batch }}</li>{% endfor %}
+        </ul>
+      {% elif sicctBatches and sicctBatches.length == 1 and sicctBatches[0] %}
+        {{ sicctBatches[0] }}
+      {% else %}
+        138009G
+      {% endif %}
+    {% endset %}
+
+    {% set divaBatchesHtml %}
+      {% if divaBatches and divaBatches.length > 1 %}
+        <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
+          {% for batch in divaBatches %}<li>{{ batch }}</li>{% endfor %}
+        </ul>
+      {% elif divaBatches and divaBatches.length == 1 and divaBatches[0] %}
+        {{ divaBatches[0] }}
+      {% else %}
+        447112F
+      {% endif %}
+    {% endset %}
+
+    {% set summaryRows = [
+      {
+        key: { text: "Farm" },
+        value: { text: data['herd']['farm'] }
+      },
+      {
+        key: { text: "CPH" },
+        value: { text: data['herd']['cph'] }
+      },
+      {
+        key: { text: "Day 1 (injection)" },
+        value: { text: day1Formatted or "Not recorded" },
+        actions: { items: [{ href: "/v1-3/skin-test-date", text: "Change", visuallyHiddenText: "day 1 date and start time" }] }
+      },
+      {
+        key: { text: "Day 2 (reading)" },
+        value: {
+          html: (day2Formatted or "Not recorded") + ('<br><span class="govuk-hint govuk-!-margin-bottom-0">Calculated as 72 hours after Day 1</span>' if day2Calculated and day2Formatted else '')
+        },
+        actions: { items: [{ href: "/v1-3/skin-test-date", text: "Change", visuallyHiddenText: "day 2 date and start time" }] }
+      },
+      {
+        key: { text: "Test type" },
+        value: { text: (skinTestType or data['skinTestType'] or "Not recorded") | replace('Both', 'DIVA and SICCT') },
+        actions: { items: [{ href: "/v1-3/skin-test-type", text: "Change", visuallyHiddenText: "test type" }] }
+      }
+    ] %}
+
+    {% if showSicct %}
+      {% set summaryRows = summaryRows.concat([{
+        key: { text: "SICCT batch" + ("es" if sicctBatches.length > 1 else "") },
+        value: { html: sicctBatchesHtml },
+        actions: { items: [{ href: "/v1-3/skin-test-batch-details/sicct", text: "Change", visuallyHiddenText: "SICCT batch numbers" }] }
+      }]) %}
+    {% endif %}
+
+    {% if showDiva %}
+      {% set summaryRows = summaryRows.concat([{
+        key: { text: "DIVA batch" + ("es" if divaBatches.length > 1 else "") },
+        value: { html: divaBatchesHtml },
+        actions: { items: [{ href: "/v1-3/skin-test-batch-details/diva", text: "Change", visuallyHiddenText: "DIVA batch numbers" }] }
+      }]) %}
+    {% endif %}
+
+    {{ govukSummaryList({ rows: summaryRows }) }}
+
+    {# ------------------------------------------------------------------
+       Reactor / untested / clear breakdown – this is the headline for
+       the vet: most cattle are clear, a few reacted (and need full
+       measurements), a few were not tested (with reasons).
+       The not-tested row carries an inline list of ear tags + reasons
+       so the vet doesn't have to scroll to a separate section.
+    ------------------------------------------------------------------ #}
+    <h2 class="govuk-heading-m">Results</h2>
+
+    {# Helper: render just the summary count for a reactor row. The
+       per-animal list of ear tags is intentionally omitted – the
+       vet uses the Change link to drill into which animals were
+       picked. Used below for the SICCT and DIVA reactor rows. #}
+    {% macro reactorListHtml(entries, count) %}
+      {{ count }} {{ "animal" if count == 1 else "animals" }}
+    {% endmacro %}
+
+    {# Single "Reacted" cell content for non-Both journeys. The Both
+       journey uses two separate rows below (one for SICCT, one for
+       DIVA), so this fallback is only used for SICCT-only and
+       DIVA-only reports. #}
+    {% set reactedHtml %}
+      {{ reactorListHtml(reactorEntries, reactorCount) }}
+    {% endset %}
+
+    {# "Not tested" cell – just the summary count. The per-animal
+       list (with each animal's untested reason) is reached via the
+       Change link, so we don't repeat that detail here. #}
+    {% set notTestedHtml %}
+      {{ untestedCount }} {{ "animal" if untestedCount == 1 else "animals" }}
+    {% endset %}
+
+    {% set sicctReactedHtml %}
+      {{ reactorListHtml(sicctReactorEntries, sicctReactorCount) }}
+    {% endset %}
+    {% set divaReactedHtml %}
+      {{ reactorListHtml(divaReactorEntries, divaReactorCount) }}
+    {% endset %}
+
+    {# Declaration row – the vet's "all cattle tested?" answer from
+       /skin-test-all-tested. Sits as the final row of the Results
+       summary list so it reads as the closing confirmation. #}
+    {% set declarationText = "Not confirmed" %}
+    {% if data['allCattleTestedReport'] == 'yes' %}
+      {% set declarationText = "Confirmed all cattle were tested" %}
+    {% elif data['allCattleTestedReport'] == 'no' %}
+      {% set declarationText = "Some cattle were not tested" %}
+    {% endif %}
+    {% set declarationRow = {
+      key: { text: "Declaration" },
+      value: { text: declarationText },
+      actions: { items: [{ href: "/v1-3/skin-test-all-tested", text: "Change", visuallyHiddenText: "the declaration that all cattle were tested" }] }
+    } %}
+
+    {% if isBothJourney %}
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Reacted to SICCT" },
+            value: { html: sicctReactedHtml },
+            actions: { items: [{ href: "/v1-3/skin-test-reactors-any", text: "Change", visuallyHiddenText: "which cattle reacted to SICCT" }] }
+          },
+          {
+            key: { text: "Reacted to DIVA" },
+            value: { html: divaReactedHtml },
+            actions: { items: [{ href: "/v1-3/skin-test-reactors-any", text: "Change", visuallyHiddenText: "which cattle reacted to DIVA" }] }
+          },
+          {
+            key: { text: "Not tested" },
+            value: { html: notTestedHtml },
+            actions: { items: [{ href: "/v1-3/skin-test-untested", text: "Change", visuallyHiddenText: "which cattle were not tested" }] }
+          },
+          {
+            key: { text: "Clear (negative)" },
+            value: { text: clearCount + (" animal" if clearCount == 1 else " animals") },
+            actions: { items: [{ href: "/v1-3/skin-test-reactors-any", text: "Change", visuallyHiddenText: "to mark a clear animal as a reactor" }] }
+          },
+          declarationRow
+        ]
+      }) }}
+    {% else %}
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Reacted" },
+            value: { html: reactedHtml },
+            actions: { items: [{ href: "/v1-3/skin-test-reactors", text: "Change", visuallyHiddenText: "which cattle reacted" }] }
+          },
+          {
+            key: { text: "Not tested" },
+            value: { html: notTestedHtml },
+            actions: { items: [{ href: "/v1-3/skin-test-untested", text: "Change", visuallyHiddenText: "which cattle were not tested" }] }
+          },
+          {
+            key: { text: "Clear (negative)" },
+            value: { text: clearCount + (" animal" if clearCount == 1 else " animals") },
+            actions: { items: [{ href: "/v1-3/skin-test-reactors-any", text: "Change", visuallyHiddenText: "to mark a clear animal as a reactor" }] }
+          },
+          declarationRow
+        ]
+      }) }}
+    {% endif %}
+
+    {# ------------------------------------------------------------------
+       Animals added in this report (not on the original list). Each
+       row mirrors the Change-link pattern used on the rows above:
+       one summary-list row per animal with a single "Change" action
+       that opens an edit page (where the vet can update the details
+       or remove the animal entirely).
+    ------------------------------------------------------------------ #}
+    {% if addedEntries and addedEntries.length > 0 %}
+      <h2 class="govuk-heading-m govuk-!-margin-top-6">Cattle added to this report ({{ addedCount }})</h2>
+      <dl class="govuk-summary-list">
+        {% for entry in addedEntries %}
+          <div class="govuk-summary-list__row">
+            {# Show only the last-4-digit individual number so the row
+               matches the reactor and not-tested lists above. The
+               Change link's href still uses the full officialId
+               because that's the URL identifier. #}
+            <dt class="govuk-summary-list__key">{{ entry.earTagParts.last4 }}</dt>
+            <dd class="govuk-summary-list__value">
+              <p class="govuk-body govuk-!-margin-bottom-0">
+                {{ entry.breed or 'Breed not recorded' }}
+                &middot; {{ entry.sex or 'Sex not recorded' }}
+                &middot; DOB {{ entry.dob or 'not recorded' }}
+              </p>
+              {% if entry.remarks %}
+                <p class="govuk-body-s govuk-!-margin-top-1 govuk-!-margin-bottom-0">
+                  {{ entry.remarks }}
+                </p>
+              {% endif %}
+            </dd>
+            <dd class="govuk-summary-list__actions">
+              <a class="govuk-link" href="/v1-3/skin-test-add-another/edit/{{ entry.officialId }}">
+                Change<span class="govuk-visually-hidden"> details for {{ entry.earTagParts.last4 }}</span>
+              </a>
+            </dd>
+          </div>
+        {% endfor %}
+      </dl>
+    {% endif %}
+
+    <form action="/v1-3/skin-test-confirmation" method="post" novalidate>
+      <div class="govuk-button-group">
+        {{ govukButton({ text: "Submit" }) }}
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

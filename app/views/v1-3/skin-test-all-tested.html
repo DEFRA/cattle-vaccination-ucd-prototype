@@ -1,0 +1,195 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Were all of the cattle tested? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref or "/v1-3/skin-test-reactors"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Ear tag rendering – matches the rest of the v1-2 skin-test
+     tables. The wrapper prints at the regular weight; only the last
+     4 digits are bold so the vet's eye lands on the individual
+     number. Duplicates underline the last-4 segment; under-test-age
+     cattle (DOB < 44 days ago) underline the DOB value. These are
+     content-presentation concerns that sit on top of the standard
+     GOV.UK table – the rest of the table layout uses the stock
+     `govuk-table` classes so the row spacing, header weight and
+     cell padding match every other GOV.UK service. */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 {
+    padding: 0;
+    font-weight: 700;
+  }
+  /* Duplicate last-4 segment – emphasised with a heavy 4px top and
+     bottom band wrapping just the four bold digits, no side borders.
+     Matches the duplicate treatment on /v1-3/download-list,
+     /v1-3/select-vaccinated-animals, /v1-3/skin-test-list and
+     /v1-3/skin-test-reactors so the same flag reads the same across
+     every v1-2 table. */
+  .app-ear-tag__part--last4--duplicate {
+    border: 0;
+    border-top: 4px solid #000;
+    border-bottom: 4px solid #000;
+  }
+  .app-dob-cell--under-age {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  .app-vax-cell--check {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
+    <h1 class="govuk-heading-l">
+      Were all of the {{ totalCattle }} cattle tested?
+    </h1>
+
+    <p class="govuk-body">
+      Check all the cattle have been tested.
+    </p>
+
+  </div>
+</div>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-three-quarters">
+
+    {# Pagination – slice the full animal list down to the current
+       page so long herds don't make the gate page scroll forever.
+       Defaults match /v1-3/skin-test-list: 25 rows per page, page
+       1 unless ?page=N is set. #}
+    {% set _pageSize = pageSize or 25 %}
+    {% set _currentPage = currentPage or 1 %}
+    {% set _totalAnimals = animals.length %}
+    {% set _totalPages = ((_totalAnimals + _pageSize - 1) / _pageSize) | int %}
+    {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+    {% set _currentPageClamped = _currentPage %}
+    {% if _currentPageClamped > _totalPages %}{% set _currentPageClamped = _totalPages %}{% endif %}
+    {% set _start = (_currentPageClamped - 1) * _pageSize %}
+    {% set _end = _start + _pageSize %}
+    {% set pagedAnimals = animals.slice(_start, _end) %}
+
+    {# Standard GOV.UK design system table – this is a display
+       page (no per-row data entry) so it uses the stock
+       `govuk-table` classes rather than the printable-list grid
+       used by the data-entry pages. #}
+    <table class="govuk-table">
+      <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+          <th scope="col" class="govuk-table__header">Ear tag number</th>
+          {% if isBothJourney %}
+            <th scope="col" class="govuk-table__header">Test</th>
+          {% endif %}
+          <th scope="col" class="govuk-table__header">DOB</th>
+          <th scope="col" class="govuk-table__header">Sex</th>
+          <th scope="col" class="govuk-table__header">Breed</th>
+          <th scope="col" class="govuk-table__header">TB Vax</th>
+          <th scope="col" class="govuk-table__header">Reactor</th>
+        </tr>
+      </thead>
+      <tbody class="govuk-table__body">
+        {% for animal in pagedAnimals %}
+          <tr class="govuk-table__row">
+            <td class="govuk-table__cell">
+              <div class="app-ear-tag">
+                <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
+                <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
+                <span class="app-ear-tag__part app-ear-tag__part--check">{{ animal.earTagParts.check }}</span>
+                <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ animal.earTagParts.individualStart }}</span>
+                <span class="app-ear-tag__part app-ear-tag__part--last4{% if animal.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                      {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
+              </div>
+            </td>
+            {% if isBothJourney %}
+              <td class="govuk-table__cell">
+                {% if animal.assignedTest %}
+                  <strong class="govuk-tag govuk-tag--{{ 'blue' if animal.assignedTest == 'DIVA' else 'grey' }}">{{ animal.assignedTest }}</strong>
+                {% endif %}
+              </td>
+            {% endif %}
+            <td class="govuk-table__cell{% if animal.isUnderTestAge %} app-dob-cell--under-age{% endif %}">{{ animal.dob }}</td>
+            <td class="govuk-table__cell">{{ animal.sex }}</td>
+            <td class="govuk-table__cell">{{ animal.breed }}</td>
+            <td class="govuk-table__cell{% if animal.isVaxCheckDue %} app-vax-cell--check{% endif %}">{{ animal.vaccinationDate or '-' }}</td>
+            <td class="govuk-table__cell">
+              {% if animal.isReactor %}
+                <strong class="govuk-tag govuk-tag--red">Reactor</strong>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {# GOV.UK pagination – only shown when there's more than one page. #}
+    {% if _totalPages > 1 %}
+      {% set _paginationItems = [] %}
+      {% for _p in range(1, _totalPages + 1) %}
+        {% set _paginationItems = _paginationItems.concat([{
+          number: _p,
+          href: "?page=" + _p|string,
+          current: _p == _currentPageClamped
+        }]) %}
+      {% endfor %}
+      {{ govukPagination({
+        classes: "govuk-!-margin-top-2 govuk-!-margin-bottom-6",
+        previous: { href: "?page=" + (_currentPageClamped - 1)|string } if _currentPageClamped > 1 else null,
+        next: { href: "?page=" + (_currentPageClamped + 1)|string } if _currentPageClamped < _totalPages else null,
+        items: _paginationItems
+      }) }}
+    {% endif %}
+
+    <form action="/v1-3/skin-test-all-tested" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "allCattleTestedReport",
+        name: "allCattleTestedReport",
+        value: data['allCattleTestedReport'],
+        errorMessage: { text: errors['allCattleTestedReport'].text } if errors and errors['allCattleTestedReport'],
+        fieldset: {
+          legend: {
+            text: "Were all of the cattle tested?",
+            classes: "govuk-visually-hidden"
+          }
+        },
+        items: [
+          { value: "yes", text: "Yes, all cattle were tested" },
+          { value: "no",  text: "No, some cattle were not tested" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}
