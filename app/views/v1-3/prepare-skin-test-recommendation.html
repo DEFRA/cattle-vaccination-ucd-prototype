@@ -1,7 +1,7 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Which test do you want to prepare a list for? – GOV.UK
+  Which skin tests do you want to use? – GOV.UK
 {% endblock %}
 
 {% block beforeContent %}
@@ -21,22 +21,66 @@
 
     {% if data['herd'] %}
       <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
-      <h1 class="govuk-heading-l">Which test do you want to prepare a list for?</h1>
+      <h1 class="govuk-heading-l">Which skin tests do you want to use?</h1>
 
-      {# Recommendation summary – the helper passes a headline sentence
-         (vaccination-records or policy phrasing) and a longer reason
-         sentence. recommendedType still carries the canonical
-         SICCT / DIVA / Both value for routing decisions. #}
+      {# Recommendation summary. The text depends on whether the herd
+         has any BCG vaccinated animals (herdHasVaccinated, set by the
+         route handler):
+           - includes vaccinated animals → Defra recommends DIVA for
+             the whole herd.
+           - fully unvaccinated herd     → either SICCT or DIVA can be
+             used, so no single test is recommended. #}
+      {% if herdHasVaccinated %}
+        {% set warningHeadline = "This herd includes vaccinated animals" %}
+        {% set warningReason = "Defra recommends you use the DIVA skin test for all animals in the herd." %}
+      {% else %}
+        {% set warningHeadline = "Unvaccinated herd" %}
+        {% set warningReason = "You can use either SICCT or DIVA skin tests for all unvaccinated animals in the herd." %}
+      {% endif %}
+
       <div class="govuk-inset-text">
         <p class="govuk-body govuk-!-margin-bottom-2">
-          <strong>{{ recommendedHeadline }}</strong>
+          <strong>{{ warningHeadline }}</strong>
         </p>
         <p class="govuk-body govuk-!-margin-bottom-0 govuk-hint">
-          {{ recommendedReason }}
+          {{ warningReason }}
         </p>
       </div>
 
       <form action="/v1-3/prepare-skin-test-recommendation" method="post" novalidate>
+
+        {# Three choices: use a single skin test for the whole herd
+           (SICCT or DIVA), or sort the cattle into separate lists.
+           When the herd has vaccinated animals DIVA is the recommended
+           single test, so it carries the "(recommended)" suffix and is
+           listed first. For a fully unvaccinated herd neither is
+           recommended and SICCT leads. #}
+        {% set sicctItem = {
+          value: "sicct",
+          text: "Use the SICCT skin test",
+          hint: { text: "You'll use a single skin test for the whole herd." }
+        } %}
+        {% if herdHasVaccinated %}
+          {% set divaText = "Use the DIVA skin test (recommended)" %}
+        {% else %}
+          {% set divaText = "Use the DIVA skin test" %}
+        {% endif %}
+        {% set divaItem = {
+          value: "diva",
+          text: divaText,
+          hint: { text: "You'll use a single skin test for the whole herd." }
+        } %}
+        {% set manualItem = {
+          value: "manual",
+          text: "I'll choose which skin test type to use",
+          hint: { text: "You'll sort all the cattle into separate lists for DIVA and SICCT skin tests." }
+        } %}
+
+        {% if herdHasVaccinated %}
+          {% set radioItems = [divaItem, sicctItem, manualItem] %}
+        {% else %}
+          {% set radioItems = [sicctItem, divaItem, manualItem] %}
+        {% endif %}
 
         {{ govukRadios({
           idPrefix: "prepareSkinTestChoice",
@@ -45,22 +89,11 @@
           errorMessage: { text: errors['prepareSkinTestChoice'].text } if errors and errors['prepareSkinTestChoice'],
           fieldset: {
             legend: {
-              text: "How do you want to prepare the list?",
+              text: "Which skin tests do you want to use?",
               classes: "govuk-visually-hidden"
             }
           },
-          items: [
-            {
-              value: "recommended",
-              text: "Use the APHA recommended test type",
-              hint: { text: "Create the cattle list using the recommended test approach for this herd." }
-            },
-            {
-              value: "manual",
-              text: "Choose test types manually",
-              hint: { html: "Choose whether to prepare SICCT lists, DIVA lists, or both.<br>You can choose separate lists for vaccinated and unvaccinated cattle." }
-            }
-          ]
+          items: radioItems
         }) }}
 
         {{ govukButton({ text: "Continue" }) }}

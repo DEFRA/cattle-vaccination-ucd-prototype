@@ -3836,7 +3836,8 @@ function registerSkinTestRoutes(version) {
       label: labels[type],
       headline: headline,
       reason: reason,
-      source: policyDivaWholeHerd ? 'policy' : 'vaccination-records'
+      source: policyDivaWholeHerd ? 'policy' : 'vaccination-records',
+      hasVaccinated: hasVaccinated
     }
   }
 
@@ -3851,7 +3852,11 @@ function registerSkinTestRoutes(version) {
       recommendedLabel: info.label,
       recommendedHeadline: info.headline,
       recommendedReason: info.reason,
-      recommendedSource: info.source
+      recommendedSource: info.source,
+      // Drives the warning text and which single test is recommended on
+      // the page: vaccinated animals present → DIVA recommended for the
+      // whole herd; fully unvaccinated → either test can be used.
+      herdHasVaccinated: info.hasVaccinated
     })
   })
 
@@ -3869,24 +3874,48 @@ function registerSkinTestRoutes(version) {
         recommendedHeadline: info.headline,
         recommendedReason: info.reason,
         recommendedSource: info.source,
-        errors: { prepareSkinTestChoice: { text: 'Select how you want to prepare the list' } },
+        herdHasVaccinated: info.hasVaccinated,
+        errors: { prepareSkinTestChoice: { text: 'Select which skin tests you want to use' } },
         errorSummary: {
           titleText: 'There is a problem',
-          errorList: [{ text: 'Select how you want to prepare the list', href: '#prepareSkinTestChoice' }]
+          errorList: [{ text: 'Select which skin tests you want to use', href: '#prepareSkinTestChoice' }]
         }
       })
     }
     if (choice === 'manual') {
-      // Vet wants to override the recommendation – clear any auto-set
-      // type and send them to the manual test-type picker.
-      req.session.data.prepareSkinTestType = null
-      req.session.data.prepareSkinTestTypeManuallyChosen = null
-      return res.redirect(`/${version}/prepare-skin-test-type`)
+      // "I'll choose which skin test type to use" – the vet sorts the
+      // cattle into separate DIVA / SICCT lists themselves. This is the
+      // "Both" split flow: start with empty assignments in manual mode
+      // and route to list-format, where they pick which list to format
+      // first and then assign cattle via the picker. (Mirrors the v1-3
+      // "Both" branch of the now-removed prepare-skin-test-type page.)
+      req.session.data.prepareSkinTestType = 'Both'
+      req.session.data.prepareSkinTestAssignments = { sicct: [], diva: [] }
+      req.session.data.prepareAssignCompletedTests = []
+      req.session.data.prepareAssignMode = 'manual'
+      req.session.data.prepareSkinTestPhase = 'sicct'
+      req.session.data.prepareSkinTestUntested = []
+      req.session.data.prepareSkinTestUntestedReasons = {}
+      req.session.data.prepareSkinTestUntestedReasonOthers = {}
+      req.session.data.prepareSkinTestTypeManuallyChosen = true
+      return res.redirect(`/${version}/list-format`)
     }
-    // Recommended – leave the type unset so /list-format's POST runs
-    // the auto-setup helper (same path v1-2 uses).
-    req.session.data.prepareSkinTestType = null
-    req.session.data.prepareSkinTestTypeManuallyChosen = null
+    // "Use the SICCT skin test" / "Use the DIVA skin test" – a single
+    // skin test for the whole herd. Set the type explicitly and route
+    // to list-format, mirroring the SICCT-only / DIVA-only path from
+    // the manual test-type picker.
+    const chosenType = choice === 'diva' ? 'DIVA' : 'SICCT'
+    req.session.data.prepareSkinTestType = chosenType
+    req.session.data.prepareSkinTestPhase = chosenType === 'DIVA' ? 'diva' : 'sicct'
+    req.session.data.prepareSkinTestTypeManuallyChosen = true
+    // Reset any not-tested / assignment state from a previous run so a
+    // fresh single-test list starts clean.
+    req.session.data.prepareSkinTestUntested = []
+    req.session.data.prepareSkinTestUntestedReasons = {}
+    req.session.data.prepareSkinTestUntestedReasonOthers = {}
+    req.session.data.prepareSkinTestAssignments = null
+    req.session.data.prepareAssignMode = null
+    req.session.data.prepareAssignCompletedTests = []
     res.redirect(`/${version}/list-format`)
   })
 
@@ -3894,11 +3923,13 @@ function registerSkinTestRoutes(version) {
   // The vet then marks any cattle that won't be tested on the next step –
   // there's no separate vaccination-status mismatch warning.
   // v1-2 has no manual "which test" page; the type is derived from the
-  // herd's vaccination status. If anyone lands here directly we send
-  // them back to the journey selector instead of rendering a missing
-  // template.
+  // herd's vaccination status. v1-3 has retired this page too – the
+  // SICCT / DIVA / split choice is now made directly on
+  // prepare-skin-test-recommendation. For both versions, if anyone
+  // lands here directly we send them back to the journey selector
+  // instead of rendering a removed template.
   router.get(`/${version}/prepare-skin-test-type`, function (req, res) {
-    if (version === 'v1-2') {
+    if (version === 'v1-2' || version === 'v1-3') {
       return res.redirect(`/${version}/select-visit-task`)
     }
     res.render(`${version}/prepare-skin-test-type`)
@@ -3910,6 +3941,12 @@ function registerSkinTestRoutes(version) {
       // form somehow does, skip into the auto-setup path.
       autoSetupSkinTestForV12(req, version)
       return res.redirect(`/${version}/skin-test-list`)
+    }
+    if (version === 'v1-3') {
+      // v1-3 retired this page – the choice is made on
+      // prepare-skin-test-recommendation. Bounce any stale POST back to
+      // the journey selector.
+      return res.redirect(`/${version}/select-visit-task`)
     }
     // The "mixed herd" radio submits the value "DIVA and SICCT". The
     // rest of the journey keys off the canonical "Both" value, so
