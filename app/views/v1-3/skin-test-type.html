@@ -1,0 +1,72 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Which test did you do? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/skin-test-date"
+}) }}
+{% endblock %}
+
+{% block content %}
+{# v1-3: this page asks the vet what they actually did in the field.
+   The system has already worked out which test(s) were prepared for
+   this CPH (`prepareSkinTestType`) and pre-ticks the boxes to match,
+   but the vet can override that selection – they may have done a
+   different combination on the day. After this page:
+     - one test ticked → straight to the batch-details page for that
+       test (single-test journey).
+     - both ticked → next page (/v1-3/skin-test-record-first) asks
+       which test they want to report on first.
+#}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+
+    {# Pre-fill the checkboxes from whatever the vet last submitted
+       (skinTestTests) or, on first arrival, from prepareSkinTestType
+       so the common case is a single click to confirm. #}
+    {% set selectedTests = data['skinTestTests'] or [] %}
+    {% if not selectedTests.length %}
+      {% if data['prepareSkinTestType'] == 'SICCT' %}{% set selectedTests = ['SICCT'] %}{% endif %}
+      {% if data['prepareSkinTestType'] == 'DIVA'  %}{% set selectedTests = ['DIVA']  %}{% endif %}
+      {% if data['prepareSkinTestType'] == 'Both'  %}{% set selectedTests = ['SICCT', 'DIVA'] %}{% endif %}
+    {% endif %}
+    {% set sicctChecked = "SICCT" in selectedTests %}
+    {% set divaChecked  = "DIVA"  in selectedTests %}
+
+    <form action="/v1-3/skin-test-type" method="post" novalidate>
+
+      {{ govukCheckboxes({
+        idPrefix: "tests",
+        name: "tests",
+        fieldset: {
+          legend: {
+            text: "Which test did you do?",
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        hint: { text: "Select all that apply." },
+        errorMessage: { text: errors['tests'].text } if errors and errors['tests'],
+        items: [
+          { value: "SICCT", text: "SICCT", checked: sicctChecked },
+          { value: "DIVA",  text: "DIVA",  checked: divaChecked }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

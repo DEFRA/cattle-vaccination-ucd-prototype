@@ -1,0 +1,65 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Which list do you want to create first? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/list-format"
+}) }}
+{% endblock %}
+
+{% block content %}
+{# Picker shown before /v1-3/skin-test-list when both SICCT and DIVA
+   were prepared for the CPH. The vet picks which list to format and
+   print first; after they've saved or printed it, the
+   skin-test-list-confirmed page sends them back through the second
+   list. Single-test CPHs skip this page entirely – the list-format
+   POST sends them straight to /v1-3/skin-test-list. #}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+
+    <form action="/v1-3/skin-test-list-order" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "prepareSkinTestListFirstOrder",
+        name: "prepareSkinTestListFirstOrder",
+        value: data['prepareSkinTestListFirstOrder'],
+        fieldset: {
+          legend: {
+            text: "Which list do you want to create first?",
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        hint: { text: "You'll create the other list straight after this one." },
+        errorMessage: { text: errors['prepareSkinTestListFirstOrder'].text } if errors and errors['prepareSkinTestListFirstOrder'],
+        items: [
+          {
+            value: "sicct",
+            text: "SICCT",
+            hint: { text: "For the unvaccinated cattle on this farm." }
+          },
+          {
+            value: "diva",
+            text: "DIVA",
+            hint: { text: "For the BCG vaccinated cattle on this farm." }
+          }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

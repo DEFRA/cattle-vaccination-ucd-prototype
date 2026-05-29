@@ -1,0 +1,72 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Download available – GOV.UK
+{% endblock %}
+
+{% block content %}
+{% set isCsv = data['downloadFormat'] == 'csv' %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {{ govukPanel({
+      titleText: "Download available"
+    }) }}
+
+    <p class="govuk-body">
+      You can now download or print the vaccination list.
+    </p>
+
+    <p class="govuk-body">
+      <a class="govuk-link" href="/v1-3/dashboard">Save to download later</a>
+    </p>
+
+    {% if isCsv %}
+      {{ govukButton({
+        text: "Download",
+        href: "/v1-3/download-list?download=csv"
+      }) }}
+    {% else %}
+      {{ govukButton({
+        text: "Download",
+        href: "/v1-3/download-list?print=1"
+      }) }}
+    {% endif %}
+
+    <p class="govuk-body">
+      You can also see your list as a
+      {% if isCsv %}
+        <a class="govuk-link" href="/v1-3/download-list">PDF</a>
+      {% else %}
+        <a class="govuk-link" href="/v1-3/list-spreadsheet">spreadsheet</a>
+      {% endif %}
+      or
+      <a class="govuk-link" href="/v1-3/handheld-info">send it to your handheld</a>.
+    </p>
+
+    {# Onward journey – mirror of skin-test-list-confirmed but with the
+       options relevant to a vaccination visit. #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-6">What to do next</h2>
+    <ul class="govuk-list">
+      <li>
+        <a class="govuk-link" href="/v1-3/search">Prepare another list</a>
+      </li>
+      <li>
+        <form action="/v1-3/select-journey" method="post" style="display: inline;">
+          <input type="hidden" name="journey" value="report-vaccination">
+          <button type="submit"
+                  class="govuk-link"
+                  style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer; text-align: left;">
+            Report BCG vaccinations
+          </button>
+        </form>
+      </li>
+      <li>
+        <a class="govuk-link" href="/v1-3/dashboard">Exit the service</a>
+      </li>
+    </ul>
+
+  </div>
+</div>
+{% endblock %}

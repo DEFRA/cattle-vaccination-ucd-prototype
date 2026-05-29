@@ -1,0 +1,115 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Confirm cattle that will not be tested – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/prepare-skin-test-untested"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Ear tag rendering – matches the rest of the v1-2 skin-test
+     tables. Only the last 4 digits are bold; duplicates underline
+     them rather than wrapping the digits in an inverted box. */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 { padding: 0; font-weight: 700; }
+  .app-ear-tag__part--last4--duplicate {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['prepareSkinTestType'] or 'Skin test list') | replace('Both', 'DIVA and SICCT') }}</span>
+    <h1 class="govuk-heading-l">Confirm cattle that will not be tested</h1>
+
+    {% if untestedRows.length == 0 %}
+      <p class="govuk-body">
+        You haven't marked any cattle as not being tested. Every animal
+        on this farm will appear on the list.
+      </p>
+      <form action="/v1-3/prepare-skin-test-untested-confirm" method="post" novalidate>
+        <div class="govuk-button-group">
+          {{ govukButton({ text: "Continue to list settings" }) }}
+        </div>
+
+        <p class="govuk-body govuk-!-margin-top-2">
+          <a class="govuk-link" href="/v1-3/prepare-skin-test-untested">Mark cattle that will not be tested</a>
+        </p>
+      </form>
+    {% else %}
+      <p class="govuk-body">
+        These <strong>{{ untestedRows.length }}</strong>
+        {{ 'animal' if untestedRows.length == 1 else 'animals' }} will be
+        excluded from the list of cattle to test. Check the reasons
+        below before you continue.
+      </p>
+
+      <table class="govuk-table">
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Ear tag number</th>
+            <th scope="col" class="govuk-table__header">DOB</th>
+            <th scope="col" class="govuk-table__header">Sex</th>
+            <th scope="col" class="govuk-table__header">Breed</th>
+            <th scope="col" class="govuk-table__header">Age</th>
+            <th scope="col" class="govuk-table__header">Reason</th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for row in untestedRows %}
+            <tr class="govuk-table__row">
+              <td class="govuk-table__cell">
+                <div class="app-ear-tag">
+                  <span class="app-ear-tag__prefix">{{ row.earTagParts.prefix }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--herd">{{ row.earTagParts.herd }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--check">{{ row.earTagParts.check }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ row.earTagParts.individualStart }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--last4{% if row.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                        {% if row.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
+                </div>
+              </td>
+              <td class="govuk-table__cell">{{ row.dob }}</td>
+              <td class="govuk-table__cell">{{ row.sex }}</td>
+              <td class="govuk-table__cell">{{ row.breed }}</td>
+              <td class="govuk-table__cell">{{ row.age }}</td>
+              <td class="govuk-table__cell">
+                {{ row.reasonLabel }}{% if row.reasonOther %} – {{ row.reasonOther }}{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <form action="/v1-3/prepare-skin-test-untested-confirm" method="post" novalidate>
+        <div class="govuk-button-group">
+          {{ govukButton({ text: "Continue to list settings" }) }}
+        </div>
+
+        <p class="govuk-body govuk-!-margin-top-2">
+          <a class="govuk-link" href="/v1-3/prepare-skin-test-untested">Change which cattle will not be tested</a>
+        </p>
+      </form>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

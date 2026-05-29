@@ -1,0 +1,52 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Search for a farm
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/dashboard"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+<h1 class="govuk-heading-l">Search for a holding or animal</h1>
+
+<p class="govuk-body">You can search by:</p>
+
+<ul class="govuk-list govuk-list--bullet">
+  <li>CPH</li>
+  <li>farm name</li>
+  <li>work schedule number</li>
+  <li>postcode</li>
+  <li>ear tag number</li>
+</ul>
+
+<p class="govuk-body">You can also combine search terms.</p>
+
+<form action="/v1-3/search" method="post" novalidate>
+  {{ govukInput({
+    label: {
+      text: "Enter search terms",
+      classes: "govuk-label--m"
+    },
+    hint: {
+      text: "For example, 12/345 Hill Farm"
+    },
+    id: "cattleSearch",
+    name: "cattleSearch",
+    value: data['cattleSearch'] or data['search'],
+    errorMessage: { text: errors['cattleSearch'].text } if errors and errors['cattleSearch']
+  }) }}
+
+  {{ govukButton({ text: "Search" }) }}
+</form>
+{% endblock %}

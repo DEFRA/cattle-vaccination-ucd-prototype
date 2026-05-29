@@ -1,0 +1,62 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+Vaccinating and testing cattle for TB – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/start"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-xl">Vaccinating and testing cattle for TB</h1>
+
+    <p class="govuk-body">
+      Use this service to prepare for, carry out and report bovine tuberculosis (TB) vaccination and testing activities in England.
+    </p>
+
+    <p class="govuk-body">
+      The service is for Official Veterinarians (OVs), Approved TB Testers (ATTs) and authorised practice staff involved in TB testing and vaccination.
+    </p>
+
+    <h2 class="govuk-heading-m">Using this service you can:</h2>
+    <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-6">
+      <li>prepare for TB testing or vaccination visits</li>
+      <li>view herd and animal information</li>
+      <li>record vaccination and test results</li>
+      <li>submit results to the Animal and Plant Health Agency (APHA)</li>
+      <li>manage and track your testing activity</li>
+    </ul>
+
+    <h2 class="govuk-heading-m">Before you start</h2>
+    <p class="govuk-body">
+      You must be authorised to carry out bovine TB testing or vaccination. This usually means holding the appropriate Official Veterinarian (OV) authorisation or being registered as an Approved TB Tester (ATT).
+    </p>
+    <p class="govuk-body govuk-!-margin-bottom-6">
+      Make sure you have your sign-in details and access to your organisation’s account before starting.
+    </p>
+
+    {{ govukButton({
+      text: "Start now",
+      href: "/v1-3/sign-in",
+      isStartButton: true
+    }) }}
+
+    <h2 class="govuk-heading-m govuk-!-margin-top-7">Get help</h2>
+    <p class="govuk-body">
+      If you need help using this service or have questions about bovine TB testing and vaccination, contact the Animal and Plant Health Agency (APHA).
+    </p>
+    <ul class="govuk-list">
+      <li>Telephone: 03000 200 301</li>
+      <li>Email: APHAServiceDesk@apha.gov.uk</li>
+    </ul>
+
+  </div>
+</div>
+{% endblock %}

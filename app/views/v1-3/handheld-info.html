@@ -1,0 +1,36 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Sent to your handheld – GOV.UK
+{% endblock %}
+
+{% block content %}
+{% set isSkinTest = data['journey'] == 'prepare-skin-test' %}
+{% set pdfUrl = "/v1-3/skin-test-list" if isSkinTest else "/v1-3/download-list" %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {{ govukPanel({
+      titleText: "Sent to your handheld"
+    }) }}
+
+    <p class="govuk-body">
+      The list is now sent to the handheld device you have connected to this sign in.
+    </p>
+
+    <p class="govuk-body">
+      If you have not yet set up a handheld device for this account
+      <a class="govuk-link" href="#">read the guide to setting up a handheld to work with this service</a>.
+    </p>
+
+    <p class="govuk-body">
+      You can also see your list as a
+      <a class="govuk-link" href="{{ pdfUrl }}">PDF</a>
+      or
+      <a class="govuk-link" href="/v1-3/list-spreadsheet">spreadsheet</a>.
+    </p>
+
+  </div>
+</div>
+{% endblock %}

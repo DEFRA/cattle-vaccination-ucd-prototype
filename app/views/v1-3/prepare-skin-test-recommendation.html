@@ -1,0 +1,78 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Which test do you want to prepare a list for? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/select-visit-task"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {% if data['herd'] %}
+      <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+      <h1 class="govuk-heading-l">Which test do you want to prepare a list for?</h1>
+
+      {# Recommendation summary – the helper passes a headline sentence
+         (vaccination-records or policy phrasing) and a longer reason
+         sentence. recommendedType still carries the canonical
+         SICCT / DIVA / Both value for routing decisions. #}
+      <div class="govuk-inset-text">
+        <p class="govuk-body govuk-!-margin-bottom-2">
+          <strong>{{ recommendedHeadline }}</strong>
+        </p>
+        <p class="govuk-body govuk-!-margin-bottom-0 govuk-hint">
+          {{ recommendedReason }}
+        </p>
+      </div>
+
+      <form action="/v1-3/prepare-skin-test-recommendation" method="post" novalidate>
+
+        {{ govukRadios({
+          idPrefix: "prepareSkinTestChoice",
+          name: "prepareSkinTestChoice",
+          value: data['prepareSkinTestChoice'],
+          errorMessage: { text: errors['prepareSkinTestChoice'].text } if errors and errors['prepareSkinTestChoice'],
+          fieldset: {
+            legend: {
+              text: "How do you want to prepare the list?",
+              classes: "govuk-visually-hidden"
+            }
+          },
+          items: [
+            {
+              value: "recommended",
+              text: "Use the APHA recommended test type",
+              hint: { text: "Create the cattle list using the recommended test approach for this herd." }
+            },
+            {
+              value: "manual",
+              text: "Choose test types manually",
+              hint: { html: "Choose whether to prepare SICCT lists, DIVA lists, or both.<br>You can choose separate lists for vaccinated and unvaccinated cattle." }
+            }
+          ]
+        }) }}
+
+        {{ govukButton({ text: "Continue" }) }}
+
+      </form>
+    {% else %}
+      <h1 class="govuk-heading-l">No farm selected</h1>
+      <p class="govuk-body">
+        <a href="/v1-3/search" class="govuk-link">Go back and select a farm</a>
+      </p>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
