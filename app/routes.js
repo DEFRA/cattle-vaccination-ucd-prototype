@@ -473,7 +473,7 @@ const v11FarmTbStatus = {
   '12/320/6799': { status: 'OTF',  lastTestDate: '11 March 2025',     lastBreakdown: '6 November 2024' },
   '24/402/6800': { status: 'OTF',  lastTestDate: '7 November 2025',   lastBreakdown: 'None recorded' },
   '24/405/6801': { status: 'OTFW', lastTestDate: '25 January 2025',   lastBreakdown: '12 January 2025' },
-  '12/312/6802': { status: 'OTF',  lastTestDate: '19 September 2025', lastBreakdown: 'None recorded' },
+  '12/312/6802': { status: 'OTF',  lastTestDate: '26 May 2024', lastBreakdown: 'None recorded' },
   '12/365/6803': { status: 'OTF',  lastTestDate: '2 July 2025',       lastBreakdown: '16 May 2023' },
   '17/221/6804': { status: 'OTF',  lastTestDate: '28 November 2025',  lastBreakdown: 'None recorded' },
   '17/218/6805': { status: 'OTFW', lastTestDate: '8 April 2025',      lastBreakdown: '1 April 2025' },

@@ -2,3 +2,98 @@
 
 {# Import the GOV.UK button macro so it is available to all pages #}
 {% from "govuk/components/button/macro.njk" import govukButton %}
+
+{# Site-wide accessibility enhancement: announce cattle ear tag numbers
+   one character at a time for screen readers (notably VoiceOver), rather
+   than as a single large number. Runs on every page so current and
+   future screens are covered. See the script for the two passes. #}
+{% block bodyEnd %}
+  {{ super() }}
+  <script>
+  (function () {
+    // "UK341234412177" -> "U K 3 4 1 2 3 4 4 1 2 1 7 7"
+    function spell(token) {
+      return String(token).replace(/\s+/g, '').split('').join(' ')
+    }
+    function srSpan(text) {
+      var s = document.createElement('span')
+      s.className = 'govuk-visually-hidden'
+      s.textContent = text
+      return s
+    }
+
+    // Pass A — the .app-ear-tag component prints each part of the tag in
+    // its own <span>, so no single text node holds the whole number.
+    // Reconstruct it from the parts, hide the visible spans from
+    // assistive tech, and prepend a spelled-out screen-reader version.
+    document.querySelectorAll('.app-ear-tag').forEach(function (el) {
+      if (el.getAttribute('data-ear-tag-sr')) return
+      // Already enhanced server-side (e.g. the DIVA measurement table).
+      if (el.querySelector('.govuk-visually-hidden')) {
+        el.setAttribute('data-ear-tag-sr', '1')
+        return
+      }
+      var parts = el.querySelectorAll('.app-ear-tag__prefix, .app-ear-tag__part')
+      var raw = parts.length
+        ? Array.prototype.map.call(parts, function (p) { return p.textContent }).join('')
+        : (el.textContent || '')
+      raw = raw.replace(/\s+/g, '')
+      if (!raw) return
+      var titled = el.querySelector('[title]')
+      var note = titled ? titled.getAttribute('title') : ''
+      Array.prototype.forEach.call(el.children, function (c) {
+        c.setAttribute('aria-hidden', 'true')
+      })
+      el.insertBefore(srSpan(spell(raw) + (note ? '. ' + note : '')), el.firstChild)
+      el.setAttribute('data-ear-tag-sr', '1')
+    })
+
+    // Pass B — every other place an ear tag appears as plain text: table
+    // cells, list items, headings, and the visually-hidden labels on
+    // selection checkboxes. Walk the text nodes and split out each
+    // "UK" + digits token, keeping an aria-hidden copy for sighted users
+    // and adding a spelled-out screen-reader version after it.
+    var TOKEN = /UK\d{9,}/
+    var TOKEN_G = /UK\d{9,}/g
+    if (!document.body) return
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (node) {
+        if (!node.nodeValue || !TOKEN.test(node.nodeValue)) return NodeFilter.FILTER_REJECT
+        var p = node.parentNode
+        while (p && p !== document.body) {
+          var tag = p.nodeName
+          if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'TEXTAREA') return NodeFilter.FILTER_REJECT
+          if (p.classList && p.classList.contains('app-ear-tag')) return NodeFilter.FILTER_REJECT
+          if (p.getAttribute && p.getAttribute('data-ear-tag-sr')) return NodeFilter.FILTER_REJECT
+          p = p.parentNode
+        }
+        return NodeFilter.FILTER_ACCEPT
+      }
+    })
+    var targets = []
+    var n
+    while ((n = walker.nextNode())) targets.push(n)
+
+    targets.forEach(function (node) {
+      var text = node.nodeValue
+      var frag = document.createDocumentFragment()
+      var lastIndex = 0
+      var m
+      TOKEN_G.lastIndex = 0
+      while ((m = TOKEN_G.exec(text))) {
+        if (m.index > lastIndex) frag.appendChild(document.createTextNode(text.slice(lastIndex, m.index)))
+        var token = m[0]
+        var visible = document.createElement('span')
+        visible.setAttribute('aria-hidden', 'true')
+        visible.setAttribute('data-ear-tag-sr', '1')
+        visible.textContent = token
+        frag.appendChild(visible)
+        frag.appendChild(srSpan(spell(token)))
+        lastIndex = m.index + token.length
+      }
+      if (lastIndex < text.length) frag.appendChild(document.createTextNode(text.slice(lastIndex)))
+      node.parentNode.replaceChild(frag, node)
+    })
+  })()
+  </script>
+{% endblock %}
