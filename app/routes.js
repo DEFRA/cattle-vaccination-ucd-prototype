@@ -473,7 +473,7 @@ const v11FarmTbStatus = {
   '12/320/6799': { status: 'OTF',  lastTestDate: '11 March 2025',     lastBreakdown: '6 November 2024' },
   '24/402/6800': { status: 'OTF',  lastTestDate: '7 November 2025',   lastBreakdown: 'None recorded' },
   '24/405/6801': { status: 'OTFW', lastTestDate: '25 January 2025',   lastBreakdown: '12 January 2025' },
-  '12/312/6802': { status: 'OTF',  lastTestDate: '19 September 2025', lastBreakdown: 'None recorded' },
+  '12/312/6802': { status: 'OTF',  lastTestDate: '26 May 2024', lastBreakdown: 'None recorded' },
   '12/365/6803': { status: 'OTF',  lastTestDate: '2 July 2025',       lastBreakdown: '16 May 2023' },
   '17/221/6804': { status: 'OTF',  lastTestDate: '28 November 2025',  lastBreakdown: 'None recorded' },
   '17/218/6805': { status: 'OTFW', lastTestDate: '8 April 2025',      lastBreakdown: '1 April 2025' },
@@ -619,9 +619,9 @@ const v12FarmDetails = {
   // Mill House Farm – 38 cattle, dairy, edge
   '12/312/6802': {
     bulls: 1, type: 'Dairy', contact: 'James Millburn', phone: '07700 412 559',
-    lastTbTestDay2: '22 September 2025', lastTbTestType: 'Whole herd test',
+    lastTbTestDay2: '26 May 2024', lastTbTestType: 'Whole herd test',
     riskArea: 'Edge', testInterval: '2 yearly',
-    nextSkinTest: 'September 2027', nextSkinTestOverdue: false,
+    nextSkinTest: 'May 2026', nextSkinTestOverdue: true,
     vaccinationStatus: 'Vaccinated', vaccinationBooster: 'Due October 2026'
   },
   // Hazelcroft Farm – 146 cattle, mixed, high risk
@@ -3831,13 +3831,25 @@ function registerSkinTestRoutes(version) {
       reason = 'Some cattle currently recorded on this farm are BCG vaccinated and some are not, so APHA recommends preparing both lists.'
     }
 
+    // Three-way herd vaccination state used by the recommendation
+    // template to pick the copy and the radio options:
+    //   - 'mixed'        – some vaccinated and some unvaccinated animals
+    //   - 'vaccinated'   – every animal is BCG vaccinated (overdue-for-
+    //                      revaccination animals still count as vaccinated)
+    //   - 'unvaccinated' – no animals recorded as vaccinated
+    let herdVaxState
+    if (hasVaccinated && hasUnvaccinated) herdVaxState = 'mixed'
+    else if (hasVaccinated) herdVaxState = 'vaccinated'
+    else herdVaxState = 'unvaccinated'
+
     return {
       type: type,
       label: labels[type],
       headline: headline,
       reason: reason,
       source: policyDivaWholeHerd ? 'policy' : 'vaccination-records',
-      hasVaccinated: hasVaccinated
+      hasVaccinated: hasVaccinated,
+      herdVaxState: herdVaxState
     }
   }
 
@@ -3856,7 +3868,10 @@ function registerSkinTestRoutes(version) {
       // Drives the warning text and which single test is recommended on
       // the page: vaccinated animals present → DIVA recommended for the
       // whole herd; fully unvaccinated → either test can be used.
-      herdHasVaccinated: info.hasVaccinated
+      herdHasVaccinated: info.hasVaccinated,
+      // Three-way state ('mixed'|'vaccinated'|'unvaccinated') the template
+      // uses to choose the copy and the set of skin-test options.
+      herdVaxState: info.herdVaxState
     })
   })
 
@@ -3875,12 +3890,39 @@ function registerSkinTestRoutes(version) {
         recommendedReason: info.reason,
         recommendedSource: info.source,
         herdHasVaccinated: info.hasVaccinated,
+        herdVaxState: info.herdVaxState,
         errors: { prepareSkinTestChoice: { text: 'Select which skin tests you want to use' } },
         errorSummary: {
           titleText: 'There is a problem',
           errorList: [{ text: 'Select which skin tests you want to use', href: '#prepareSkinTestChoice' }]
         }
       })
+    }
+    if (choice === 'auto-split') {
+      // Mixed herd: "DIVA for all vaccinated animals, SICCT for
+      // unvaccinated animals". Pre-sort the cattle automatically by
+      // vaccination status into the DIVA / SICCT lists – no manual
+      // picker – then carry on to list-format. Mirrors the 'Both'
+      // branch of autoSetupSkinTestForV12.
+      const animals = getAnimalsForSelection(req.session.data.selectedCattle, version)
+      const diva = animals
+        .filter(function (a) { return a.vaccinationStatus === 'Vaccinated' })
+        .map(function (a) { return a.officialId })
+      const sicct = animals
+        .filter(function (a) { return a.vaccinationStatus !== 'Vaccinated' })
+        .map(function (a) { return a.officialId })
+      req.session.data.prepareSkinTestType = 'Both'
+      req.session.data.prepareSkinTestAssignments = { sicct: sicct, diva: diva }
+      req.session.data.prepareAssignCompletedTests = ['sicct', 'diva']
+      req.session.data.prepareAssignMode = null
+      req.session.data.prepareSkinTestPhase = 'sicct'
+      req.session.data.prepareSkinTestUntested = []
+      req.session.data.prepareSkinTestUntestedReasons = {}
+      req.session.data.prepareSkinTestUntestedReasonOthers = {}
+      // Mark as manually chosen so list-format doesn't re-run
+      // autoSetup and overwrite these assignments.
+      req.session.data.prepareSkinTestTypeManuallyChosen = true
+      return res.redirect(`/${version}/list-format`)
     }
     if (choice === 'manual') {
       // "I'll choose which skin test type to use" – the vet sorts the
