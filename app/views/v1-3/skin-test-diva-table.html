@@ -335,11 +335,21 @@
                        name="test-{{ entry.originalIndex }}"
                        value="{{ entry.rowTest }}">
                 <div class="app-ear-tag">
-                  <span class="app-ear-tag__prefix">{{ entry.earTagParts.prefix }}</span>
-                  <span class="app-ear-tag__part app-ear-tag__part--herd">{{ entry.earTagParts.herd }}</span>
-                  <span class="app-ear-tag__part app-ear-tag__part--check">{{ entry.earTagParts.check }}</span>
-                  <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ entry.earTagParts.individualStart }}</span>
+                  {# Screen-reader text: announce the ear tag one
+                     character at a time ("U K 3 4 1 ...") so VoiceOver
+                     reads each digit individually instead of speaking
+                     the whole thing as one large number. The visible
+                     digit groups below are hidden from assistive tech
+                     (aria-hidden) so the tag isn't read out twice. The
+                     duplicate note is carried here too, since the
+                     visual title attribute is on a hidden element. #}
+                  <span class="govuk-visually-hidden">{{ entry.officialId.split('') | join(' ') }}{% if entry.isDuplicate %}. Another animal on this farm shares the last 4 digits of this ear tag{% endif %}</span>
+                  <span class="app-ear-tag__prefix" aria-hidden="true">{{ entry.earTagParts.prefix }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--herd" aria-hidden="true">{{ entry.earTagParts.herd }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--check" aria-hidden="true">{{ entry.earTagParts.check }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--individual-start" aria-hidden="true">{{ entry.earTagParts.individualStart }}</span>
                   <span class="app-ear-tag__part app-ear-tag__part--last4{% if entry.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                        aria-hidden="true"
                         {% if entry.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ entry.earTagParts.last4 }}</span>
                 </div>
               </td>
