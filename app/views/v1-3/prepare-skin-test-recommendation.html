@@ -21,66 +21,69 @@
 
     {% if data['herd'] %}
       <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
-      <h1 class="govuk-heading-l">Which skin tests do you want to use?</h1>
+      <h1 class="govuk-heading-l">Which skin tests will you use?</h1>
 
-      {# Recommendation summary. The text depends on whether the herd
-         has any BCG vaccinated animals (herdHasVaccinated, set by the
-         route handler):
-           - includes vaccinated animals → Defra recommends DIVA for
-             the whole herd.
-           - fully unvaccinated herd     → either SICCT or DIVA can be
-             used, so no single test is recommended. #}
-      {% if herdHasVaccinated %}
+      {# herdVaxState ('mixed'|'vaccinated'|'unvaccinated') is set by the
+         route handler from the herd's recorded vaccination status. It
+         drives both the inset guidance text and the set of skin-test
+         options offered:
+           - mixed       → some animals vaccinated, some not. DIVA is
+                            advised for the BCG vaccinated animals, so the
+                            auto-split (DIVA for vaccinated / SICCT for
+                            unvaccinated) leads.
+           - vaccinated  → every animal is BCG vaccinated. DIVA is advised
+                            for the whole herd, so it leads.
+           - unvaccinated→ no animals recorded as vaccinated, so SICCT
+                            leads and either single test can be used. #}
+
+      {# Define the individual radio options once, reused per state. #}
+      {% set autoSplitItem = {
+        value: "auto-split",
+        text: "I'll use DIVA for all vaccinated animals, and SICCT for unvaccinated animals",
+        hint: { text: "Vaccinated animals go on a DIVA list and unvaccinated animals go on a SICCT list." }
+      } %}
+      {% set divaAllItem = {
+        value: "diva",
+        text: "I'll use DIVA for all animals",
+        hint: { text: "You'll use a single skin test for the whole herd." }
+      } %}
+      {% set sicctAllItem = {
+        value: "sicct",
+        text: "I'll use SICCT for all animals",
+        hint: { text: "You'll use a single skin test for the whole herd." }
+      } %}
+      {% set mixItem = {
+        value: "manual",
+        text: "I'll use a mix of DIVA and SICCT",
+        hint: { text: "You'll sort the cattle into separate lists for DIVA and SICCT skin tests." }
+      } %}
+
+      {% if herdVaxState == "mixed" %}
         {% set warningHeadline = "This herd includes vaccinated animals" %}
-        {% set warningReason = "Defra recommends you use the DIVA skin test for all animals in the herd." %}
+        {% set warningReason = "If the DIVA skin test is available to you, use it on all BCG vaccinated animals." %}
+        {% set radioItems = [autoSplitItem, divaAllItem, sicctAllItem] %}
+      {% elif herdVaxState == "vaccinated" %}
+        {% set warningHeadline = "This herd is fully vaccinated" %}
+        {% set warningReason = "If the DIVA skin test is available to you, use it on all BCG vaccinated animals." %}
+        {% set radioItems = [divaAllItem, sicctAllItem, mixItem] %}
       {% else %}
-        {% set warningHeadline = "Unvaccinated herd" %}
-        {% set warningReason = "You can use either SICCT or DIVA skin tests for all unvaccinated animals in the herd." %}
+        {% set warningHeadline = "No animals are recorded as being vaccinated in this herd" %}
+        {% set warningReason = "" %}
+        {% set radioItems = [sicctAllItem, divaAllItem, mixItem] %}
       {% endif %}
 
       <div class="govuk-inset-text">
-        <p class="govuk-body govuk-!-margin-bottom-2">
+        <p class="govuk-body{{ ' govuk-!-margin-bottom-0' if not warningReason else ' govuk-!-margin-bottom-2' }}">
           <strong>{{ warningHeadline }}</strong>
         </p>
-        <p class="govuk-body govuk-!-margin-bottom-0 govuk-hint">
-          {{ warningReason }}
-        </p>
+        {% if warningReason %}
+          <p class="govuk-body govuk-!-margin-bottom-0 govuk-hint">
+            {{ warningReason }}
+          </p>
+        {% endif %}
       </div>
 
       <form action="/v1-3/prepare-skin-test-recommendation" method="post" novalidate>
-
-        {# Three choices: use a single skin test for the whole herd
-           (SICCT or DIVA), or sort the cattle into separate lists.
-           When the herd has vaccinated animals DIVA is the recommended
-           single test, so it carries the "(recommended)" suffix and is
-           listed first. For a fully unvaccinated herd neither is
-           recommended and SICCT leads. #}
-        {% set sicctItem = {
-          value: "sicct",
-          text: "Use the SICCT skin test",
-          hint: { text: "You'll use a single skin test for the whole herd." }
-        } %}
-        {% if herdHasVaccinated %}
-          {% set divaText = "Use the DIVA skin test (recommended)" %}
-        {% else %}
-          {% set divaText = "Use the DIVA skin test" %}
-        {% endif %}
-        {% set divaItem = {
-          value: "diva",
-          text: divaText,
-          hint: { text: "You'll use a single skin test for the whole herd." }
-        } %}
-        {% set manualItem = {
-          value: "manual",
-          text: "I'll choose which skin test type to use",
-          hint: { text: "You'll sort all the cattle into separate lists for DIVA and SICCT skin tests." }
-        } %}
-
-        {% if herdHasVaccinated %}
-          {% set radioItems = [divaItem, sicctItem, manualItem] %}
-        {% else %}
-          {% set radioItems = [sicctItem, divaItem, manualItem] %}
-        {% endif %}
 
         {{ govukRadios({
           idPrefix: "prepareSkinTestChoice",
@@ -89,7 +92,7 @@
           errorMessage: { text: errors['prepareSkinTestChoice'].text } if errors and errors['prepareSkinTestChoice'],
           fieldset: {
             legend: {
-              text: "Which skin tests do you want to use?",
+              text: "Which skin tests will you use?",
               classes: "govuk-visually-hidden"
             }
           },
