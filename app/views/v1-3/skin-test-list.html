@@ -477,19 +477,21 @@
   .app-col-reaction { width: 6.5rem; text-align: center !important; }
   .app-col-overall  { width: 5rem;   text-align: center !important; }
   .app-col-notes    { width: 6rem; }
-  /* DIVA-only width overrides. The measurement area is two narrow
-     Reading boxes (Day 1, Day 2) plus a Reaction desc. box, each only
-     needing to fit a short handwritten value. These – along with the
-     Overall result column – are kept tight so the Notes column can take
-     the freed space: Notes is set to twice its default (6rem → 12rem)
-     so the vet has plenty of room to write. The "Skin measurement (mm)"
-     colspan header is allowed to break long words so it wraps across
-     the now-narrower header span instead of overflowing into
-     neighbouring columns. */
-  .app-sheet--diva .app-col-skin     { width: 1.5rem; }
-  .app-sheet--diva .app-col-reaction { width: 1.5rem; }
-  .app-sheet--diva .app-col-overall  { width: 3rem; }
-  .app-sheet--diva .app-col-notes    { width: 12rem; }
+  /* DIVA-only width overrides. DIVA's measurement area is a single
+     Reading column (no Avian/Bovine split), so the Reading and
+     Reaction desc. cells only need to fit a short value each (a 2–4
+     digit mm reading and a brief description). Both are kept at 2rem
+     so the pair stays tight; Overall result keeps its 4rem so the
+     two-word "Overall result" label has room to read clearly. Notes
+     drops its explicit width so it absorbs the horizontal space the
+     narrower columns leave behind. The "Skin measurement (mm)"
+     colspan header is allowed to break long words so it can wrap
+     across the now-narrower 4rem header span instead of overflowing
+     into neighbouring columns. */
+  .app-sheet--diva .app-col-skin     { width: 2rem; }
+  .app-sheet--diva .app-col-reaction { width: 2rem; }
+  .app-sheet--diva .app-col-overall  { width: 4rem; }
+  .app-sheet--diva .app-col-notes    { width: auto; }
   .app-sheet--diva .app-record-table thead th[colspan] {
     word-break: break-word;
     overflow-wrap: break-word;
@@ -1109,11 +1111,11 @@
                  needed when SICCT rows are present – pure DIVA lists
                  drop it entirely (no empty grey cell on every row). #}
               {% set hasSiteColumn = group.key != 'diva' %}
-              {# DIVA captures a Day 1 and Day 2 reading, so the
-                 measurement area is two Reading columns + Reaction desc
-                 (3 sub-columns). SICCT keeps the full Site + Pre + Post
+              {# DIVA is a single-visit test so the measurement area
+                 collapses to one Reading column + Reaction desc (2
+                 sub-columns). SICCT keeps the full Site + Pre + Post
                  + Reaction layout (4 sub-columns). #}
-              {% set skinColspan = 4 if hasSiteColumn else 3 %}
+              {% set skinColspan = 4 if hasSiteColumn else 2 %}
               {# TB Vax sits next to the ear tag on every list (SICCT,
                  DIVA and combined) so the vet can see the vaccination
                  date as soon as they've identified the animal. SICCT
@@ -1170,12 +1172,9 @@
                         <span class="app-vertical-heading">Reaction<br>desc.</span>
                       </th>
                     {% else %}
-                      {# DIVA: a reading box for Day 1 and Day 2. #}
+                      {# DIVA single-visit: one Reading column. #}
                       <th scope="col" class="app-col-skin">
-                        <span class="app-vertical-heading">Day 1</span>
-                      </th>
-                      <th scope="col" class="app-col-skin">
-                        <span class="app-vertical-heading">Day 2</span>
+                        <span class="app-vertical-heading">Reading</span>
                       </th>
                       <th scope="col" class="app-col-reaction">
                         <span class="app-vertical-heading">Reaction<br>desc.</span>
@@ -1256,17 +1255,11 @@
                       {% if hasSiteColumn and not isCompactLayout %}
                         <td class="app-col-label app-col-label--na"></td>
                       {% endif %}
-                      {% if isDivaGroup %}
-                        {# DIVA-only list: a Reading box for Day 1 and
-                           Day 2, then the Reaction desc box. #}
-                        <td class="app-col-skin"></td>
-                        <td class="app-col-skin"></td>
-                        <td class="app-col-reaction"></td>
-                      {% elif rowIsDiva or not isCompactLayout %}
-                        {# DIVA rows inside the combined list keep the
-                           single Reading box + Reaction desc box. SICCT
-                           compact rows fall into the split-cell branch
-                           below. #}
+                      {% if rowIsDiva or not isCompactLayout %}
+                        {# DIVA rows are single-visit, so the body
+                           carries one Reading box and one Reaction
+                           desc box. SICCT compact rows fall into the
+                           split-cell branch below. #}
                         <td class="app-col-skin"></td>
                         <td class="app-col-reaction"></td>
                       {% else %}
