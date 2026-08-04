@@ -810,7 +810,7 @@ const v12FarmDetails = {
     bulls: 1, type: 'Dairy', contact: 'James Millburn', phone: '07700 412 559',
     lastTbTestDay2: '26 May 2024', lastTbTestType: 'Whole herd test',
     riskArea: 'Edge', testInterval: '2 yearly',
-    nextSkinTest: 'July 2026', nextSkinTestOverdue: false,
+    nextSkinTest: 'May 2026', nextSkinTestOverdue: true,
     vaccinationStatus: 'Vaccinated', vaccinationBooster: 'Due October 2026'
   },
   // Hazelcroft Farm – 146 cattle, mixed, high risk
