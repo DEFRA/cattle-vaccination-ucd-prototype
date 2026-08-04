@@ -13,36 +13,7 @@
 
 {% block content %}
 <style>
-  .app-page-grid {
-    display: grid;
-    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-    gap: 30px;
-    align-items: start;
-  }
-  .app-filter-panel {
-    border: 1px solid #b1b4b6;
-    background: #f8f8f8;
-    padding: 20px;
-    top: 20px;
-    font-family: "GDS Transport", arial, sans-serif;
-  }
-  .app-filter-panel .govuk-fieldset__legend,
-  .app-filter-panel .govuk-radios__label,
-  .app-filter-panel .govuk-button,
-  .app-filter-panel .govuk-link,
-  .app-filter-panel .govuk-body {
-    font-size: 19px;
-    line-height: 1.31579;
-  }
-  .app-filter-panel .govuk-heading-m { font-family: "GDS Transport", arial, sans-serif; }
-  .app-filter-panel .govuk-radios,
-  .app-filter-panel .govuk-form-group:last-child { margin-bottom: 0; }
-  @media (max-width: 900px) {
-    .app-page-grid { grid-template-columns: 1fr; }
-  }
-
-  /* Ear tag rendering – matches the rest of the v1-3 skin-test
-     tables. The base table layout is the standard GOV.UK govuk-table. */
+  /* Ear tag rendering – matches the rest of the v1-3 skin-test tables. */
   .app-ear-tag {
     display: inline-flex;
     align-items: center;
@@ -55,9 +26,6 @@
   .app-ear-tag__prefix { margin-right: 0.35ch; }
   .app-ear-tag__part { display: inline-block; }
   .app-ear-tag__part--last4 { padding: 0; font-weight: 700; }
-  /* Duplicate last-4 segment – emphasised with a heavy 4px top and
-     bottom band wrapping just the four bold digits, no side borders,
-     matching the rest of the v1-3 skin-test tables. */
   .app-ear-tag__part--last4--duplicate {
     border: 0;
     border-top: 4px solid #000;
@@ -65,16 +33,11 @@
   }
   .govuk-table .govuk-checkboxes__item { padding-left: 28px; margin-bottom: 0; }
   .govuk-table .govuk-checkboxes__label { padding-top: 0; padding-bottom: 0; }
-  /* Select-all toggle in the assign column header. The row check-
-     boxes have visually-hidden labels so the small-variant's default
-     padding is harmless – but the header's "All" label is visible,
-     and the stacked item padding + label padding leaves a sizeable
-     gap. Override with !important and a combined-class selector so
-     these win over `.govuk-checkboxes--small`'s own rules. The 24px
-     visual checkbox is drawn by ::before at the item's left edge;
-     padding-left: 28px reserves 24px for the box plus a 4px gap,
-     and the label's padding is stripped so the text sits flush with
-     the right side of that reserved area. */
+  .govuk-table__body .govuk-table__row > .govuk-table__cell { vertical-align: middle; }
+
+  /* Select-all toggle in the assign column header. The 24px visual box is
+     drawn by ::before at the item's left edge; padding-left reserves room
+     for it and the label sits flush to the right. */
   .app-select-all.govuk-checkboxes--small .govuk-checkboxes__item {
     padding-left: 28px !important;
     min-height: 24px !important;
@@ -95,10 +58,63 @@
     font-weight: 700;
     float: none !important;
   }
+
+  /* Top "List settings" disclosure (page size + sort), matching the
+     skin-test-list page. Replaces the old left-hand settings sidebar. */
+  .app-list-summary { color: #505a5f; }
+  .app-list-settings { margin: 0 0 24px; }
+  .app-list-settings__toggle {
+    list-style: none;
+    cursor: pointer;
+    display: inline-block;
+  }
+  .app-list-settings__toggle::-webkit-details-marker { display: none; }
+  .app-list-settings__toggle::marker { display: none; content: ''; }
+  .app-list-settings__panel {
+    margin-top: 20px;
+    border: 1px solid #b1b4b6;
+    background: #f8f8f8;
+    padding: 24px;
+  }
+  .app-list-settings__toggle .app-list-settings__caret { display: inline-block; margin-left: 6px; }
+  details[open] > .app-list-settings__toggle .app-list-settings__caret { transform: rotate(180deg); }
+
+  /* Light grey box behind the ear-tag search filter. */
+  .app-filter-box {
+    background-color: #f3f2f1;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+  }
+  /* "Go to a page" navigation. */
+  .app-page-nav__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-bottom: 20px;
+  }
+  .app-page-nav__list li { margin-bottom: 0; }
+  @media (min-width: 48.0625em) {
+    .app-page-nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background-color: #ffffff;
+      padding: 10px 0;
+      border-bottom: 1px solid #b1b4b6;
+    }
+  }
+  /* Page-boundary divider row. */
+  .app-page-divider td {
+    border: 1px solid #b1b4b6;
+    background-color: #ffffff;
+    padding: 16px 20px;
+  }
+  .app-page-divider h2 { margin: 0; }
+  .app-page-divider { scroll-margin-top: 5rem; }
 </style>
 
 <div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
+  <div class="govuk-grid-column-two-thirds">
 
     {% if errorSummary %}
       {{ govukErrorSummary(errorSummary) }}
@@ -121,159 +137,249 @@
       {% endif %}
     </p>
 
-    <div class="app-page-grid">
+    {# Summary line + "List settings" disclosure at the top (page size and
+       sort), replacing the old sidebar. Submits to a separate route so
+       applying settings doesn't disturb the checkboxes below. #}
+    {% set _pageSize = cattlePerPage or 20 %}
+    <p class="app-list-summary govuk-body govuk-!-margin-bottom-2">
+      <strong>{{ totalCattle or animals.length }} cattle</strong> &middot; View: {{ _pageSize }} cattle per page
+    </p>
 
-      <form method="post" action="/v1-3/prepare-skin-test-assign-cattle/settings" class="app-filter-panel">
-        <h2 class="govuk-heading-m govuk-!-margin-bottom-3">List settings</h2>
-        <p class="govuk-body govuk-!-margin-bottom-4">Reorder the cattle below to suit how you'll work through them.</p>
+    <details class="app-list-settings">
+      <summary class="app-list-settings__toggle govuk-button govuk-button--secondary" role="button" data-module="govuk-button">
+        Change list settings
+        <span class="app-list-settings__caret" aria-hidden="true">▾</span>
+      </summary>
+      <div class="app-list-settings__panel">
+        <form method="post" action="/v1-3/prepare-skin-test-assign-cattle/settings">
 
-        {{ govukRadios({
-          idPrefix: "sortBy",
-          name: "sortBy",
-          classes: "govuk-!-margin-bottom-4",
-          fieldset: { legend: { text: "Sort by", classes: "govuk-fieldset__legend--s" } },
-          items: [
-            { value: "Ear-tag number (last 5 digits)", text: "Ear tag number (last 4 digits)", checked: (sortBy or 'Ear-tag number (last 5 digits)') == "Ear-tag number (last 5 digits)" },
-            { value: "Vaccination status",             text: "Vaccinated",                     checked: sortBy == "Vaccination status" },
-            { value: "Sex",                            text: "Sex",                            checked: sortBy == "Sex" },
-            { value: "Breed",                          text: "Breed",                          checked: sortBy == "Breed" },
-            { value: "DOB",                            text: "DOB",                            checked: sortBy == "DOB" }
-          ]
-        }) }}
+          {{ govukRadios({
+            idPrefix: "listLook",
+            name: "listLook",
+            classes: "govuk-radios--small",
+            fieldset: { legend: { text: "Cattle on each page", classes: "govuk-fieldset__legend--s" } },
+            hint: { text: "Decide how many cattle you want to see on each page." },
+            items: [
+              { value: "easy",    text: "20", checked: (listLook or 'easy') == 'easy' },
+              { value: "compact", text: "40", checked: listLook == 'compact' }
+            ]
+          }) }}
 
-        {{ govukRadios({
-          idPrefix: "sortDirection",
-          name: "sortDirection",
-          classes: "govuk-!-margin-bottom-4",
-          fieldset: { legend: { text: "Order", classes: "govuk-fieldset__legend--s" } },
-          items: [
-            { value: "asc",  text: "Ascending",  checked: (sortDirection or 'asc') == "asc" },
-            { value: "desc", text: "Descending", checked: sortDirection == "desc" }
-          ]
-        }) }}
+          {{ govukRadios({
+            idPrefix: "sortBy",
+            name: "sortBy",
+            classes: "govuk-radios--small govuk-!-margin-top-4",
+            fieldset: { legend: { text: "Sort the list by", classes: "govuk-fieldset__legend--s" } },
+            items: [
+              { value: "Ear-tag number (last 5 digits)", text: "Ear tag number (last 4 digits)", checked: (sortBy or 'Ear-tag number (last 5 digits)') == "Ear-tag number (last 5 digits)" },
+              { value: "Vaccination status",             text: "Vaccinated",                     checked: sortBy == "Vaccination status" },
+              { value: "Sex",                            text: "Sex",                            checked: sortBy == "Sex" },
+              { value: "Breed",                          text: "Breed",                          checked: sortBy == "Breed" },
+              { value: "DOB",                            text: "DOB",                            checked: sortBy == "DOB" }
+            ]
+          }) }}
 
-        <div class="govuk-button-group">
-          {{ govukButton({ text: "Apply changes" }) }}
-        </div>
-        <p class="govuk-body govuk-!-margin-top-2 govuk-!-margin-bottom-0">
-          <a class="govuk-link" href="/v1-3/prepare-skin-test-assign-cattle/settings/reset">Clear settings</a>
-        </p>
-      </form>
+          {{ govukRadios({
+            idPrefix: "sortDirection",
+            name: "sortDirection",
+            classes: "govuk-radios--small govuk-!-margin-top-4",
+            fieldset: { legend: { text: "Order", classes: "govuk-fieldset__legend--s" } },
+            items: [
+              { value: "asc",  text: "Ascending",  checked: (sortDirection or 'asc') == "asc" },
+              { value: "desc", text: "Descending", checked: sortDirection == "desc" }
+            ]
+          }) }}
 
-      <div>
-        <form action="{% if isEditMode %}/v1-3/prepare-skin-test-assign-cattle/edit/{{ editTest }}{% else %}/v1-3/prepare-skin-test-assign-cattle{% endif %}" method="post" novalidate>
-
-          <table class="govuk-table">
-            <thead class="govuk-table__head">
-              <tr class="govuk-table__row">
-                {# Select-all checkbox sits in the assign column header.
-                   The visible label is "All"; an additional visually-
-                   hidden phrase gives screen reader users the full
-                   "All cattle for SICCT / DIVA" wording so the control's
-                   purpose is unambiguous out of context. The toggle has
-                   no `name` attribute so it isn't posted with the form –
-                   it's purely a client-side helper for ticking every
-                   assignedCattle row at once. The supporting JS at the
-                   foot of this template syncs the toggle's checked /
-                   indeterminate state with the row checkboxes. #}
-                <th scope="col" class="govuk-table__header">
-                  <div class="govuk-checkboxes govuk-checkboxes--small app-select-all">
-                    <div class="govuk-checkboxes__item">
-                      <input class="govuk-checkboxes__input" id="assign-all" type="checkbox">
-                      <label class="govuk-label govuk-checkboxes__label" for="assign-all">
-                        All<span class="govuk-visually-hidden"> cattle for {{ currentTestLabel }}</span>
-                      </label>
-                    </div>
-                  </div>
-                </th>
-                <th scope="col" class="govuk-table__header">Ear tag number</th>
-                <th scope="col" class="govuk-table__header">TB Vax</th>
-                <th scope="col" class="govuk-table__header">DOB</th>
-                <th scope="col" class="govuk-table__header">Sex</th>
-                <th scope="col" class="govuk-table__header">Breed</th>
-              </tr>
-            </thead>
-            <tbody class="govuk-table__body">
-              {% for animal in animals %}
-                <tr class="govuk-table__row">
-                  <td class="govuk-table__cell">
-                    <div class="govuk-checkboxes govuk-checkboxes--small">
-                      <div class="govuk-checkboxes__item">
-                        <input class="govuk-checkboxes__input" id="assign-{{ loop.index }}" name="assignedCattle" type="checkbox" value="{{ animal.officialId }}" {% if animal.officialId in selectedAssigned %}checked{% endif %}>
-                        <label class="govuk-label govuk-checkboxes__label" for="assign-{{ loop.index }}">
-                          <span class="govuk-visually-hidden">{{ animal.officialId }} for {{ currentTestLabel }}</span>
-                        </label>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="govuk-table__cell">
-                    <div class="app-ear-tag">
-                      <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
-                      <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
-                      <span class="app-ear-tag__part app-ear-tag__part--check">{{ animal.earTagParts.check }}</span>
-                      <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ animal.earTagParts.individualStart }}</span>
-                      <span class="app-ear-tag__part app-ear-tag__part--last4{% if animal.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
-                            {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
-                    </div>
-                  </td>
-                  <td class="govuk-table__cell">{{ animal.vaccinationDate or '-' }}</td>
-                  <td class="govuk-table__cell">{{ animal.dob }}</td>
-                  <td class="govuk-table__cell">{{ animal.sex }}</td>
-                  <td class="govuk-table__cell">{{ animal.breed }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-
-          <div class="govuk-button-group">
-            {{ govukButton({ text: ("Save changes" if isEditMode else "Continue") }) }}
+          <div class="govuk-button-group govuk-!-margin-top-4">
+            {{ govukButton({ text: "Apply changes", classes: "govuk-!-margin-bottom-0" }) }}
+            <a class="govuk-link" href="/v1-3/prepare-skin-test-assign-cattle/settings/reset">Clear settings</a>
           </div>
-
         </form>
       </div>
+    </details>
 
+    {# Page sizing – shared by the "Go to a page" navigation and the
+       in-table dividers. #}
+    {% set _totalPages = ((animals.length + _pageSize - 1) / _pageSize) | int %}
+    {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+
+    {# Filter the list by any part of the ear tag. Hidden until the script
+       runs (progressive enhancement); the result count is announced in a
+       live region for screen-reader users. #}
+    <div class="app-filter-box" id="assign-filter-box" hidden>
+      <div class="govuk-form-group govuk-!-margin-bottom-0" id="assign-filter-group">
+        <label class="govuk-label govuk-label--s" for="assign-filter">Search by ear tag number</label>
+        <div id="assign-filter-hint" class="govuk-hint">Enter any part of the ear tag to filter the list.</div>
+        <input class="govuk-input govuk-input--width-20" id="assign-filter" type="search" autocomplete="off" spellcheck="false" aria-describedby="assign-filter-hint">
+      </div>
+      <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-top-3 govuk-!-margin-bottom-0" id="assign-filter-status" role="status" aria-live="polite"></p>
     </div>
+
+    {# Jump-to-page links. Only shown when the list runs to more than one
+       page. Each link anchors to the matching "Page N" divider. #}
+    {% if _totalPages > 1 %}
+      <nav class="app-page-nav" aria-label="Go to a page">
+        <h2 class="govuk-heading-s govuk-!-margin-bottom-2">Go to a page</h2>
+        <ul class="govuk-list app-page-nav__list">
+          {% for _p in range(1, _totalPages + 1) %}
+            <li><a class="govuk-link" href="#page-{{ _p }}">Page {{ _p }}</a></li>
+          {% endfor %}
+        </ul>
+      </nav>
+    {% endif %}
+
+    <form action="{% if isEditMode %}/v1-3/prepare-skin-test-assign-cattle/edit/{{ editTest }}{% else %}/v1-3/prepare-skin-test-assign-cattle{% endif %}" method="post" novalidate>
+
+      <table class="govuk-table">
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">
+              <div class="govuk-checkboxes govuk-checkboxes--small app-select-all">
+                <div class="govuk-checkboxes__item">
+                  <input class="govuk-checkboxes__input" id="assign-all" type="checkbox">
+                  <label class="govuk-label govuk-checkboxes__label" for="assign-all">
+                    All<span class="govuk-visually-hidden"> cattle for {{ currentTestLabel }}</span>
+                  </label>
+                </div>
+              </div>
+            </th>
+            <th scope="col" class="govuk-table__header">Ear tag number</th>
+            <th scope="col" class="govuk-table__header">TB Vax</th>
+            <th scope="col" class="govuk-table__header">DOB</th>
+            <th scope="col" class="govuk-table__header">Sex</th>
+            <th scope="col" class="govuk-table__header">Breed</th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for animal in animals %}
+            {% if loop.index0 % _pageSize == 0 %}
+              {% set _pageNumber = (loop.index0 / _pageSize) | int + 1 %}
+              <tr class="app-page-divider" id="page-{{ _pageNumber }}">
+                <td colspan="6">
+                  <h2 class="govuk-heading-m">Page {{ _pageNumber }} of {{ _totalPages }}</h2>
+                </td>
+              </tr>
+            {% endif %}
+            <tr class="govuk-table__row">
+              <td class="govuk-table__cell">
+                <div class="govuk-checkboxes govuk-checkboxes--small">
+                  <div class="govuk-checkboxes__item">
+                    <input class="govuk-checkboxes__input js-assign-checkbox" id="assign-{{ loop.index }}" name="assignedCattle" type="checkbox" value="{{ animal.officialId }}" {% if animal.officialId in selectedAssigned %}checked{% endif %}>
+                    <label class="govuk-label govuk-checkboxes__label" for="assign-{{ loop.index }}">
+                      <span class="govuk-visually-hidden">{{ animal.officialId }} for {{ currentTestLabel }}</span>
+                    </label>
+                  </div>
+                </div>
+              </td>
+              <td class="govuk-table__cell">
+                <div class="app-ear-tag">
+                  <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--check">{{ animal.earTagParts.check }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ animal.earTagParts.individualStart }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--last4{% if animal.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                        {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
+                </div>
+              </td>
+              <td class="govuk-table__cell">{{ animal.vaccinationDate or '-' }}</td>
+              <td class="govuk-table__cell">{{ animal.dob }}</td>
+              <td class="govuk-table__cell">{{ animal.sex }}</td>
+              <td class="govuk-table__cell">{{ animal.breed }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {# Live "X of Y selected" counter. Sits below the list, next to the
+         action button. The .js-selected-count span is updated by the
+         script on every checkbox change. #}
+      <p class="govuk-body govuk-!-margin-top-2">
+        You've selected <strong><span class="js-selected-count">{{ selectedAssigned | length }}</span> of {{ animals.length }}</strong> cattle
+      </p>
+
+      <div class="govuk-button-group">
+        {{ govukButton({ text: ("Save changes" if isEditMode else "Continue") }) }}
+      </div>
+
+    </form>
+
   </div>
 </div>
 
-{# Select-all helper for the "All" checkbox in the assign column
-   header. Toggling it ticks or unticks every assignedCattle row in
-   the same form; ticking or unticking individual rows in turn syncs
-   the toggle's state, including the indeterminate appearance when
-   only some rows are selected. The script runs once on DOM ready
-   and is a progressive enhancement – the form still works with JS
-   off, the vet just has to tick each row individually. #}
 <script>
-  (function () {
-    var toggle = document.getElementById('assign-all')
-    if (!toggle) return
-    var form = toggle.closest('form')
-    if (!form) return
-    var boxes = form.querySelectorAll('input[name="assignedCattle"]')
+  // Select-all (scoped to visible rows so it works with the filter), a
+  // live "You've selected X of Y" counter, and the ear-tag filter which
+  // hides the page dividers + jump nav while active. Progressive
+  // enhancement – the form still works with JavaScript off.
+  document.addEventListener('DOMContentLoaded', function () {
+    var selectAll = document.getElementById('assign-all')
+    var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-assign-checkbox'))
+    if (!checkboxes.length) { return }
+    var counters = Array.prototype.slice.call(document.querySelectorAll('.js-selected-count'))
+    var filterBox = document.getElementById('assign-filter-box')
+    var filterInput = document.getElementById('assign-filter')
+    var status = document.getElementById('assign-filter-status')
+    var dividers = Array.prototype.slice.call(document.querySelectorAll('.app-page-divider'))
+    var jumpNav = document.querySelector('.app-page-nav')
 
-    function syncToggle () {
-      var checkedCount = 0
-      for (var i = 0; i < boxes.length; i++) {
-        if (boxes[i].checked) checkedCount++
-      }
-      toggle.checked = boxes.length > 0 && checkedCount === boxes.length
-      toggle.indeterminate = checkedCount > 0 && checkedCount < boxes.length
+    function isVisible (c) { var tr = c.closest('tr'); return tr && tr.style.display !== 'none' }
+    function visibleCheckboxes () { return checkboxes.filter(isVisible) }
+
+    function updateCount () {
+      var checked = checkboxes.filter(function (c) { return c.checked }).length
+      counters.forEach(function (el) { el.textContent = checked })
     }
 
-    toggle.addEventListener('change', function () {
-      for (var i = 0; i < boxes.length; i++) {
-        boxes[i].checked = toggle.checked
-      }
-      // Clear the indeterminate state once the user has made an
-      // explicit choice via the toggle.
-      toggle.indeterminate = false
-    })
-
-    for (var i = 0; i < boxes.length; i++) {
-      boxes[i].addEventListener('change', syncToggle)
+    function syncSelectAll () {
+      updateCount()
+      if (!selectAll) { return }
+      var vis = visibleCheckboxes()
+      var checked = vis.filter(function (c) { return c.checked }).length
+      selectAll.checked = vis.length > 0 && checked === vis.length
+      selectAll.indeterminate = checked > 0 && checked < vis.length
     }
 
-    syncToggle()
-  })()
+    if (selectAll) {
+      selectAll.addEventListener('change', function () {
+        visibleCheckboxes().forEach(function (c) { c.checked = selectAll.checked })
+        syncSelectAll()
+      })
+    }
+    checkboxes.forEach(function (c) { c.addEventListener('change', syncSelectAll) })
+
+    function normalise (s) { return (s || '').toLowerCase().replace(/\s+/g, '') }
+
+    function applyFilter () {
+      var q = normalise(filterInput.value)
+      var filtering = q !== ''
+      var visible = 0
+      checkboxes.forEach(function (c) {
+        var tr = c.closest('tr')
+        var match = !filtering || normalise(c.value).indexOf(q) !== -1
+        tr.style.display = match ? '' : 'none'
+        if (match) { visible++ }
+      })
+      dividers.forEach(function (d) { d.style.display = filtering ? 'none' : '' })
+      if (jumpNav) { jumpNav.style.display = filtering ? 'none' : '' }
+      if (status) {
+        status.textContent = !filtering
+          ? ''
+          : (visible === 0
+              ? 'No cattle match “' + filterInput.value + '”'
+              : 'Showing ' + visible + ' of ' + checkboxes.length + ' cattle')
+      }
+      syncSelectAll()
+    }
+
+    if (filterInput && filterBox) {
+      filterBox.hidden = false
+      filterInput.addEventListener('input', applyFilter)
+      filterInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault() }
+      })
+    }
+
+    syncSelectAll()
+  })
 </script>
 {% endblock %}

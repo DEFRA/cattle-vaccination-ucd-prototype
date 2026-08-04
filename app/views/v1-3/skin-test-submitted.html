@@ -8,9 +8,22 @@
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 
-    {{ govukPanel({
-      titleText: "Skin test report submitted"
-    }) }}
+    {% if isPartTest %}
+      {{ govukPanel({
+        titleText: "Part test reported",
+        html: stillToTestCount + (" animal" if stillToTestCount == 1 else " animals") + " not tested"
+      }) }}
+
+      {# GDS has no dedicated "info callout"; inset text is the component for
+         additional information about the page, so it's used here. #}
+      <div class="govuk-inset-text">
+        The work order will stay open until the remaining animals are fully tested.
+      </div>
+    {% else %}
+      {{ govukPanel({
+        titleText: "Skin test report submitted"
+      }) }}
+    {% endif %}
 
     <p class="govuk-body">
       This information will be updated in Sam, the online system for submitting bovine tuberculosis (TB) test results in the UK.
@@ -50,36 +63,11 @@
     <h2 class="govuk-heading-m">Results</h2>
 
     {% set reactedSubmittedHtml %}
-      {% if reactorEntries and reactorEntries.length > 0 %}
-        <p class="govuk-body govuk-!-margin-bottom-1">
-          {{ reactorCount }} {{ "animal" if reactorCount == 1 else "animals" }}
-        </p>
-        <ul class="govuk-list govuk-!-margin-top-0 govuk-!-margin-bottom-0">
-          {% for entry in reactorEntries %}
-            <li><strong>{{ entry.officialId }}</strong></li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        0 animals
-      {% endif %}
+      {{ reactorCount or 0 }} {{ "animal" if reactorCount == 1 else "animals" }}
     {% endset %}
 
     {% set notTestedSubmittedHtml %}
-      {% if untestedEntries and untestedEntries.length > 0 %}
-        <p class="govuk-body govuk-!-margin-bottom-1">
-          {{ untestedCount }} {{ "animal" if untestedCount == 1 else "animals" }}
-        </p>
-        <ul class="govuk-list govuk-!-margin-top-0 govuk-!-margin-bottom-0">
-          {% for entry in untestedEntries %}
-            {% set reason = untestedReasons[entry.officialId] %}
-            <li>
-              <strong>{{ entry.officialId }}</strong>{% if reason %} - {{ reason | replace('-', ' ') | capitalize }}{% endif %}
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        0 animals
-      {% endif %}
+      {{ untestedCount or 0 }} {{ "animal" if untestedCount == 1 else "animals" }}
     {% endset %}
 
     {{ govukSummaryList({
@@ -93,35 +81,33 @@
           value: { html: notTestedSubmittedHtml }
         },
         {
-          key: { text: "Clear (negative)" },
+          key: { text: "Negative" },
           value: { text: clearCount + (" animal" if clearCount == 1 else " animals") }
         }
       ]
     }) }}
 
     {% if addedEntries and addedEntries.length > 0 %}
-      <h2 class="govuk-heading-m govuk-!-margin-top-6">Cattle added to this report ({{ addedCount }})</h2>
-      {% for entry in addedEntries %}
-        <h3 class="govuk-heading-s govuk-!-margin-bottom-1">{{ entry.officialId }}</h3>
-        {{ govukSummaryList({
-          classes: "govuk-summary-list--no-border govuk-!-margin-bottom-4",
-          rows: [
-            { key: { text: "Breed" },   value: { text: entry.breed or 'Not recorded' } },
-            { key: { text: "DOB" },     value: { text: entry.dob or 'Not recorded' } },
-            { key: { text: "Sex" },     value: { text: entry.sex or 'Not recorded' } },
-            { key: { text: "Remarks" }, value: { text: entry.remarks or 'None' } }
-          ]
-        }) }}
-      {% endfor %}
+      <h2 class="govuk-heading-m govuk-!-margin-top-6">Cattle added</h2>
+      {# Summary only – the submitted page is a record of what was sent, so
+         it shows how many cattle were added rather than each one's details. #}
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Added to list" },
+            value: { text: addedEntries.length + (" animal" if addedEntries.length == 1 else " cattle") }
+          }
+        ]
+      }) }}
     {% endif %}
 
     <h2 class="govuk-heading-m">What happens next</h2>
     <p class="govuk-body">
-      Defra will review the report. 
+      {% if isPartTest %}You'll need to arrange a return visit to finish testing all the animals.{% else %}Defra will review the report.{% endif %}
     </p>
 
     <p class="govuk-body">
-      <a href="/v1-3/#" class="govuk-link">Send a report to the farmer</a>
+      <a href="/v1-3/#" class="govuk-link">Send a report to the livestock keeper</a>
     </p>
 
     <p class="govuk-body">

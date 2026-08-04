@@ -31,23 +31,17 @@
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
 
-    {# Pre-fill the checkboxes from whatever the vet last submitted
-       (skinTestTests) or, on first arrival, from prepareSkinTestType
+    {# Pre-select the radio from whatever the vet last submitted
+       (skinTestType) or, on first arrival, from prepareSkinTestType
        so the common case is a single click to confirm. #}
-    {% set selectedTests = data['skinTestTests'] or [] %}
-    {% if not selectedTests.length %}
-      {% if data['prepareSkinTestType'] == 'SICCT' %}{% set selectedTests = ['SICCT'] %}{% endif %}
-      {% if data['prepareSkinTestType'] == 'DIVA'  %}{% set selectedTests = ['DIVA']  %}{% endif %}
-      {% if data['prepareSkinTestType'] == 'Both'  %}{% set selectedTests = ['SICCT', 'DIVA'] %}{% endif %}
-    {% endif %}
-    {% set sicctChecked = "SICCT" in selectedTests %}
-    {% set divaChecked  = "DIVA"  in selectedTests %}
+    {% set selectedType = data['skinTestType'] or data['prepareSkinTestType'] %}
 
     <form action="/v1-3/skin-test-type" method="post" novalidate>
 
-      {{ govukCheckboxes({
-        idPrefix: "tests",
-        name: "tests",
+      {{ govukRadios({
+        idPrefix: "testType",
+        name: "testType",
+        value: selectedType,
         fieldset: {
           legend: {
             text: "Which test did you do?",
@@ -55,11 +49,11 @@
             classes: "govuk-fieldset__legend--l"
           }
         },
-        hint: { text: "Select all that apply." },
-        errorMessage: { text: errors['tests'].text } if errors and errors['tests'],
+        errorMessage: { text: errors['testType'].text } if errors and errors['testType'],
         items: [
-          { value: "SICCT", text: "SICCT", checked: sicctChecked },
-          { value: "DIVA",  text: "DIVA",  checked: divaChecked }
+          { value: "SICCT", text: "SICCT" },
+          { value: "DIVA",  text: "DIVA" },
+          { value: "Both",  text: "Both" }
         ]
       }) }}
 

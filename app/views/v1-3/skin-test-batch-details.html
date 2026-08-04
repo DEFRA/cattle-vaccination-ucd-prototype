@@ -28,7 +28,7 @@
     <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ testLabel }}</span>
     <h1 class="govuk-heading-l">Confirm the batch details</h1>
     <p class="govuk-body">
-      Enter the details from the printed list for this CPH. The vet's record needs to match what was used in the field.
+      Enter the details of the tuberculin vials used in the test. This information should be printed on the packaging or vials.
     </p>
 
     <form action="/v1-3/skin-test-batch-details/{{ test }}" method="post" novalidate>
@@ -44,7 +44,7 @@
       {{ govukDateInput({
         id: "vaccineExpiry",
         namePrefix: "vaccineExpiry",
-        fieldset: { legend: { text: "Vaccine expiry date", classes: "govuk-fieldset__legend--m" } },
+        fieldset: { legend: { text: "Batch expiry date", classes: "govuk-fieldset__legend--m" } },
         hint: { text: "For example, 27 3 2027" },
         items: [
           { name: "Day",   classes: "govuk-input--width-2", value: formValues['vaccineExpiryDay'] },

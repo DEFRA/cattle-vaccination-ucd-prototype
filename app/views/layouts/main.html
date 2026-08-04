@@ -3,6 +3,32 @@
 {# Import the GOV.UK button macro so it is available to all pages #}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 
+{# Add a "Dashboard" shortcut to the prototype footer, next to the kit's
+   "Clear data" link, so testers can jump back to the dashboard from any
+   page. Rebuilds the footer meta items (keeping the kit's own links) and
+   re-renders the footer. #}
+{% block govukFooter %}
+  {% from 'govuk/components/footer/macro.njk' import govukFooter %}
+  {% if GOVUKPrototypeKit.isDevelopment %}
+    {% set appFooterItems = [
+      { href: "/manage-prototype", text: "Manage your prototype" },
+      { href: "/v1-3/dashboard", text: "Dashboard" },
+      { href: "/manage-prototype/clear-data", text: "Clear data" }
+    ] %}
+  {% else %}
+    {% set appFooterItems = [
+      { href: "/v1-3/dashboard", text: "Dashboard" },
+      { href: "/manage-prototype/clear-data", text: "Clear data" }
+    ] %}
+  {% endif %}
+  {{ govukFooter({
+    meta: {
+      items: appFooterItems,
+      visuallyHiddenTitle: "Footer links"
+    }
+  }) }}
+{% endblock %}
+
 {# Site-wide accessibility enhancement: announce cattle ear tag numbers
    one character at a time for screen readers (notably VoiceOver), rather
    than as a single large number. Runs on every page so current and

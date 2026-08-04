@@ -11,7 +11,7 @@
 {% block beforeContent %}
 {{ govukBackLink({
   text: "Back",
-  href: "/v1-3/skin-test-confirmation"
+  href: "/v1-3/vaccination-add-cattle-question"
 }) }}
 {% endblock %}
 
@@ -67,10 +67,12 @@
       <h1 class="govuk-heading-l">Add cattle</h1>
       <p class="govuk-body">
         Enter the details for cattle that weren't on the original list.
+        Added cattle are recorded as vaccinated – you can change this on
+        the next screen if needed.
       </p>
     {% endif %}
 
-    <form action="{{ '/v1-3/skin-test-add-another/edit/' + originalEarTag if isEditMode else '/v1-3/skin-test-add-another' }}" method="post" novalidate>
+    <form action="{{ '/v1-3/vaccination-add-another/edit/' + originalEarTag if isEditMode else '/v1-3/vaccination-add-another' }}" method="post" novalidate>
 
       {{ govukInput({
         label: { text: "Ear tag number", classes: "govuk-label--m" },
@@ -84,7 +86,7 @@
 
       {# Breed picker. Rendered as a GOV.UK select and progressively
          enhanced into an accessible autocomplete (see the script block
-         below), so the vet can type "lim" or "Limousin" to find a breed.
+         above), so the vet can type "lim" or "Limousin" to find a breed.
          If JavaScript is unavailable the select still works. #}
       {{ govukSelect({
         id: "breed",
@@ -135,7 +137,7 @@
         name: "remarks",
         rows: 3,
         value: formValues['remarks'],
-        hint: { text: "Optional. Note anything unusual about this cattle or the reading." }
+        hint: { text: "Optional. Note anything unusual about this cattle." }
       }) }}
 
       {% if isEditMode %}
@@ -147,12 +149,12 @@
             name: "addedAction",
             value: "remove"
           }) }}
-          <a class="govuk-link" href="/v1-3/skin-test-confirmation">Cancel</a>
+          <a class="govuk-link" href="/v1-3/vaccination-add-cattle-question">Cancel</a>
         </div>
       {% else %}
         <div class="govuk-button-group govuk-!-margin-top-6">
           {{ govukButton({ text: "Add this cattle" }) }}
-          <a class="govuk-link" href="/v1-3/skin-test-confirmation">Cancel</a>
+          <a class="govuk-link" href="/v1-3/vaccination-add-cattle-question">Cancel</a>
         </div>
       {% endif %}
 

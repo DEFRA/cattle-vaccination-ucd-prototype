@@ -8,6 +8,192 @@ const router = govukPrototypeKit.requests.setupRouter()
 const sicctInterpretation = require('./helpers/sicctInterpretation')
 
 // -----------------------------------------------------------------------------
+// Cattle breeds for the "add cattle" breed picker. Codes mirror the
+// abbreviations used elsewhere in the prototype data (HF, LIM, CH...). A
+// real service would use the full CTS breed list; this is a representative
+// subset of common GB breeds. Names are sentence case per the content
+// style; the code is shown in brackets so the vet can match either.
+// -----------------------------------------------------------------------------
+const CATTLE_BREEDS = [
+  ['AA', 'Aberdeen Angus'],
+  ['AAX', 'Aberdeen Angus cross'],
+  ['AY', 'Ayrshire'],
+  ['BB', 'British Blue'],
+  ['BALX', 'British Blue cross'],
+  ['BF', 'British Friesian'],
+  ['BSH', 'Beef Shorthorn'],
+  ['CH', 'Charolais'],
+  ['CHX', 'Charolais cross'],
+  ['DEV', 'Devon'],
+  ['DEX', 'Dexter'],
+  ['FR', 'Friesian'],
+  ['GAL', 'Galloway'],
+  ['BGAL', 'Belted Galloway'],
+  ['GUE', 'Guernsey'],
+  ['HER', 'Hereford'],
+  ['HERX', 'Hereford cross'],
+  ['HIG', 'Highland'],
+  ['HF', 'Holstein Friesian'],
+  ['HOL', 'Holstein'],
+  ['JE', 'Jersey'],
+  ['LIM', 'Limousin'],
+  ['LIMX', 'Limousin cross'],
+  ['LON', 'Longhorn'],
+  ['MON', 'Montbeliarde'],
+  ['SAL', 'Salers'],
+  ['SD', 'South Devon'],
+  ['SH', 'Dairy Shorthorn'],
+  ['SIM', 'Simmental'],
+  ['SIMX', 'Simmental cross'],
+  ['STA', 'Stabiliser'],
+  ['WAG', 'Wagyu'],
+  ['OTH', 'Other']
+]
+
+// Build govukSelect items for the breed picker. The select is progressively
+// enhanced into an accessible autocomplete on the page; if JavaScript is
+// unavailable it stays a working select. A previously-entered breed that
+// isn't in the list (e.g. free text from before this became a picker) is
+// preserved so editing an animal never silently drops its breed.
+function buildBreedItems(selected) {
+  const sel = (selected || '').trim()
+  const items = [{ value: '', text: '' }]
+  let found = false
+  CATTLE_BREEDS.forEach(function (b) {
+    if (b[0] === sel) found = true
+    items.push({ value: b[0], text: b[1] + ' (' + b[0] + ')', selected: b[0] === sel })
+  })
+  if (sel && !found) {
+    items.splice(1, 0, { value: sel, text: sel, selected: true })
+  }
+  return items
+}
+
+// Record a report the vet has just filed so it appears in the dashboard's
+// "Recently completed" section. Keyed by CPH + type so re-completing the
+// same report replaces the old entry, and kept most-recent-first.
+function recordCompletedReport(req, record) {
+  if (!record || !record.cph) return
+  const list = Array.isArray(req.session.data.completedReports)
+    ? req.session.data.completedReports.slice()
+    : []
+  const filtered = list.filter(function (r) {
+    return !(r && r.cph === record.cph && r.type === record.type)
+  })
+  filtered.unshift({
+    cph: record.cph,
+    farm: record.farm || 'Selected farm',
+    type: record.type,
+    typeLabel: record.typeLabel,
+    completedAt: new Date().toISOString(),
+    // Snapshot of what was filed, so the vet can reopen and amend it exactly
+    // as submitted (only skin test reports carry one for now).
+    snapshot: record.snapshot || null
+  })
+  req.session.data.completedReports = filtered
+}
+
+// The session keys that together make up the CONTENT of a filed skin test
+// report (measurements, reactors, untested, dates, test type, batches, who
+// tested, and the selected farm). Deliberately excludes workflow state such
+// as skinTestInProgress, skinTestListPrepared, skinTestPartTests and
+// skinTestScopeIds. Used to snapshot a completed report so the vet can
+// reopen and amend exactly what they filed.
+const SKIN_TEST_REPORT_KEYS = [
+  'skinTestEntries', 'skinTestAddedEntries',
+  'skinTestReactors', 'skinTestReactorsByPhase',
+  'skinTestUntested', 'skinTestUntestedReasons', 'skinTestUntestedReasonOthers',
+  'skinTestType', 'skinTestFirstOrder', 'skinTestTests', 'skinTestCompletedTests',
+  'currentSkinTest', 'currentSkinTestPhase',
+  'skinTestDay1Day', 'skinTestDay1Month', 'skinTestDay1Year',
+  'skinTestDay1StartTimeHour', 'skinTestDay1StartTimeMinute', 'skinTestDay1StartTimeAmpm',
+  'skinTestDay1OverMultipleDays', 'skinTestMultiDay',
+  'skinTestDay2Day', 'skinTestDay2Month', 'skinTestDay2Year',
+  'skinTestDay2StartTimeHour', 'skinTestDay2StartTimeMinute', 'skinTestDay2StartTimeAmpm',
+  'skinTestDay2Calculated', 'skinTestDay2OverMultipleDays',
+  'skinTestSicctBatches', 'skinTestDivaBatches', 'skinTestBatchDetails',
+  'skinTestSortBy', 'skinTestSortDirection',
+  'administeredBy', 'theirRole',
+  'selectedCattle', 'selectedCattleLabel'
+]
+
+// Copy the report-content keys out of session into a plain object (deep
+// cloned so later edits don't mutate the stored snapshot).
+function snapshotSkinTestReport(req) {
+  const data = req.session.data || {}
+  const snap = {}
+  SKIN_TEST_REPORT_KEYS.forEach(function (k) {
+    if (data[k] !== undefined) snap[k] = data[k]
+  })
+  try { return JSON.parse(JSON.stringify(snap)) } catch (e) { return snap }
+}
+
+// Restore a snapshot back into session so the check-answers page shows the
+// report exactly as it was filed. Every report-content key is set from the
+// snapshot (or cleared if the snapshot didn't have it), so no stale values
+// from other work leak in. Workflow scope is cleared; the report is marked
+// in progress so the Change pages behave as a live edit.
+function restoreSkinTestReport(req, snapshot) {
+  if (!snapshot) return
+  SKIN_TEST_REPORT_KEYS.forEach(function (k) {
+    if (snapshot[k] !== undefined) req.session.data[k] = snapshot[k]
+    else delete req.session.data[k]
+  })
+  req.session.data.skinTestScopeIds = null
+  req.session.data.skinTestInProgress = true
+}
+
+// The session keys that make up the CONTENT of a filed BCG vaccination
+// report: the per-animal decisions and reason overrides, the derived
+// vaccinated / not-vaccinated snapshots the check-answers page reads, any
+// manually added cattle, the batch / diluent / date details, and the
+// selected farm. Used to snapshot a completed vaccination report so the vet
+// can reopen and amend exactly what they filed – the same pattern as the
+// skin-test snapshot above.
+const VACCINATION_REPORT_KEYS = [
+  'cattleDecisions', 'otherReasons',
+  'vaccinatedCattle', 'remainingCattleUpdates',
+  'vaccinationAddedAnimals',
+  'vaccinationApproach', 'markingPhase', 'activeReviewGroup',
+  'vaccinationDateDay', 'vaccinationDateMonth', 'vaccinationDateYear',
+  'batchNumber', 'batchExpiryDateDay', 'batchExpiryDateMonth', 'batchExpiryDateYear',
+  'diluentBatchNumber', 'diluentBatchExpiryDateDay', 'diluentBatchExpiryDateMonth', 'diluentBatchExpiryDateYear',
+  'vaccinationNote',
+  'selectedCattle', 'selectedCattleLabel'
+]
+
+function snapshotVaccinationReport(req) {
+  const data = req.session.data || {}
+  const snap = {}
+  VACCINATION_REPORT_KEYS.forEach(function (k) {
+    if (data[k] !== undefined) snap[k] = data[k]
+  })
+  try { return JSON.parse(JSON.stringify(snap)) } catch (e) { return snap }
+}
+
+function restoreVaccinationReport(req, snapshot) {
+  if (!snapshot) return
+  VACCINATION_REPORT_KEYS.forEach(function (k) {
+    if (snapshot[k] !== undefined) req.session.data[k] = snapshot[k]
+    else delete req.session.data[k]
+  })
+}
+
+// Build the "Richmond - DL10 4NP - 38 cattle" line for a herd record. The
+// address is stored as "<name>, <town>, <postcode>", so town and postcode
+// are the last two comma-separated parts. Used on the dashboard and the
+// per-farm tasks page so the farm reads the same everywhere.
+function farmLocationLine(herd) {
+  if (!herd) return null
+  const parts = String(herd.address || '')
+    .split(',').map(function (s) { return s.trim() }).filter(Boolean)
+  const postcode = parts.length ? parts[parts.length - 1] : ''
+  const town = parts.length >= 2 ? parts[parts.length - 2] : ''
+  const cattle = herd.cattle ? herd.cattle + ' cattle' : ''
+  return [town, postcode, cattle].filter(Boolean).join(' - ') || null
+}
+
+// -----------------------------------------------------------------------------
 // Herd data: 20 representative English cattle farms
 // -----------------------------------------------------------------------------
 const herdData = {
@@ -249,8 +435,11 @@ function handleFarmSearch(req, res, pageName, version) {
   req.session.data.search = searchInput
 
   if (!searchInput) {
+    const message = pageName === 'v1-3/search'
+      ? 'Enter a search term'
+      : 'Enter a CPH, farm name, postcode or ear tag'
     return renderSearchPage(req, res, pageName, {
-      cattleSearch: { text: 'Enter a CPH, farm name, postcode or ear tag' }
+      cattleSearch: { text: message }
     })
   }
 
@@ -621,7 +810,7 @@ const v12FarmDetails = {
     bulls: 1, type: 'Dairy', contact: 'James Millburn', phone: '07700 412 559',
     lastTbTestDay2: '26 May 2024', lastTbTestType: 'Whole herd test',
     riskArea: 'Edge', testInterval: '2 yearly',
-    nextSkinTest: 'May 2026', nextSkinTestOverdue: true,
+    nextSkinTest: 'July 2026', nextSkinTestOverdue: false,
     vaccinationStatus: 'Vaccinated', vaccinationBooster: 'Due October 2026'
   },
   // Hazelcroft Farm – 146 cattle, mixed, high risk
@@ -638,7 +827,7 @@ const v12FarmDetails = {
     lastTbTestDay2: '1 December 2025', lastTbTestType: 'Pre-movement test',
     lastWholeHerdTestDay2: '22 May 2025',
     riskArea: 'High', testInterval: 'Annual',
-    nextSkinTest: 'December 2026', nextSkinTestOverdue: false,
+    nextSkinTest: 'July 2026', nextSkinTestOverdue: false,
     vaccinationStatus: 'Mixed', vaccinationBooster: 'Due February 2027'
   },
   // Rosewood Farm – 89 cattle, mixed, OTFW
@@ -1026,6 +1215,23 @@ function getSortValue(animal, sortBy) {
   }
 }
 
+// Frequent-flyer marker: an animal was tested on another farm within
+// the last 60 days. Derived from a stable FNV-1a hash of the ear tag so
+// the same animals are flagged everywhere (printed list, untested
+// picker) without storing extra state. Returns { date, type } for a
+// marked animal, or null. A real service would read this from CTS test
+// history rather than hashing the ear tag.
+function frequentFlyerRecentTest(officialId, phase) {
+  let fh = 2166136261
+  const fid = String(officialId)
+  for (let k = 0; k < fid.length; k++) { fh ^= fid.charCodeAt(k); fh = Math.imul(fh, 16777619) >>> 0 }
+  if (fh % 16 !== 5) return null
+  const g = Math.imul(fh ^ 0x9e3779b9, 2654435761) >>> 0
+  const date = ['05/06', '18/06', '29/06', '05/07', '11/07', '18/07', '22/07', '25/07', '29/07'][g % 9] + '/2026'
+  const type = phase === 'diva' ? 'DIVA' : 'SICCT'
+  return { date: date, type: type }
+}
+
 // Numeric months-since-birth from a UK-formatted dob (DD/MM/YYYY).
 // Used as the sort key for the Age column so stable, equal display
 // values (e.g. two animals shown as "5M") sort in a deterministic
@@ -1136,6 +1342,164 @@ function formatEarTagParts(officialId) {
   }
 }
 
+// Short, human-style ways a vet scribbles WHY an animal was not tested,
+// written in the Notes column with no Pre/Post measurements. Several
+// phrasings per reason so the sheet reads like different people wrote it,
+// often shortened (e.g. "deceased" -> "dead").
+const NOT_TESTED_NOTES = {
+  'not-found': ['not found', 'n/f', 'not present', 'absent', 'couldn’t find', 'not seen'],
+  'deceased': ['deceased', 'dead', 'died', 'dead'],
+  'export': ['w/d - export', 'exported', 'for export', 'sold (export)'],
+  'slaughter': ['w/d - slaughter', 'for slaughter', 'cull', 'slaughtered'],
+  'owner': ['w/d by owner', 'owner removed', 'removed by owner', 'owner w/d']
+}
+
+// Build deterministic "handwritten" demo answers for one animal, used by
+// the populated-list print view. Same ear tag always yields the same
+// readings, so a populated list is stable between prints. Returns ready-
+// made HTML spans (Indie Flower handwriting) for each measurement cell.
+function buildDemo (officialId, opts) {
+  opts = opts || {}
+  let h = 2166136261
+  const sid = String(officialId)
+  for (let i = 0; i < sid.length; i++) { h ^= sid.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0 }
+  const rnd = function (n) { h = (Math.imul(h, 1103515245) + 12345) >>> 0; return Math.floor((h / 4294967296) * n) }
+  const span = function (v, smudge, scatter, size) {
+    const rot = rnd(11) - 5
+    const tf = scatter
+      ? 'transform:translate(' + (rnd(7) - 3) + 'px,' + (rnd(5) - 2) + 'px) rotate(' + rot + 'deg);'
+      : 'transform:rotate(' + (rnd(7) - 3) + 'deg);'
+    const cls = 'app-hand' + (smudge ? ' app-smudge-' + smudge : '')
+    const sz = size ? 'font-size:' + size + 'px;' : ''
+    return '<span class="' + cls + '" style="' + tf + sz + '">' + v + '</span>'
+  }
+  // A word started and crossed out (someone changed their mind mid-note).
+  const struckWord = function (w) {
+    return '<span class="app-hand app-struck app-hand-struck-note">' + w + '</span>'
+  }
+  // Occasional smudged number (light, or heavy/illegible) - applied to the
+  // Pre / Post / Reaction desc numbers, never to the overall result.
+  const cellSmudge = function () { return (rnd(7) === 0) ? (1 + rnd(2)) : 0 }
+  // A crossed-out mis-write: the wrong value sits in the middle of the box
+  // struck through, and the correct value is squeezed in small at the
+  // corner (there's no room for it). The old number gets 1-4 cross-out
+  // strokes at varied angles - the more strokes (3+), the more it's also
+  // blurred, so it's barely legible.
+  const correction = function (value) {
+    let d = rnd(5) - 2
+    if (d === 0) d = 1
+    const wrong = Math.max(1, value + d)
+    const strokes = 1 + rnd(4)
+    let lines = ''
+    for (let i = 0; i < strokes; i++) {
+      lines += '<span class="app-strike-line" style="top:' + (26 + rnd(44)) + '%;transform:rotate(' + (rnd(23) - 11) + 'deg);"></span>'
+    }
+    const heavy = strokes >= 3 ? ' app-correct__old--heavy' : ''
+    return '<span class="app-correct">' +
+      '<span class="app-hand app-correct__old' + heavy + '" style="transform:rotate(' + (rnd(9) - 4) + 'deg);">' + wrong + lines + '</span>' +
+      '<span class="app-hand app-correct__new" style="transform:rotate(' + (rnd(13) - 6) + 'deg);">' + value + '</span>' +
+      '</span>'
+  }
+  // A Pre / Post number: about 1 in 5 is a crossed-out correction, the rest
+  // a plain (sometimes lightly smudged) number. Corrections are only applied
+  // to cells that don't feed a shown "C +N" reaction, so this rate keeps at
+  // least 10% of all Pre/Post numbers crossed out and rewritten.
+  const preOrPost = function (value) {
+    return (rnd(5) === 0) ? correction(value) : span(value, cellSmudge(), true)
+  }
+  // Animal not tested (not found / deceased / withdrawn). No Pre/Post
+  // measurements, just a short handwritten reason in Notes.
+  if (opts.forceNotTested) {
+    const phrases = NOT_TESTED_NOTES[opts.forceNotTested] || ['not tested']
+    return {
+      filled: true, notTested: true,
+      aPre: '', aPost: '', aR: '', bPre: '', bPost: '', bR: '', res: '',
+      note: '<span class="app-hand app-hand-note">' + phrases[rnd(phrases.length)] + '</span>'
+    }
+  }
+  const aPre = 4 + rnd(5)
+  const bPre = 4 + rnd(5)
+  // forceM2 -> part test; forceReactor -> a reactor result.
+  const roll = opts.forceM2 ? 0 : (opts.forceReactor ? 20 : rnd(100))
+  if (roll < 6) {
+    // Injected on day 1, not read on day 2 (part test). Vary the wording -
+    // people write it differently.
+    const missPhrases = ['missing', 'miss day 2', 'no D2', 'not read D2', 'missing D2', 'didn’t read']
+    return { filled: true, aPre: preOrPost(aPre), aPost: '', aR: '', bPre: preOrPost(bPre), bPost: '', bR: '', res: '', note: '<span class="app-hand app-hand-note">' + missPhrases[rnd(missPhrases.length)] + '</span>' }
+  }
+  const aPost = aPre + rnd(3)
+  let bPost
+  if (roll < 26) bPost = bPre + 6 + rnd(8)          // reactor (~20%)
+  else if (roll < 32) bPost = bPre + (aPost - aPre) + 1 // inconclusive
+  else bPost = bPre + rnd(2)                          // clear
+  const aInc = aPost - aPre
+  const bInc = bPost - bPre
+  const diff = bInc - aInc
+  const res = diff >= 2 ? 'R' : (diff === 1 ? 'IR' : '')
+  // Whether this row shows a calculated "C +N" reaction description. When it
+  // does, the Pre/Post numbers that feed it are kept as clean written values
+  // (no crossed-out correction) so the arithmetic on the sheet adds up.
+  const aRShown = aInc >= 2
+  const bRShown = bInc >= 2
+  let bPostHtml
+  if (opts.forceHeavyBlur) {
+    // A fully blurred (illegible) reactor measurement.
+    bPostHtml = span(bPost, 2, true)
+  } else if (bRShown) {
+    // Keep Post clean so bPost - bPre matches the "C +N" shown for the row.
+    bPostHtml = span(bPost, cellSmudge(), true)
+  } else {
+    bPostHtml = preOrPost(bPost)
+  }
+  // A few animals have a half-written, crossed-out word in Notes.
+  let note = ''
+  if (rnd(9) === 0) {
+    const frags = ['re', 'inc', 'poss', 'no re', 'cl', 'check', 'susp']
+    note = struckWord(frags[rnd(frags.length)])
+  }
+  return {
+    filled: true,
+    // Vets only note a reaction description where there's a real reaction;
+    // "C +0" and 1mm blips are left blank.
+    aPre: aRShown ? span(aPre, cellSmudge(), true) : preOrPost(aPre), aPost: aRShown ? span(aPost, cellSmudge(), true) : preOrPost(aPost), aR: aRShown ? span('C +' + aInc, cellSmudge(), true) : '',
+    bPre: bRShown ? span(bPre, cellSmudge(), true) : preOrPost(bPre), bPost: bPostHtml, bR: bRShown ? span('C +' + bInc, cellSmudge(), true) : '',
+    res: res ? span(res, 0, false) : '', note: note
+  }
+}
+
+// Extra cattle written into the blank "Additional cattle" sheet on a
+// populated list - animals that were not on the printed list (bought in
+// etc.). Returns ready-made handwritten HTML cells.
+function buildExtraCattle (herdMark, count) {
+  const breeds = ['HER', 'BF', 'SIM', 'BALX', 'CH', 'AAX', 'LIM', 'BB']
+  const notes = ['not on list', 'bought in', '', 'new arrival', '', '']
+  const out = []
+  for (let i = 0; i < count; i++) {
+    let h = 2166136261
+    const seed = 'extra-' + herdMark + '-' + i
+    for (let j = 0; j < seed.length; j++) { h ^= seed.charCodeAt(j); h = Math.imul(h, 16777619) >>> 0 }
+    const rnd = function (n) { h = (Math.imul(h, 1103515245) + 12345) >>> 0; return Math.floor((h / 4294967296) * n) }
+    const span = function (v) {
+      if (!v) return ''
+      // Font size is set on the Additional cattle sheet via CSS
+      // (.app-blank-sheet .app-hand), so only the rotation is inline here.
+      return '<span class="app-hand" style="transform:rotate(' + (rnd(9) - 4) + 'deg);">' + v + '</span>'
+    }
+    const indiv = String(900000 + (i * 137 + rnd(90)) % 99999).slice(-6)
+    const dd = String(1 + rnd(28)).padStart(2, '0')
+    const mm = String(1 + rnd(12)).padStart(2, '0')
+    const yyyy = 2019 + rnd(6)
+    out.push({
+      tag: span('UK ' + herdMark + ' ' + indiv, 15),
+      dob: span(dd + '/' + mm + '/' + yyyy, 15),
+      sex: span(rnd(2) ? 'F' : 'M', 15),
+      breed: span(breeds[rnd(breeds.length)], 15),
+      note: (function () { const nt = notes[rnd(notes.length)]; return nt ? '<span class="app-hand app-hand-note">' + nt + '</span>' : '' })()
+    })
+  }
+  return out
+}
+
 function buildPreviewRows(animals, fields) {
   const selectedFields = orderPreviewFields(fields)
 
@@ -1183,7 +1547,22 @@ function getReportingAnimals(req, version) {
   const selectedCattle = req.session.data.selectedCattle
   const sortBy = req.session.data.sortBy || 'Ear-tag number'
   const sortDirection = req.session.data.sortDirection || 'asc'
-  return sortAnimals(getAnimalsForSelection(selectedCattle, version), sortBy, sortDirection)
+  const base = getAnimalsForSelection(selectedCattle, version)
+  const added = getVaccinationAddedAnimals(req, version)
+  return sortAnimals(base.concat(added), sortBy, sortDirection)
+}
+
+// v1-3: cattle the vet adds during the report because they weren't on
+// the original list (for example a newly arrived animal). Stored in
+// session and merged into the reporting herd so they flow through the
+// marking groups, the confirmation summary and the check-your-answers
+// page exactly like the seeded animals. Only v1-3 has the add-cattle
+// step, so other versions always see an empty list.
+function getVaccinationAddedAnimals(req, version) {
+  if (version !== 'v1-3') return []
+  return Array.isArray(req.session.data.vaccinationAddedAnimals)
+    ? req.session.data.vaccinationAddedAnimals
+    : []
 }
 
 function getAnimalLookup(animals) {
@@ -1372,6 +1751,7 @@ function renderSelectVaccinatedAnimals(req, res, version, options = {}) {
   // which would put the cattle in a different order from the list the
   // vet has already prepared.
   const rawAnimals = getAnimalsForSelection(req.session.data.selectedCattle, version)
+    .concat(getVaccinationAddedAnimals(req, version))
   const baseAnimals = ((version === 'v1-2' || version === 'v1-3'))
     ? sortAnimals(rawAnimals, 'Ear-tag number (last 5 digits)', 'asc')
     : getReportingAnimals(req, version)
@@ -1402,10 +1782,26 @@ function renderSelectVaccinatedAnimals(req, res, version, options = {}) {
   const decisionMap = getDecisionMap(req.session.data)
   const otherReasons = req.session.data.otherReasons || {}
   const groups = getReportingGroups(animals, decisionMap)
-  const selectedIds = Array.isArray(options.selectedIds) ? options.selectedIds : []
   const activeReviewGroup = req.session.data.activeReviewGroup || 'remaining'
   const markingPhase = req.session.data.markingPhase || 'vaccinated'
-  const activeRows = getRowsForReviewGroup(groups, activeReviewGroup, otherReasons)
+  const groupEditKeysView = [
+    'vaccinated', 'not-found', 'deceased', 'withdrawn-export',
+    'withdrawn-slaughter', 'withdrawn-owner', 'other', 'no-reason'
+  ]
+  const isGroupEditModel = groupEditKeysView.indexOf(activeReviewGroup) !== -1
+  // Editing a banked group (vaccinated or a not-vaccinated reason, reached
+  // via a "Change" link): show the WHOLE herd with the group's current
+  // members pre-selected, so the vet can add or remove cattle from the
+  // group in one view rather than only seeing the animals already in it.
+  // Other views keep their filtered rows.
+  const activeRows = isGroupEditModel
+    ? buildReportingTableRows(animals, otherReasons)
+    : getRowsForReviewGroup(groups, activeReviewGroup, otherReasons)
+  const selectedIds = Array.isArray(options.selectedIds)
+    ? options.selectedIds
+    : (isGroupEditModel
+        ? (groups[activeReviewGroup] || []).map(function (a) { return a.officialId })
+        : [])
 
   return res.render(`${version}/select-vaccinated-animals`, {
     herd: req.session.data.herd || herdData[req.session.data.selectedCattle],
@@ -1783,6 +2179,16 @@ function registerVersionRoutes(version) {
     req.session.data.vaccinationApproach = null
     req.session.data.markingPhase = null
     req.session.data.activeReviewGroup = null
+    // Clear report-scoped marking state so a new report starts from a
+    // clean herd. Without this, cattle added on a previous report (and
+    // the previous decisions / snapshots) leaked into the next one – e.g.
+    // an added animal inflated Mill House's 38 cattle to 39 on the
+    // check-your-answers page.
+    req.session.data.vaccinationAddedAnimals = []
+    req.session.data.cattleDecisions = {}
+    req.session.data.otherReasons = {}
+    req.session.data.vaccinatedCattle = []
+    req.session.data.remainingCattleUpdates = []
     return res.redirect(`/${version}/vaccination-approach`)
   })
 
@@ -1828,6 +2234,67 @@ function registerVersionRoutes(version) {
     const groups = getReportingGroups(animals, decisionMap)
     const rows = []
 
+    // The reason keys that all describe a NON-vaccinated animal. The
+    // reason (including "no reason given") is a detail of the animal's
+    // status, not a status in its own right.
+    const reasonKeys = [
+      { key: 'not-found', label: 'Not found' },
+      { key: 'deceased', label: 'Deceased' },
+      { key: 'withdrawn-export', label: 'Withdrawn for export' },
+      { key: 'withdrawn-slaughter', label: 'Withdrawn for slaughter' },
+      { key: 'withdrawn-owner', label: 'Withdrawn by owner' },
+      { key: 'other', label: 'Other reason' },
+      { key: 'no-reason', label: 'No reason given' }
+    ]
+
+    // v1-3: present two headline statuses - "Vaccinated" and "Not
+    // vaccinated" - and hang the reason off the Not vaccinated row as a
+    // sub-breakdown, rather than promoting each reason (e.g. "No reason
+    // given") to a top-level status of its own.
+    if (version === 'v1-3') {
+      if (groups.vaccinated.length > 0) {
+        rows.push({
+          key: { text: 'Vaccinated' },
+          value: { text: String(groups.vaccinated.length) },
+          actions: { items: [{ href: `/${version}/select-vaccinated-animals?group=vaccinated`, text: 'Change', visuallyHiddenText: 'the cattle marked as vaccinated' }] }
+        })
+      }
+
+      const notVaccinatedCount = reasonKeys.reduce(function (sum, r) {
+        return sum + (groups[r.key] || []).length
+      }, 0)
+
+      if (notVaccinatedCount > 0) {
+        // Reason breakdown in the value column (no inline links), with a
+        // "Change" action per reason in the right-hand actions column – so
+        // the Change control sits in the same place as the Vaccinated row's.
+        let html = '<p class="govuk-body govuk-!-margin-bottom-1">' +
+          notVaccinatedCount + (notVaccinatedCount === 1 ? ' animal' : ' animals') + '</p>' +
+          '<ul class="govuk-list govuk-!-font-size-16 govuk-!-margin-bottom-0">'
+        const notVaxActions = []
+        reasonKeys.forEach(function (r) {
+          const c = (groups[r.key] || []).length
+          if (c > 0) {
+            html += '<li><span class="govuk-!-font-weight-bold">' + r.label + ':</span> ' + c + '</li>'
+            notVaxActions.push({
+              href: `/${version}/select-vaccinated-animals?group=${r.key}`,
+              text: 'Change',
+              visuallyHiddenText: 'the cattle marked as ' + r.label.toLowerCase()
+            })
+          }
+        })
+        html += '</ul>'
+        rows.push({
+          key: { text: 'Not vaccinated' },
+          value: { html: html },
+          actions: { items: notVaxActions }
+        })
+      }
+
+      return rows
+    }
+
+    // Older versions keep the flat one-row-per-status summary.
     const statusLabels = {
       vaccinated: 'Vaccinated',
       'not-found': 'Not found',
@@ -1842,13 +2309,6 @@ function registerVersionRoutes(version) {
     Object.keys(statusLabels).forEach(function (key) {
       const count = (groups[key] || []).length
       if (count > 0) {
-        // Each row gets a "Change" action pointing at the select
-        // page, pre-filtered to the matching group via the
-        // ?group=<key> query param. The vet lands viewing the
-        // animals in that group, can untick any (which moves them
-        // back to "remaining"), and is then bounced back through the
-        // confirmation page when every remaining animal has been
-        // re-marked.
         rows.push({
           key: { text: statusLabels[key] },
           value: { text: String(count) },
@@ -1938,6 +2398,12 @@ function registerVersionRoutes(version) {
         },
         { status: 'no-reason', cattle: (groups['no-reason'] || []).map(a => a.officialId) }
       ].filter(g => g.cattle.length)
+      // v1-3: before the check-your-answers step, give the vet a chance
+      // to add cattle that weren't on the original list (mirrors the
+      // "Are there more cattle to add?" gate on the skin-test journey).
+      if (version === 'v1-3') {
+        return res.redirect(`/${version}/vaccination-add-cattle-question`)
+      }
       return res.redirect(`/${version}/check-report-answers`)
     }
 
@@ -2026,6 +2492,261 @@ function registerVersionRoutes(version) {
     req.session.data.cattleDecisions = newDecisionMap
     req.session.data.otherReasons = currentOtherReasons
     res.redirect(`/${version}/vaccination-marked-confirm`)
+  })
+
+  // ---------------------------------------------------------------------
+  // v1-3 only: "Are there more cattle to add?" gate + add-cattle form.
+  // Mirrors the skin-test journey's add-cattle pattern: between the
+  // marking confirmation and the check-your-answers step the vet can
+  // record animals that weren't on the original list (e.g. a newly
+  // arrived animal). Added animals are merged into the reporting herd
+  // (see getVaccinationAddedAnimals) and default to "vaccinated" so the
+  // report stays complete; the vet can change that via the normal
+  // "Change" links like any other animal.
+  // ---------------------------------------------------------------------
+
+  // Rebuild the report summary data (vaccinatedCattle +
+  // remainingCattleUpdates) from the current decisions. Called when the
+  // vet leaves the add-cattle gate so any animals added (or removed)
+  // since the confirmation page are reflected on check-your-answers.
+  function buildVaccinationReportData(req, version) {
+    const animals = getReportingAnimals(req, version)
+    const decisionMap = getDecisionMap(req.session.data)
+    const groups = getReportingGroups(animals, decisionMap)
+    const otherReasons = req.session.data.otherReasons || {}
+    req.session.data.vaccinatedCattle = groups.vaccinated.map(a => a.officialId)
+    req.session.data.remainingCattleUpdates = [
+      { status: 'not-found', cattle: groups['not-found'].map(a => a.officialId) },
+      { status: 'deceased', cattle: groups.deceased.map(a => a.officialId) },
+      { status: 'withdrawn-export', cattle: groups['withdrawn-export'].map(a => a.officialId) },
+      { status: 'withdrawn-slaughter', cattle: groups['withdrawn-slaughter'].map(a => a.officialId) },
+      { status: 'withdrawn-owner', cattle: groups['withdrawn-owner'].map(a => a.officialId) },
+      {
+        status: 'other',
+        cattle: groups.other.map(a => a.officialId),
+        reasons: groups.other.reduce((acc, a) => {
+          if (otherReasons[a.officialId]) acc[a.officialId] = otherReasons[a.officialId]
+          return acc
+        }, {})
+      },
+      { status: 'no-reason', cattle: (groups['no-reason'] || []).map(a => a.officialId) }
+    ].filter(g => g.cattle.length)
+  }
+
+  router.get(`/${version}/vaccination-add-cattle-question`, (req, res) => {
+    if (version !== 'v1-3') {
+      return res.redirect(`/${version}/check-report-answers`)
+    }
+    res.render(`${version}/vaccination-add-cattle-question`, {
+      addedAnimals: getVaccinationAddedAnimals(req, version)
+    })
+  })
+
+  router.post(`/${version}/vaccination-add-cattle-question`, (req, res) => {
+    if (version !== 'v1-3') {
+      return res.redirect(`/${version}/check-report-answers`)
+    }
+    const addMoreCattle = req.body.addMoreCattle
+    req.session.data.addMoreCattle = addMoreCattle
+
+    if (addMoreCattle !== 'yes' && addMoreCattle !== 'no') {
+      return res.render(`${version}/vaccination-add-cattle-question`, {
+        addedAnimals: getVaccinationAddedAnimals(req, version),
+        errors: { addMoreCattle: { text: 'Select yes if there are more cattle to add, or no to continue' } },
+        errorSummary: {
+          titleText: 'There is a problem',
+          errorList: [{ text: 'Select yes if there are more cattle to add, or no to continue', href: '#addMoreCattle' }]
+        }
+      })
+    }
+
+    if (addMoreCattle === 'yes') {
+      return res.redirect(`/${version}/vaccination-add-another`)
+    }
+
+    // No more cattle to add – rebuild the summary data (in case the vet
+    // added or removed animals) and continue to check your answers.
+    buildVaccinationReportData(req, version)
+    res.redirect(`/${version}/check-report-answers`)
+  })
+
+  router.get(`/${version}/vaccination-add-another`, (req, res) => {
+    if (version !== 'v1-3') {
+      return res.redirect(`/${version}/check-report-answers`)
+    }
+    res.render(`${version}/vaccination-add-another`, { formValues: {}, breedItems: buildBreedItems('') })
+  })
+
+  router.post(`/${version}/vaccination-add-another`, (req, res) => {
+    if (version !== 'v1-3') {
+      return res.redirect(`/${version}/check-report-answers`)
+    }
+    const earTag = (req.body.earTag || '').trim()
+    const breed = (req.body.breed || '').trim()
+    const sex = (req.body.addedSex || '').trim()
+    const dobDay = (req.body['addedDob-day'] || '').trim()
+    const dobMonth = (req.body['addedDob-month'] || '').trim()
+    const dobYear = (req.body['addedDob-year'] || '').trim()
+    const dob = (dobDay && dobMonth && dobYear) ? `${dobDay}/${dobMonth}/${dobYear}` : ''
+
+    const formValues = {
+      earTag,
+      breed,
+      addedSex: sex,
+      addedDobDay: dobDay,
+      addedDobMonth: dobMonth,
+      addedDobYear: dobYear,
+      remarks: (req.body.remarks || '').trim()
+    }
+
+    if (!earTag) {
+      return res.render(`${version}/vaccination-add-another`, {
+        formValues,
+        breedItems: buildBreedItems(breed),
+        errors: { earTag: { text: 'Enter the ear tag number' } },
+        errorSummary: {
+          titleText: 'There is a problem',
+          errorList: [{ text: 'Enter the ear tag number', href: '#earTag' }]
+        }
+      })
+    }
+
+    const added = Array.isArray(req.session.data.vaccinationAddedAnimals)
+      ? [...req.session.data.vaccinationAddedAnimals]
+      : []
+
+    // Shape the added animal to match the seeded reporting herd so it
+    // sorts, renders and groups like any other animal.
+    added.push({
+      officialId: earTag,
+      earTagNumber: earTag,
+      barcode: earTag,
+      breed,
+      dob,
+      sex,
+      vaccinationStatus: 'Vaccinated',
+      notes: formValues.remarks,
+      addedManually: true
+    })
+    req.session.data.vaccinationAddedAnimals = added
+
+    // Default the added animal to "vaccinated" so the report is
+    // complete. The vet can change this via the confirmation / check
+    // answers "Change" links.
+    const decisionMap = { ...getDecisionMap(req.session.data) }
+    decisionMap[earTag] = 'vaccinated'
+    req.session.data.cattleDecisions = decisionMap
+
+    // Back to the gate so the vet can add another or continue.
+    res.redirect(`/${version}/vaccination-add-cattle-question`)
+  })
+
+  // Edit (or remove) an animal previously added on
+  // /vaccination-add-another, reached from the "Change" link on the
+  // gate page. Reuses the add-another form in edit mode.
+  router.get(`/${version}/vaccination-add-another/edit/:earTag`, (req, res) => {
+    if (version !== 'v1-3') {
+      return res.redirect(`/${version}/check-report-answers`)
+    }
+    const earTag = req.params.earTag
+    const added = getVaccinationAddedAnimals(req, version)
+    const entry = added.find(a => a.officialId === earTag)
+    if (!entry) {
+      return res.redirect(`/${version}/vaccination-add-cattle-question`)
+    }
+    const dobParts = (entry.dob || '').split('/')
+    res.render(`${version}/vaccination-add-another`, {
+      isEditMode: true,
+      originalEarTag: earTag,
+      breedItems: buildBreedItems(entry.breed || ''),
+      formValues: {
+        earTag: entry.officialId,
+        breed: entry.breed || '',
+        addedSex: entry.sex || '',
+        addedDobDay: dobParts[0] || '',
+        addedDobMonth: dobParts[1] || '',
+        addedDobYear: dobParts[2] || '',
+        remarks: entry.notes || ''
+      }
+    })
+  })
+
+  router.post(`/${version}/vaccination-add-another/edit/:earTag`, (req, res) => {
+    if (version !== 'v1-3') {
+      return res.redirect(`/${version}/check-report-answers`)
+    }
+    const originalEarTag = req.params.earTag
+    const added = Array.isArray(req.session.data.vaccinationAddedAnimals)
+      ? [...req.session.data.vaccinationAddedAnimals]
+      : []
+    const idx = added.findIndex(a => a.officialId === originalEarTag)
+
+    // Remove button – drop the animal and its decision, then return.
+    if (req.body.addedAction === 'remove') {
+      if (idx >= 0) {
+        added.splice(idx, 1)
+        req.session.data.vaccinationAddedAnimals = added
+      }
+      const decisionMap = { ...getDecisionMap(req.session.data) }
+      delete decisionMap[originalEarTag]
+      req.session.data.cattleDecisions = decisionMap
+      return res.redirect(`/${version}/vaccination-add-cattle-question`)
+    }
+
+    const earTag = (req.body.earTag || '').trim()
+    const breed = (req.body.breed || '').trim()
+    const sex = (req.body.addedSex || '').trim()
+    const dobDay = (req.body['addedDob-day'] || '').trim()
+    const dobMonth = (req.body['addedDob-month'] || '').trim()
+    const dobYear = (req.body['addedDob-year'] || '').trim()
+    const dob = (dobDay && dobMonth && dobYear) ? `${dobDay}/${dobMonth}/${dobYear}` : ''
+    const remarks = (req.body.remarks || '').trim()
+
+    const formValues = {
+      earTag,
+      breed,
+      addedSex: sex,
+      addedDobDay: dobDay,
+      addedDobMonth: dobMonth,
+      addedDobYear: dobYear,
+      remarks
+    }
+
+    if (!earTag) {
+      return res.render(`${version}/vaccination-add-another`, {
+        isEditMode: true,
+        originalEarTag,
+        formValues,
+        breedItems: buildBreedItems(breed),
+        errors: { earTag: { text: 'Enter the ear tag number' } },
+        errorSummary: {
+          titleText: 'There is a problem',
+          errorList: [{ text: 'Enter the ear tag number', href: '#earTag' }]
+        }
+      })
+    }
+
+    if (idx >= 0) {
+      added[idx] = Object.assign({}, added[idx], {
+        officialId: earTag,
+        earTagNumber: earTag,
+        barcode: earTag,
+        breed,
+        dob,
+        sex,
+        notes: remarks
+      })
+      req.session.data.vaccinationAddedAnimals = added
+
+      // Carry the decision over if the ear tag changed.
+      if (earTag !== originalEarTag) {
+        const decisionMap = { ...getDecisionMap(req.session.data) }
+        decisionMap[earTag] = decisionMap[originalEarTag] || 'vaccinated'
+        delete decisionMap[originalEarTag]
+        req.session.data.cattleDecisions = decisionMap
+      }
+    }
+    res.redirect(`/${version}/vaccination-add-cattle-question`)
   })
 
   router.get(`/${version}/select-vaccinated-animals`, (req, res) => {
@@ -2156,6 +2877,11 @@ function registerVersionRoutes(version) {
         { status: 'no-reason', cattle: (groups['no-reason'] || []).map(animal => animal.officialId) }
       ].filter(group => group.cattle.length)
 
+      // v1-3: offer the add-cattle step before check-your-answers,
+      // matching the gate reached from the confirmation page.
+      if (version === 'v1-3') {
+        return res.redirect(`/${version}/vaccination-add-cattle-question`)
+      }
       return res.redirect(`/${version}/check-report-answers`)
     }
 
@@ -2191,9 +2917,20 @@ function registerVersionRoutes(version) {
       'withdrawn-export', 'withdrawn-slaughter', 'withdrawn-owner', 'other'
     ]
     const isReasonView = reasonGroupKeys.indexOf(req.session.data.activeReviewGroup) !== -1
-    const finalStatus = (req.session.data.markingPhase === 'vaccinated' && !isReasonView)
-      ? 'vaccinated'
-      : selectedStatus
+    // Editing a banked group (vaccinated, a reason, or no-reason) reached via
+    // a "Change" link. The whole herd is shown with the group's members
+    // pre-selected, and the group being edited is submitted as a hidden
+    // field, so the picked status comes straight from that.
+    const groupEditKeys = [
+      'vaccinated', 'not-found', 'deceased', 'withdrawn-export',
+      'withdrawn-slaughter', 'withdrawn-owner', 'other', 'no-reason'
+    ]
+    const isGroupEdit = groupEditKeys.indexOf(req.session.data.activeReviewGroup) !== -1
+    const finalStatus = isGroupEdit
+      ? selectedStatus
+      : ((req.session.data.markingPhase === 'vaccinated' && !isReasonView)
+          ? 'vaccinated'
+          : selectedStatus)
 
     // Validation removed – the vet can mark cattle in the reasons
     // phase without picking a status, and the "Other" reason can be
@@ -2214,13 +2951,36 @@ function registerVersionRoutes(version) {
       }
     })
 
+    // Editing a banked group from a "Change" link shows the whole herd with
+    // the group's members pre-selected, so a submit is the complete new
+    // membership. Any animal that was in this group but is no longer
+    // selected has been removed from it – default it to the opposite state:
+    // removing from "vaccinated" sends it back to remaining (so it can be
+    // given a reason); removing from a not-vaccinated group marks it
+    // vaccinated.
+    if (isGroupEdit) {
+      const editingGroup = req.session.data.activeReviewGroup
+      const removedDefault = editingGroup === 'vaccinated' ? 'remaining' : 'vaccinated'
+      const selectedSet = new Set(selectedIds)
+      animals.forEach(function (animal) {
+        const id = animal.officialId
+        if (decisionMap[id] === editingGroup && !selectedSet.has(id)) {
+          if (removedDefault === 'remaining') {
+            delete decisionMap[id]
+          } else {
+            decisionMap[id] = removedDefault
+          }
+          delete otherReasons[id]
+        }
+      })
+    }
+
     req.session.data.cattleDecisions = decisionMap
     req.session.data.otherReasons = otherReasons
-    // Editing a banked reason group from a "Change" link – keep the
-    // vet on the banked group view (don't snap back to "remaining"
-    // like we do during initial marking) so they can finish editing
-    // before going back to confirmation.
-    if (!isReasonView) {
+    // Editing a banked group from a "Change" link – keep the vet on that
+    // group view (don't snap back to "remaining" like we do during initial
+    // marking) so they can finish editing before going back to confirmation.
+    if (!isGroupEdit) {
       req.session.data.activeReviewGroup = 'remaining'
     }
 
@@ -2237,12 +2997,32 @@ function registerVersionRoutes(version) {
     //      different reason, UNLESS every animal has now been
     //      accounted for, in which case skip straight to the
     //      confirmation page.
+    // "Record the cattle that were not vaccinated" approach: one action.
+    // The vet has selected the unvaccinated cattle and given a reason, so
+    // mark every other still-remaining animal as vaccinated and go straight
+    // to the check page. (Editing a banked group via a Change link is
+    // excluded – that only changes the one group.)
+    const isMarkNotVaxApproach = req.session.data.vaccinationApproach === 'mark-not-vaccinated'
+    if ((version === 'v1-2' || version === 'v1-3') && isMarkNotVaxApproach && !isGroupEdit) {
+      const otherReasonsAfter = { ...(req.session.data.otherReasons || {}) }
+      animals.forEach(function (animal) {
+        const id = animal.officialId
+        if (!decisionMap[id] || decisionMap[id] === 'remaining') {
+          decisionMap[id] = 'vaccinated'
+          delete otherReasonsAfter[id]
+        }
+      })
+      req.session.data.cattleDecisions = decisionMap
+      req.session.data.otherReasons = otherReasonsAfter
+      return res.redirect(`/${version}/vaccination-marked-confirm`)
+    }
+
     if ((version === 'v1-2' || version === 'v1-3')) {
       const groupsAfterMark = getReportingGroups(animals, decisionMap)
       const noneRemaining = groupsAfterMark.remaining.length === 0
       const vaccinatedOnRemaining = req.session.data.markingPhase === 'vaccinated'
-        && !isReasonView
-      if (vaccinatedOnRemaining || isReasonView || noneRemaining) {
+        && !isGroupEdit
+      if (vaccinatedOnRemaining || isGroupEdit || noneRemaining) {
         return res.redirect(`/${version}/vaccination-marked-confirm`)
       }
     }
@@ -2293,6 +3073,27 @@ function registerVersionRoutes(version) {
         return res.redirect(`/${version}/check-report-answers`)
       }
       req.session.data.checkAnswersError = null
+    }
+    // v1-3: a filed vaccination report leaves "Work in progress" and moves
+    // to the dashboard's "Recently completed" section. Drop the prepared
+    // vaccination record for this farm so it no longer shows as to-do.
+    if (version === 'v1-3') {
+      const herd = req.session.data.herd
+      if (herd && herd.cph) {
+        recordCompletedReport(req, {
+          cph: herd.cph,
+          farm: herd.farm,
+          type: 'vaccination',
+          typeLabel: 'BCG vaccination report',
+          // Snapshot the report content so the vet can reopen it from the
+          // farm-tasks "Completed" list and amend what they filed.
+          snapshot: snapshotVaccinationReport(req)
+        })
+        if (Array.isArray(req.session.data.vaccinationListPrepared)) {
+          req.session.data.vaccinationListPrepared = req.session.data.vaccinationListPrepared
+            .filter(function (r) { return r && r.cph !== herd.cph })
+        }
+      }
     }
     return res.redirect(`/${version}/report-submitted`)
   })
@@ -2784,13 +3585,11 @@ function registerVersionRoutes(version) {
   // ---------------------------------------------------------------------------
   // Dashboard route – shows Start new work + Continue existing work
   // ---------------------------------------------------------------------------
-  router.get(`/${version}/dashboard`, function (req, res) {
-    const savedBanner = req.session.data.savedBanner
-    // Show the banner once, then clear it
-    if (savedBanner) {
-      req.session.data.savedBanner = null
-    }
-
+  // Build the dashboard's two lists from real session state: farms with
+  // work still in progress, and reports the vet has recently completed.
+  // Shared by the dashboard (which previews the top 3 of each) and the
+  // full-list "View all" pages.
+  function buildDashboardData(req) {
     // The dashboard groups MY work by FARM. We only show real
     // session-tracked work – no demo / placeholder rows. Every entry
     // here is something the current vet has actually started or
@@ -2844,6 +3643,28 @@ function registerVersionRoutes(version) {
       })
     }
 
+    // 1b. Open part tests (v1-3). The herd's skin test was filed as a
+    //     part test, so it stays on the work list with the remaining
+    //     animals still to test on a return visit.
+    if (version === 'v1-3') {
+      const partTests = req.session.data.skinTestPartTests || {}
+      Object.keys(partTests).forEach(function (cph) {
+        const record = partTests[cph]
+        if (!record || !record.stillToTest) return
+        const herd = lookupHerd(cph)
+        const entry = ensureFarmEntry(record.farm || herd.farm, cph, currentUser)
+        recordPreparedAt(entry, record.submittedAt)
+        entry.tasks.push({
+          key: 'part-test-return',
+          title: 'Test remaining cattle (part test) – ' + record.stillToTest + ' ' + (record.stillToTest === 1 ? 'animal' : 'animals') + ' still to test',
+          description: record.stillToTest + ' ' + (record.stillToTest === 1 ? 'animal' : 'animals') + ' still to test on a return visit.',
+          status: 'Part test',
+          actionText: 'Test remaining cattle',
+          href: `/${version}/farm-tasks/resume?cph=` + encodeURIComponent(cph) + '&task=report-skin-test'
+        })
+      })
+    }
+
     // 2. Prepared skin-test lists – the only "ready to do" task on
     //    the dashboard is the matching report. View / edit / reprint
     //    of the list itself lives on the farm-tasks page that the
@@ -2886,12 +3707,11 @@ function registerVersionRoutes(version) {
       })
     })
 
-    // Convert the keyed dictionary back to an ordered list. Each farm
-    // row reads:
-    //   <farm name>           ← link to per-farm task list
-    //   List prepared on 24 April 2026 by You
-    //   To do: <next task>
-    //   CPH 12/345/6789       ← supporting metadata, separated by a blank line
+    // Convert the keyed dictionary back to an ordered list. Each farm row
+    // reads:
+    //   <farm name> - <CPH>              ← link to per-farm task list
+    //   <town> - <postcode> - <N cattle> ← supporting location metadata
+    //   To do: <next task>               ← the actionable next step
     const dashboardDateFormatter = new Intl.DateTimeFormat('en-GB', {
       day: 'numeric',
       month: 'long',
@@ -2904,24 +3724,158 @@ function registerVersionRoutes(version) {
       // otherwise fall back to the first ready task.
       const inProgressTask = entry.tasks.find(function (t) { return t.status === 'In progress' })
       const todoTask = inProgressTask || entry.tasks[0] || null
-      let preparedAtLabel = null
-      if (entry.preparedAt) {
-        const d = new Date(entry.preparedAt)
-        if (!Number.isNaN(d.getTime())) {
-          preparedAtLabel = dashboardDateFormatter.format(d)
-        }
-      }
       return Object.assign({}, entry, {
-        preparedAtLabel,
+        titleLine: entry.farm + ' - ' + cph,
+        locationLine: farmLocationLine(lookupHerd(cph)),
         todoTitle: todoTask ? todoTask.title : null,
         href: `/${version}/farm-tasks?cph=` + encodeURIComponent(cph)
       })
     })
 
+    // Demo seed: one farm that was fully reported 3 months ago, so the
+    // "Recently completed" section isn't empty on a fresh session. Because
+    // the report was completed (not a part test) there's no prepared list
+    // left for it, so its farm page offers nothing to reprint. Seeded once
+    // per session; cleared with the rest of the session data.
+    if (version === 'v1-3' && !req.session.data.demoCompletedSeeded) {
+      const seedCph = '12/310/6797' // Oak Tree Farm, Skipton
+      const seedHerd = herdData[seedCph]
+      const day2 = new Date()
+      day2.setMonth(day2.getMonth() - 3)
+      const day1 = new Date(day2.getFullYear(), day2.getMonth(), day2.getDate() - 3)
+      const seeded = Array.isArray(req.session.data.completedReports)
+        ? req.session.data.completedReports.slice()
+        : []
+      if (seedHerd && !seeded.some(function (r) { return r && r.cph === seedCph })) {
+        seeded.push({
+          cph: seedCph,
+          farm: seedHerd.farm,
+          type: 'skin-test',
+          typeLabel: 'Skin test report',
+          completedAt: day2.toISOString(),
+          // Snapshot so the report reopens realistically when amended: a
+          // clean SICCT test of the whole herd (no reactors, none untested)
+          // dated 3 months ago. No per-animal entries, so the check-answers
+          // page shows every animal as clear.
+          snapshot: {
+            selectedCattle: seedCph,
+            selectedCattleLabel: seedHerd.farm,
+            skinTestType: 'SICCT',
+            administeredBy: 'self',
+            theirRole: 'vet',
+            skinTestReactors: [],
+            skinTestUntested: [],
+            skinTestUntestedReasons: {},
+            skinTestDay1Day: String(day1.getDate()),
+            skinTestDay1Month: String(day1.getMonth() + 1),
+            skinTestDay1Year: String(day1.getFullYear()),
+            skinTestDay2Day: String(day2.getDate()),
+            skinTestDay2Month: String(day2.getMonth() + 1),
+            skinTestDay2Year: String(day2.getFullYear())
+          }
+        })
+      }
+      req.session.data.completedReports = seeded
+      req.session.data.demoCompletedSeeded = true
+    }
+
+    // Recently completed reports. A filed report moves here from "Work in
+    // progress" so the vet keeps a record of it. Sorted most-recent-first
+    // for display regardless of how each entry was added.
+    const completedRecords = (Array.isArray(req.session.data.completedReports)
+      ? req.session.data.completedReports.slice()
+      : []).sort(function (a, b) {
+      return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+    })
+    const completedReports = completedRecords.map(function (r) {
+      const herd = lookupHerd(r.cph)
+      let completedAtLabel = null
+      const d = new Date(r.completedAt)
+      if (!isNaN(d.getTime())) completedAtLabel = dashboardDateFormatter.format(d)
+      // Completed rows link to the farm page, where the "Completed"
+      // section offers the link through to the check-answers summary to
+      // review or amend the report.
+      const href = `/${version}/farm-tasks?cph=` + encodeURIComponent(r.cph)
+      return {
+        farm: r.farm || herd.farm,
+        cph: r.cph,
+        titleLine: (r.farm || herd.farm) + ' - ' + r.cph,
+        locationLine: farmLocationLine(herd),
+        typeLabel: r.typeLabel,
+        completedAtLabel,
+        href: href
+      }
+    })
+
+    return { farmsInProgress, completedReports }
+  }
+
+  router.get(`/${version}/dashboard`, function (req, res) {
+    const savedBanner = req.session.data.savedBanner
+    // Show the banner once, then clear it
+    if (savedBanner) {
+      req.session.data.savedBanner = null
+    }
+    const dash = buildDashboardData(req)
+    // Preview the 3 most relevant of each list on the dashboard; the full
+    // lists live behind the "View all" links.
+    const PREVIEW = 3
     res.render(`${version}/dashboard`, {
-      farmsInProgress
+      farmsInProgress: dash.farmsInProgress.slice(0, PREVIEW),
+      workInProgressTotal: dash.farmsInProgress.length,
+      showAllWorkInProgress: dash.farmsInProgress.length > PREVIEW,
+      completedReports: dash.completedReports.slice(0, PREVIEW),
+      completedTotal: dash.completedReports.length,
+      showAllCompleted: dash.completedReports.length > PREVIEW
     })
   })
+
+  // Full-list "View all" pages for the two dashboard sections (v1-3).
+  if (version === 'v1-3') {
+    router.get(`/${version}/dashboard/work-in-progress`, function (req, res) {
+      const dash = buildDashboardData(req)
+      res.render(`${version}/dashboard-work-in-progress`, {
+        farmsInProgress: dash.farmsInProgress,
+        total: dash.farmsInProgress.length
+      })
+    })
+    router.get(`/${version}/dashboard/completed`, function (req, res) {
+      const dash = buildDashboardData(req)
+      res.render(`${version}/dashboard-completed`, {
+        completedReports: dash.completedReports,
+        total: dash.completedReports.length
+      })
+    })
+
+    // Amend a completed report. Loads the farm, restores the snapshot of
+    // what was filed into session, then opens the check-answers page so the
+    // vet can use its Change links and re-submit. Only skin test reports
+    // carry a snapshot; anything else falls back to the farm page.
+    router.get(`/${version}/completed-report/amend`, function (req, res) {
+      const cph = (req.query && req.query.cph) || ''
+      const type = (req.query && req.query.type) || 'skin-test'
+      const completed = Array.isArray(req.session.data.completedReports)
+        ? req.session.data.completedReports
+        : []
+      const record = completed.find(function (r) { return r && r.cph === cph && r.type === type })
+      const herd = herdData[cph]
+      const amendableType = type === 'skin-test' || type === 'vaccination'
+      if (!record || !herd || !amendableType || !record.snapshot) {
+        return res.redirect(`/${version}/farm-tasks?cph=` + encodeURIComponent(cph))
+      }
+      req.session.data.selectedCattle = cph
+      req.session.data.selectedCattleLabel = herd.farm
+      req.session.data.herd = herd
+      if (type === 'vaccination') {
+        // Reopen the vaccination report exactly as filed on its check-your-
+        // answers page, where the vet can use the Change links to amend.
+        restoreVaccinationReport(req, record.snapshot)
+        return res.redirect(`/${version}/check-report-answers`)
+      }
+      restoreSkinTestReport(req, record.snapshot)
+      return res.redirect(`/${version}/skin-test-confirmation`)
+    })
+  }
 
   // ---------------------------------------------------------------------------
   // Farm tasks – a per-farm task list reached from the dashboard. Shows
@@ -2972,118 +3926,207 @@ function registerVersionRoutes(version) {
     // report. The prepared list itself is shown separately so the vet
     // can view, edit or reprint it without it cluttering the task
     // list.
-    const tasks = []
+    const taskItems = []
 
     function resumeHref(taskKey) {
       return `/${version}/farm-tasks/resume?cph=` + encodeURIComponent(cph)
         + '&task=' + encodeURIComponent(taskKey)
     }
 
-    // Skin test report still in progress (mid-flow).
-    if (cph === (req.session.data.herd && req.session.data.herd.cph)
-        && req.session.data.skinTestInProgress) {
-      const phase = req.session.data.currentSkinTestPhase || 'sicct'
-      const resumeFlowHref = phase === 'diva'
-        ? `/${version}/skin-test-diva`
-        : `/${version}/skin-test-measurements`
-      tasks.push({
-        title: 'Report skin test results' + (phase === 'diva' ? ' (DIVA)' : ''),
-        status: 'In progress',
-        actionText: 'Continue recording results',
-        href: resumeFlowHref
-      })
+    // "Created" stamp for prepared lists – matches the format printed on
+    // the skin-test list (en-GB long weekday + day + month + year) so the
+    // row and the printed sheet read identically.
+    const preparedListDateFormatter = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    })
+    function formatLongDate(value) {
+      if (!value) return null
+      const d = new Date(value)
+      if (isNaN(d.getTime())) return null
+      return preparedListDateFormatter.format(d)
+    }
+    function createdHint(preparedAt) {
+      const date = formatLongDate(preparedAt)
+      return date ? { text: 'Created ' + date } : undefined
     }
 
-    // Skin test list ready → only the "Report skin test results"
-    // task is queued for this farm.
+    // Open part test (v1-3): the herd's skin test was filed as a part
+    // test, so some animals are still to test on a return visit.
+    const partTestRecord = (version === 'v1-3'
+      && req.session.data.skinTestPartTests
+      && req.session.data.skinTestPartTests[cph]) || null
+
     const preparedSkinTest = Array.isArray(req.session.data.skinTestListPrepared)
       ? req.session.data.skinTestListPrepared
       : []
     const sicctRecord = preparedSkinTest.find(function (r) { return r && r.cph === cph })
-    if (sicctRecord && !req.session.data.skinTestInProgress) {
-      tasks.push({
-        title: 'Report skin test results',
-        status: 'Ready',
-        actionText: 'Report skin test results',
-        href: resumeHref('report-skin-test')
-      })
-    }
-
-    // Vaccination list ready → only the "Report BCG vaccinations"
-    // task is queued for this farm.
     const preparedVaccination = Array.isArray(req.session.data.vaccinationListPrepared)
       ? req.session.data.vaccinationListPrepared
       : []
     const vaxRecord = preparedVaccination.find(function (r) { return r && r.cph === cph })
-    if (vaxRecord) {
-      tasks.push({
-        title: 'Report BCG vaccinations',
-        status: 'Ready',
-        actionText: 'Report BCG vaccinations',
-        href: resumeHref('report-vaccinations')
-      })
-    }
 
-    // Prepared lists shown separately (not as "tasks to do") so the
-    // vet can view, edit or reprint without the list cluttering the
-    // active task list. Each list type for "Both" produces its own
-    // link.
-    // The "Date created" stamp matches the format used on the printed
-    // skin-test list (en-GB long weekday + day + month + year) so the
-    // farm-tasks row and the printed sheet read identically.
-    const preparedListDateFormatter = new Intl.DateTimeFormat('en-GB', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-    })
-    function formatPreparedAt(preparedAt) {
-      if (!preparedAt) return null
-      const d = new Date(preparedAt)
-      if (isNaN(d.getTime())) return null
-      return preparedListDateFormatter.format(d)
-    }
-    const preparedLists = []
-    if (sicctRecord) {
-      const types = Array.isArray(sicctRecord.types) ? sicctRecord.types : ['SICCT']
-      const dateCreated = formatPreparedAt(sicctRecord.preparedAt)
+    // A farm shows only its single most relevant piece of work – the latest
+    // job. A job is one report action plus, where there's one, the printable
+    // list to take to the farm (so at most two rows). Priority: a report in
+    // progress, then an open part test, then the most recently prepared list
+    // (skin test or vaccination). Anything else the vet wants to do is
+    // reached via the "Do something else at this farm" link, which goes to
+    // the choose-a-task page. (govuk-frontend v6 dropped the blue tag
+    // modifier, so report actions use the default blue tag and the part test
+    // uses yellow to stand out.)
+    const readyToPrintTag = { tag: { text: 'Ready to print', classes: 'govuk-tag--grey' } }
+
+    // Build the "print list" row for a prepared skin test record.
+    function skinTestListItem(record) {
+      const types = Array.isArray(record.types) ? record.types : ['SICCT']
+      const hint = createdHint(record.preparedAt)
       const hasSicct = types.indexOf('SICCT') !== -1
       const hasDiva = types.indexOf('DIVA') !== -1
       if (hasSicct && hasDiva) {
-        // Both prepared → one combined entry so the vet downloads or
-        // reprints both lists as a single file. The list page reads
-        // ?both=1 and stacks the SICCT then DIVA previews.
-        preparedLists.push({
-          title: 'SICCT and DIVA list of cattle for skin tests',
-          actionText: 'View, edit or reprint the SICCT and DIVA list',
-          dateCreated: dateCreated,
-          href: `/${version}/skin-test-list?both=1`
-        })
-      } else {
-        types.forEach(function (testLabel) {
-          preparedLists.push({
-            title: testLabel + ' list of cattle for skin tests',
-            actionText: 'View, edit or reprint the ' + testLabel + ' list',
-            dateCreated: dateCreated,
-            href: `/${version}/skin-test-list?sublist=` + (testLabel === 'DIVA' ? 'diva' : 'sicct')
-          })
-        })
+        return {
+          title: { text: 'SICCT and DIVA list of cattle for skin tests' },
+          hint: hint,
+          href: `/${version}/skin-test-list?both=1`,
+          status: readyToPrintTag
+        }
+      }
+      const label = hasDiva ? 'DIVA' : 'SICCT'
+      return {
+        title: { text: label + ' list of cattle for skin tests' },
+        hint: hint,
+        href: `/${version}/skin-test-list?sublist=` + (hasDiva ? 'diva' : 'sicct'),
+        status: readyToPrintTag
       }
     }
-    if (vaxRecord) {
-      preparedLists.push({
-        title: 'List of cattle to vaccinate',
-        actionText: 'View, edit or reprint the list',
-        dateCreated: formatPreparedAt(vaxRecord.preparedAt),
-        href: `/${version}/download-list`
-      })
+    function preparedHint(preparedAt) {
+      const date = formatLongDate(preparedAt)
+      return date ? { text: 'List prepared ' + date } : undefined
     }
+
+    let job = null
+    const inProgress = cph === (req.session.data.herd && req.session.data.herd.cph)
+      && req.session.data.skinTestInProgress
+
+    if (inProgress) {
+      const phase = req.session.data.currentSkinTestPhase || 'sicct'
+      const resumeFlowHref = phase === 'diva'
+        ? `/${version}/skin-test-diva`
+        : `/${version}/skin-test-measurements`
+      job = {
+        report: {
+          title: { text: 'Report skin test results' + (phase === 'diva' ? ' (DIVA)' : '') },
+          hint: sicctRecord ? preparedHint(sicctRecord.preparedAt) : undefined,
+          href: resumeFlowHref,
+          status: { tag: { text: 'In progress' } }
+        },
+        list: sicctRecord ? skinTestListItem(sicctRecord) : null
+      }
+    } else if (partTestRecord && partTestRecord.stillToTest) {
+      const n = partTestRecord.stillToTest
+      const animalWord = n === 1 ? 'animal' : 'animals'
+      const filedDate = formatLongDate(partTestRecord.submittedAt)
+      const countText = n + ' ' + animalWord + ' still to test'
+      job = {
+        report: {
+          title: { text: 'Report on the remaining cattle' },
+          hint: { text: filedDate ? (countText + ' · part test submitted ' + filedDate) : (countText + ' on a return visit') },
+          href: resumeHref('report-skin-test-remaining'),
+          status: { tag: { text: 'Part test', classes: 'govuk-tag--yellow' } }
+        },
+        list: {
+          title: { text: 'List of remaining cattle to test' },
+          hint: { text: countText },
+          href: `/${version}/part-test-list?cph=` + encodeURIComponent(cph),
+          status: readyToPrintTag
+        }
+      }
+    } else {
+      // No active work – offer the most recently prepared list (skin test
+      // or vaccination) and its report.
+      const prepared = []
+      if (sicctRecord) {
+        prepared.push({
+          ts: new Date(sicctRecord.preparedAt || 0).getTime(),
+          report: {
+            title: { text: 'Report skin test results' },
+            hint: preparedHint(sicctRecord.preparedAt),
+            href: resumeHref('report-skin-test'),
+            status: { tag: { text: 'Not started' } }
+          },
+          list: skinTestListItem(sicctRecord)
+        })
+      }
+      if (vaxRecord) {
+        prepared.push({
+          ts: new Date(vaxRecord.preparedAt || 0).getTime(),
+          report: {
+            title: { text: 'Report BCG vaccinations' },
+            hint: preparedHint(vaxRecord.preparedAt),
+            href: resumeHref('report-vaccinations'),
+            status: { tag: { text: 'Not started' } }
+          },
+          list: {
+            title: { text: 'List of cattle to vaccinate' },
+            hint: createdHint(vaxRecord.preparedAt),
+            href: `/${version}/download-list`,
+            status: readyToPrintTag
+          }
+        })
+      }
+      prepared.sort(function (a, b) { return b.ts - a.ts })
+      job = prepared[0] || null
+    }
+
+    if (job) {
+      taskItems.push(job.report)
+      if (job.list) taskItems.push(job.list)
+    }
+
+    // Reports already filed for this farm. Shown as "Completed" items the
+    // vet can click to reopen the check-answers summary and change data.
+    const completedForFarm = (Array.isArray(req.session.data.completedReports)
+      ? req.session.data.completedReports
+      : []).filter(function (r) { return r && r.cph === cph })
+    const completedItems = completedForFarm.map(function (r) {
+      const canAmend = (r.type === 'skin-test' || r.type === 'vaccination') && r.snapshot
+      const submittedDate = formatLongDate(r.completedAt)
+      return {
+        title: { text: r.typeLabel || 'Report' },
+        hint: submittedDate ? { text: 'Submitted ' + submittedDate } : undefined,
+        href: canAmend
+          ? `/${version}/completed-report/amend?cph=` + encodeURIComponent(cph) + '&type=' + encodeURIComponent(r.type)
+          : undefined,
+        status: { text: 'Completed' }
+      }
+    })
 
     res.render(`${version}/farm-tasks`, {
       farmName,
       cph,
+      locationLine: farmLocationLine(herd),
+      newTaskHref: `/${version}/farm-tasks/new?cph=` + encodeURIComponent(cph),
       currentUser,
-      tasks,
-      preparedLists
+      taskItems,
+      completedItems
     })
   })
+
+  // "Do something else at this farm" – load the herd into session and send
+  // the vet to the choose-a-task page, where they pick what they want to do
+  // (prepare or report a vaccination or skin test) for this farm.
+  if (version === 'v1-3') {
+    router.get(`/${version}/farm-tasks/new`, function (req, res) {
+      const cph = (req.query && req.query.cph) || ''
+      const herd = herdData[cph]
+      if (!herd) {
+        return res.redirect(`/${version}/dashboard`)
+      }
+      req.session.data.selectedCattle = cph
+      req.session.data.selectedCattleLabel = herd.farm
+      req.session.data.herd = herd
+      return res.redirect(`/${version}/select-visit-task`)
+    })
+  }
 
   // Resume endpoint – sets up the session for the chosen farm and task
   // and forwards the vet to the matching journey start. Used by the
@@ -3108,6 +4151,11 @@ function registerVersionRoutes(version) {
       // initialised journey.
       return res.redirect(`/${version}/dashboard`)
     }
+
+    // Any resume other than a scoped return visit operates on the full
+    // herd, so clear any leftover part-test scope up front. The
+    // report-skin-test-remaining case below re-applies it.
+    req.session.data.skinTestScopeIds = null
 
     // Set the journey-specific state and redirect to the right entry
     // page. Mirrors what /v1-1/select-journey does, but keyed on the
@@ -3165,10 +4213,78 @@ function registerVersionRoutes(version) {
         }
         return res.redirect(`/${version}/who-gave-the-vaccine`)
 
+      case 'report-skin-test-remaining': {
+        // Return visit for an open part test. Scope the whole report to
+        // the animals recorded as still to test, and start a fresh report
+        // over just those animals.
+        const partTests = req.session.data.skinTestPartTests || {}
+        const record = partTests[cph]
+        const remaining = record && Array.isArray(record.remainingIds)
+          ? record.remainingIds
+          : []
+        if (!remaining.length) {
+          return res.redirect(`/${version}/farm-tasks?cph=` + encodeURIComponent(cph))
+        }
+        req.session.data.skinTestScopeIds = remaining
+        req.session.data.journey = 'report-skin-test'
+        req.session.data.reportType = 'tb-test'
+        // Fresh return-visit report – clear any earlier report state so we
+        // start clean over the remaining animals only.
+        req.session.data.skinTestEntries = null
+        req.session.data.skinTestAddedEntries = null
+        req.session.data.skinTestReactors = null
+        req.session.data.skinTestUntested = null
+        req.session.data.skinTestUntestedReasons = null
+        req.session.data.skinTestDay1Day = null
+        req.session.data.skinTestDay1Month = null
+        req.session.data.skinTestDay1Year = null
+        req.session.data.skinTestDay2Day = null
+        req.session.data.skinTestDay2Month = null
+        req.session.data.skinTestDay2Year = null
+        req.session.data.skinTestType = record.testType || null
+        req.session.data.currentSkinTestIndex = 0
+        req.session.data.skinTestInProgress = true
+        return res.redirect(`/${version}/who-gave-the-vaccine`)
+      }
+
       default:
         return res.redirect(`/${version}/dashboard`)
     }
   })
+
+  // Print/view the list of animals still to test from an open part test.
+  // Loads the herd, scopes the animal universe to the recorded remaining
+  // set, then hands off to the standard printable skin-test list (which
+  // draws its animals from getSkinTestAnimals, so it shows only those
+  // animals and the vet can print it for the return visit).
+  if (version === 'v1-3') {
+    router.get(`/${version}/part-test-list`, function (req, res) {
+      const cph = (req.query && req.query.cph)
+        || (req.session.data.herd && req.session.data.herd.cph)
+      const partTests = req.session.data.skinTestPartTests || {}
+      const record = cph && partTests[cph]
+      if (!record || !Array.isArray(record.remainingIds) || !record.remainingIds.length) {
+        return res.redirect(`/${version}/dashboard`)
+      }
+      const herd = herdData[cph]
+      if (herd) {
+        req.session.data.selectedCattle = cph
+        req.session.data.selectedCattleLabel = herd.farm
+        req.session.data.herd = herd
+      }
+      req.session.data.skinTestScopeIds = record.remainingIds
+      // Show the remaining animals as a single-test list – clear any
+      // prepare-time split / not-tested state that would otherwise filter
+      // the printable list.
+      req.session.data.prepareSkinTestType = record.testType === 'Both'
+        ? 'SICCT'
+        : (record.testType || 'SICCT')
+      req.session.data.prepareSkinTestPhase = null
+      req.session.data.prepareSkinTestAssignments = null
+      req.session.data.prepareSkinTestUntested = null
+      return res.redirect(`/${version}/skin-test-list?returnVisit=1`)
+    })
+  }
 
   // ---------------------------------------------------------------------------
   // Unified journey selector – called from /v1-1/confirm-herd-or-animal.
@@ -3184,6 +4300,9 @@ function registerVersionRoutes(version) {
   router.post(`/${version}/select-journey`, function (req, res) {
     const journey = req.body.journey
     req.session.data.journey = journey
+    // A newly selected journey always covers the full herd, so drop any
+    // leftover part-test return-visit scope.
+    req.session.data.skinTestScopeIds = null
 
     if (!journey) {
       return res.render(`${version}/select-visit-task`, {
@@ -3410,6 +4529,12 @@ function registerSkinTestRoutes(version) {
     ? ['DOB', 'Sex', 'Breed']
     : ['Age', 'DOB', 'Sex', 'Breed']
 
+  // v1-3 renames the reactor-measurement page to a test-agnostic URL.
+  // "skin-test-diva-table" implied the page was DIVA-only, but it records
+  // both SICCT and DIVA readings, so v1-3 serves it at "skin-test-table".
+  // Earlier versions keep the original path (and template filename).
+  const testTablePath = version === 'v1-3' ? 'skin-test-table' : 'skin-test-diva-table'
+
   // Helpers --------------------------------------------------------------------
 
   function getSkinTestAnimals(req) {
@@ -3419,7 +4544,22 @@ function registerSkinTestRoutes(version) {
     // registerSkinTestRoutes is registered per version – use the
     // closure's version so v1-1 and v1-2 each pull from the right
     // dataset.
-    const animals = getAnimalsForSelection(selectedCattle, version)
+    const allAnimals = getAnimalsForSelection(selectedCattle, version)
+
+    // Return-visit scope (v1-3 part test). When the vet resumes a part
+    // test to test the animals that were left over, the whole report is
+    // limited to that still-to-test set (recorded at submission and held
+    // in skinTestScopeIds). This helper is the single point every report,
+    // list, reactor and untested page draws its animals from, so filtering
+    // here scopes the entire return-visit journey in one place.
+    const scopeIds = (version === 'v1-3'
+      && Array.isArray(req.session.data.skinTestScopeIds)
+      && req.session.data.skinTestScopeIds.length)
+      ? new Set(req.session.data.skinTestScopeIds)
+      : null
+    const animals = scopeIds
+      ? allAnimals.filter(function (a) { return scopeIds.has(a.officialId) })
+      : allAnimals
 
     // v1-2 only: sort the default ear-tag list by the boxed last-4
     // digits first, then the full last-5 (the individual number) to
@@ -4183,11 +5323,15 @@ function registerSkinTestRoutes(version) {
       ? allAnimals.filter(a => !otherAssigned.has(a.officialId))
       : allAnimals
 
+    const assignListLook = req.session.data.prepareAssignListLook || 'easy'
     res.render(`${version}/prepare-skin-test-assign-cattle`, {
       currentTestLabel: currentTest === 'diva' ? 'DIVA' : 'SICCT',
       otherTestLabel: otherTest === 'diva' ? 'DIVA' : 'SICCT',
       isSecondPass,
       animals,
+      totalCattle: animals.length,
+      listLook: assignListLook,
+      cattlePerPage: assignListLook === 'compact' ? 40 : 20,
       selectedAssigned: assignments[currentTest] || [],
       backHref: isSecondPass
         ? `/${version}/prepare-skin-test-assign-cattle`
@@ -4268,12 +5412,14 @@ function registerSkinTestRoutes(version) {
   router.post(`/${version}/prepare-skin-test-assign-cattle/settings`, function (req, res) {
     req.session.data.prepareSkinTestUntestedSortBy = req.body.sortBy || 'Ear-tag number (last 5 digits)'
     req.session.data.prepareSkinTestUntestedSortDirection = req.body.sortDirection || 'asc'
+    req.session.data.prepareAssignListLook = req.body.listLook === 'compact' ? 'compact' : 'easy'
     res.redirect(`/${version}/prepare-skin-test-assign-cattle`)
   })
 
   router.get(`/${version}/prepare-skin-test-assign-cattle/settings/reset`, function (req, res) {
     req.session.data.prepareSkinTestUntestedSortBy = 'Ear-tag number (last 5 digits)'
     req.session.data.prepareSkinTestUntestedSortDirection = 'asc'
+    req.session.data.prepareAssignListLook = 'easy'
     res.redirect(`/${version}/prepare-skin-test-assign-cattle`)
   })
 
@@ -4286,13 +5432,18 @@ function registerSkinTestRoutes(version) {
     const otherTest = test === 'diva' ? 'sicct' : 'diva'
     const assignments = req.session.data.prepareSkinTestAssignments || { sicct: [], diva: [] }
 
+    const editAnimals = getPrepareCandidateAnimals(req)
+    const editListLook = req.session.data.prepareAssignListLook || 'easy'
     res.render(`${version}/prepare-skin-test-assign-cattle`, {
       currentTestLabel: test === 'diva' ? 'DIVA' : 'SICCT',
       otherTestLabel: otherTest === 'diva' ? 'DIVA' : 'SICCT',
       isSecondPass: false,
       isEditMode: true,
       editTest: test,
-      animals: getPrepareCandidateAnimals(req),
+      animals: editAnimals,
+      totalCattle: editAnimals.length,
+      listLook: editListLook,
+      cattlePerPage: editListLook === 'compact' ? 40 : 20,
       selectedAssigned: assignments[test] || [],
       backHref: `/${version}/skin-test-list`,
       sortBy: req.session.data.prepareSkinTestUntestedSortBy || 'Ear-tag number (last 5 digits)',
@@ -4722,6 +5873,11 @@ function registerSkinTestRoutes(version) {
       : sessionPhase
     const isBoth = prepareSkinTestType === 'Both'
 
+    // Populated-list mode: fill every row with deterministic demo answers
+    // (handwritten style) so the vet can print a completed example for
+    // usability testing. Triggered by the "Generate a populated list" link.
+    const populate = !!(req.query && req.query.populate)
+
     // Small helper so we can build a filtered preview for SICCT, DIVA,
     // or both phases without repeating the enrichment logic.
     const settings = buildPreviewSettings(req)
@@ -4755,7 +5911,7 @@ function registerSkinTestRoutes(version) {
         const last4 = String(a.officialId || '').slice(-4)
         counts[last4] = (counts[last4] || 0) + 1
       })
-      const enriched = filtered.map(function (a) {
+      const enriched = filtered.map(function (a, idx) {
         const last4 = String(a.officialId || '').slice(-4)
         // "Check the DOB" flag – animal sits in a window around the
         // 42-day minimum testing age (35–49 days). The vet keeps
@@ -4772,11 +5928,33 @@ function registerSkinTestRoutes(version) {
         const isVaxCheckDue = typeof vaxMonths === 'number'
           && vaxMonths >= 8
           && vaxMonths <= 10
+        // "Frequent flyer" demo flag – an animal recently skin-tested
+        // (e.g. a pre-movement test before it was bought in) that may
+        // be within the 60-day minimum interval, so the vet should not
+        // inject it again. Seeded on the first two animals of every
+        // list so the marker is visible on Mill House and every other
+        // farm. A real service would derive this from CTS test history.
+        // Date is DD/MM/YYYY to match the DOB column and the rest of the
+        // list. Test type shows which tuberculin was last used.
+        // Frequent-flyer marker: spread a few recently-tested animals
+        // through the list (deterministic from the ear tag) rather than
+        // always clustering them at the top.
+        let recentTestDate = a.recentTestDate || ''
+        let recentTestType = a.recentTestType || ''
+        if (!recentTestDate) {
+          const recent = frequentFlyerRecentTest(a.officialId, phase)
+          if (recent) {
+            recentTestDate = recent.date
+            recentTestType = recent.type
+          }
+        }
         return Object.assign({}, a, {
           isDuplicate: counts[last4] > 1,
           isVaccinated: a.vaccinationStatus === 'Vaccinated',
           isUnderTestAge: isUnderTestAge,
           isVaxCheckDue: isVaxCheckDue,
+          recentTestDate: recentTestDate,
+          recentTestType: recentTestType,
           vaccinationDate: a.vaccinationDate || ''
         })
       })
@@ -4787,9 +5965,40 @@ function registerSkinTestRoutes(version) {
             isVaccinated: enriched[idx].isVaccinated,
             isUnderTestAge: enriched[idx].isUnderTestAge,
             isVaxCheckDue: enriched[idx].isVaxCheckDue,
-            vaccinationDate: enriched[idx].vaccinationDate
+            recentTestDate: enriched[idx].recentTestDate,
+            recentTestType: enriched[idx].recentTestType,
+            vaccinationDate: enriched[idx].vaccinationDate,
+            demo: populate ? buildDemo(enriched[idx].officialId) : null
           })
         })
+      // On a populated list, guarantee at least one of each demo feature
+      // per list so testers always see them, forcing one where the random
+      // spread produced none.
+      if (populate && rows.length) {
+        const n = rows.length
+        const at = function (frac) { return Math.min(n - 1, Math.max(0, Math.floor(n * frac))) }
+        // A few "not tested" animals per list (not found / deceased /
+        // withdrawn for export / slaughter / by owner). One of each reason,
+        // spread through the list and clear of the forced part-test (0.35)
+        // and blurred-reactor (0.6) rows. Blank Pre/Post, short note.
+        const notTestedReasons = ['not-found', 'deceased', 'export', 'slaughter', 'owner']
+        const notTestedFracs = [0.08, 0.24, 0.48, 0.72, 0.9]
+        notTestedReasons.forEach(function (reason, i) {
+          const p = at(notTestedFracs[i])
+          rows[p].demo = buildDemo(rows[p].officialId, { forceNotTested: reason })
+        })
+        // Part test (Day 2 not read) – a row with a Pre but blank Post.
+        // Not-tested rows are blank throughout, so exclude them here.
+        if (!rows.some(function (r) { return r.demo && r.demo.aPost === '' && !r.demo.notTested })) {
+          const p = at(0.35); rows[p].demo = buildDemo(rows[p].officialId, { forceM2: true })
+        }
+        if (!rows.some(function (r) { return r.demo && /app-smudge-2/.test(r.demo.bPost) && />R</.test(r.demo.res) })) {
+          const p = at(0.6); rows[p].demo = buildDemo(rows[p].officialId, { forceReactor: true, forceHeavyBlur: true })
+        }
+        if (!rows.some(function (r) { return r.isDuplicate })) {
+          rows[at(0.15)].isDuplicate = true
+        }
+      }
       return { rows, count: enriched.length }
     }
 
@@ -4861,10 +6070,35 @@ function registerSkinTestRoutes(version) {
       }
     }
 
+    // Populated list only: a handful of extra cattle (~7% of the list)
+    // hand-written into the blank "Additional cattle" sheet.
+    let extraCattle = []
+    if (populate) {
+      const _phaseRows = (sicctPreview && sicctPreview.rows) || (divaPreview && divaPreview.rows) || []
+      const _n = _phaseRows.length || baseAnimals.length || 20
+      const _sampleId = (baseAnimals[0] && baseAnimals[0].officialId) || 'UK246810000001'
+      const _mark = String(_sampleId).replace(/^UK/i, '').slice(0, 6)
+      const _count = Math.min(18, Math.max(2, Math.round(_n * 0.07)))
+      extraCattle = buildExtraCattle(_mark, _count)
+    }
+
+    // Return-visit list: this is the scoped list of animals still to test
+    // from an open part test, reached via /part-test-list. Drives an inset
+    // banner so the vet knows the sheet only covers the remaining animals.
+    const returnVisit = version === 'v1-3'
+      && !!(req.query && req.query.returnVisit)
+      && Array.isArray(req.session.data.skinTestScopeIds)
+      && req.session.data.skinTestScopeIds.length > 0
+    const returnVisitCount = returnVisit ? req.session.data.skinTestScopeIds.length : 0
+
     res.render(`${version}/skin-test-list`, {
       previewRows,
       previewColumns: settings.visibleColumns,
       listCreatedFormatted,
+      populate,
+      returnVisit,
+      returnVisitCount,
+      extraCattle,
       previewAllColumns: skinTestListColumns,
       previewOptions: settings.previewOptions,
       emphasiseLastFive: settings.emphasiseLastFive,
@@ -4914,7 +6148,7 @@ function registerSkinTestRoutes(version) {
         const s = req.session.data.skinTestSortBy || 'Ear-tag number (last 5 digits)'
         if (s === 'Age') return 'age'
         if (s === 'Sex') return 'sex'
-        return 'ear tag'
+        return 'Ear tag'
       })(),
       currentPage: Math.max(1, parseInt((req.query && req.query.page) || '1', 10) || 1),
       // ?print=1 triggers window.print() once the page has loaded.
@@ -5260,31 +6494,28 @@ function registerSkinTestRoutes(version) {
   })
 
   router.post(`/${version}/skin-test-type`, function (req, res) {
-    // v1-3: the page asks "Which test did you do?" with SICCT / DIVA
-    // checkboxes. One ticked → straight to that test's batch-details
-    // page; both ticked → on to /skin-test-record-first so the vet
-    // can pick which to record first.
+    // v1-3: the page asks "Which test did you do?" with a single
+    // SICCT / DIVA / Both radio. SICCT or DIVA → straight to that test's
+    // batch-details page; Both → on to /skin-test-record-first so the
+    // vet can pick which to record first.
     if (version === 'v1-3') {
-      const submittedTests = Array.isArray(req.body.tests)
-        ? req.body.tests
-        : (req.body.tests ? [req.body.tests] : [])
-      const tests = submittedTests.filter(function (t) {
-        return t && t !== '_unchecked'
-      })
+      const choice = (req.body.testType || '').trim()
 
-      if (!tests.length) {
+      if (choice !== 'SICCT' && choice !== 'DIVA' && choice !== 'Both') {
         return res.render(`${version}/skin-test-type`, {
-          errors: { tests: { text: 'Select which test you did' } },
+          errors: { testType: { text: 'Select which test you did' } },
           errorSummary: {
             titleText: 'There is a problem',
-            errorList: [{ text: 'Select which test you did', href: '#tests' }]
+            errorList: [{ text: 'Select which test you did', href: '#testType' }]
           }
         })
       }
 
-      const hasSicct = tests.indexOf('SICCT') !== -1
-      const hasDiva = tests.indexOf('DIVA') !== -1
-      req.session.data.skinTestTests = tests
+      const hasSicct = choice === 'SICCT' || choice === 'Both'
+      const hasDiva = choice === 'DIVA' || choice === 'Both'
+      // Keep skinTestTests populated as an array for the downstream
+      // measurement / summary screens that still read it.
+      req.session.data.skinTestTests = choice === 'Both' ? ['SICCT', 'DIVA'] : [choice]
       req.session.data.skinTestCompletedTests = []
 
       if (hasSicct && hasDiva) {
@@ -5586,6 +6817,10 @@ function registerSkinTestRoutes(version) {
   router.get(`/${version}/skin-test-confirm-test/:test`, function (req, res) {
     const test = req.params.test === 'diva' ? 'diva' : 'sicct'
     const testLabel = test === 'diva' ? 'DIVA' : 'SICCT'
+    // Keep the per-test sub-flow scoped to this test so the "Change" link on
+    // the Reacted row opens the reactor picker for the right test (SICCT or
+    // DIVA) rather than the whole-herd measurement table.
+    req.session.data.currentSkinTest = test
     const batchDetails = (req.session.data.skinTestBatchDetails || {})[test] || {}
 
     const vaccineExpiryDisplay = formatDmyDisplay(
@@ -5627,7 +6862,7 @@ function registerSkinTestRoutes(version) {
     // reactors-any gate (since the vet answered "no" there and
     // skipped both reactors / measurements).
     const backHref = reactorIds.length > 0
-      ? `/${version}/skin-test-diva-table`
+      ? `/${version}/${testTablePath}`
       : `/${version}/skin-test-reactors-any`
 
     res.render(`${version}/skin-test-confirm-test`, {
@@ -6052,7 +7287,7 @@ function registerSkinTestRoutes(version) {
     // measurement table for the active phase.
     if (perTest && (version === 'v1-2' || version === 'v1-3')) {
       req.session.data.currentSkinTestPhase = phase
-      return res.redirect(`/${version}/skin-test-diva-table`)
+      return res.redirect(`/${version}/${testTablePath}`)
     }
 
     // Routing: head into the measurement loop for this phase.
@@ -6203,7 +7438,41 @@ function registerSkinTestRoutes(version) {
     const sicctReactorIds = getReactorsForPhase(req, 'sicct')
     const divaReactorIds = getReactorsForPhase(req, 'diva')
     const reactorSet = new Set([...sicctReactorIds, ...divaReactorIds])
-    const remaining = allAnimals.filter(function (a) { return !reactorSet.has(a.officialId) })
+    const remainingBase = allAnimals.filter(function (a) { return !reactorSet.has(a.officialId) })
+
+    // Eligibility flags. The list is "cattle that were eligible for
+    // testing but were not fully tested", so cattle that were never
+    // eligible are flagged with the reason. They stay selectable (a data
+    // error might mean one really was tested), but the flag steers the
+    // vet away from marking an animal that never should have been tested.
+    //   - Too young: under the 42-day minimum skin-test age.
+    //   - Tested elsewhere: tested on another farm within the last 60
+    //     days (mirrors the frequent-flyer marker on the printed list,
+    //     derived from a stable hash of the ear tag). A real service
+    //     would read this from CTS test history.
+    const phase = getCurrentReactorPhase(req)
+    const remaining = remainingBase.map(function (a) {
+      const days = ageInMonthsFromDob(a.dob)
+      const isTooYoung = typeof days === 'number' && days >= 0 && days < 42
+      const recent = frequentFlyerRecentTest(a.officialId, phase)
+      let ineligibleReason = ''
+      let ineligibleDetail = ''
+      if (isTooYoung) {
+        ineligibleReason = 'Too young to test'
+        ineligibleDetail = 'Under the minimum testing age of 42 days.'
+      } else if (recent) {
+        ineligibleReason = 'Tested on another farm'
+        ineligibleDetail = 'Last tested ' + recent.date + ', within the last 60 days.'
+      }
+      return Object.assign({}, a, {
+        isTooYoung: isTooYoung,
+        testedElsewhereRecently: !!recent,
+        recentTestDate: recent ? recent.date : '',
+        ineligible: !!ineligibleReason,
+        ineligibleReason: ineligibleReason,
+        ineligibleDetail: ineligibleDetail
+      })
+    })
     const selectedUntested = Array.isArray(req.session.data.skinTestUntested)
       ? req.session.data.skinTestUntested
       : []
@@ -6268,13 +7537,21 @@ function registerSkinTestRoutes(version) {
     req.session.data.currentUntestedIndex = 0
 
     // Nothing ticked – every remaining animal is clear. Skip the
-    // per-animal reason loop and go straight to the review page.
+    // per-animal reason loop. v1-3 still offers "Are there more cattle
+    // to add?" before review (matching the all-tested = "yes" path);
+    // older versions go straight to the review page.
     if (untested.length === 0) {
+      if (version === 'v1-3') {
+        return res.redirect(`/${version}/skin-test-add-cattle-question`)
+      }
       return res.redirect(`/${version}/skin-test-confirmation`)
     }
 
-    // Otherwise, iterate the ticked cattle one at a time to pick
-    // a reason for each.
+    // Go to the reasons step. v1-3 uses the bulk select page; older
+    // versions iterate the ticked cattle one at a time.
+    if (version === 'v1-3') {
+      return res.redirect(`/${version}/skin-test-untested-reason`)
+    }
     res.redirect(`/${version}/skin-test-untested-reason/0`)
   })
 
@@ -6332,14 +7609,165 @@ function registerSkinTestRoutes(version) {
     })
   }
 
+  // v1-3: bulk reason capture, modelled on /select-vaccinated-animals.
+  // The vet ticks a group of untested cattle, picks one reason and marks
+  // them; marked cattle drop off the remaining list. Repeat until none
+  // remain. v1-1 / v1-2 keep the one-at-a-time wizard (the /:index routes
+  // below).
+  function renderUntestedReasons(req, res, options) {
+    options = options || {}
+    const untestedAnimals = getUntestedAnimals(req)
+    const reasons = req.session.data.skinTestUntestedReasons || {}
+    const remaining = untestedAnimals.filter(function (a) { return !reasons[a.officialId] })
+    res.render(`${version}/skin-test-untested-reason`, {
+      remainingAnimals: remaining,
+      totalUntested: untestedAnimals.length,
+      remainingCount: remaining.length,
+      markedCount: untestedAnimals.length - remaining.length,
+      errors: options.errors,
+      errorSummary: options.errorSummary,
+      formValues: options.formValues || {}
+    })
+  }
+
   router.get(`/${version}/skin-test-untested-reason`, function (req, res) {
-    const resumeIndex = Number.isInteger(req.session.data.currentUntestedIndex)
-      ? req.session.data.currentUntestedIndex
-      : 0
-    res.redirect(`/${version}/skin-test-untested-reason/${resumeIndex}`)
+    const untestedAnimals = getUntestedAnimals(req)
+    if (untestedAnimals.length === 0) {
+      return res.redirect(`/${version}/skin-test-untested`)
+    }
+    // Older versions keep the one-at-a-time wizard, resuming where the
+    // vet left off.
+    if (version !== 'v1-3') {
+      const resumeIndex = Number.isInteger(req.session.data.currentUntestedIndex)
+        ? req.session.data.currentUntestedIndex
+        : 0
+      return res.redirect(`/${version}/skin-test-untested-reason/${resumeIndex}`)
+    }
+    // v1-3 bulk page. Once every untested animal has a reason, continue.
+    const reasons = req.session.data.skinTestUntestedReasons || {}
+    const remaining = untestedAnimals.filter(function (a) { return !reasons[a.officialId] })
+    if (remaining.length === 0) {
+      return res.redirect(`/${version}/skin-test-add-cattle-question`)
+    }
+    renderUntestedReasons(req, res)
+  })
+
+  // Reasons that leave the herd's test incomplete, so the report is filed
+  // as a part test with animals still to test: "Could not be managed"
+  // (return-visit) and "Missing on day 2" (injected on Day 1 but not read,
+  // so must be re-tested after 60 days).
+  function isStillToTestReason(reason) {
+    return reason === 'return-visit' || reason === 'could-not-read-day-2'
+  }
+
+  // Where to go once every untested animal has a reason. If any leave the
+  // herd test incomplete (see isStillToTestReason) the herd test is not
+  // finished, so route through the part-test explainer; otherwise carry on
+  // to the add-cattle question.
+  function untestedReasonsDoneHref(req) {
+    const reasons = req.session.data.skinTestUntestedReasons || {}
+    const hasStillToTest = Object.keys(reasons).some(function (id) { return isStillToTestReason(reasons[id]) })
+    return hasStillToTest
+      ? `/${version}/skin-test-part-test`
+      : `/${version}/skin-test-add-cattle-question`
+  }
+
+  // v1-3 bulk POST: assign one reason to the ticked cattle.
+  router.post(`/${version}/skin-test-untested-reason`, function (req, res) {
+    if (version !== 'v1-3') {
+      return res.redirect(`/${version}/skin-test-untested-reason`)
+    }
+    const untestedAnimals = getUntestedAnimals(req)
+    if (untestedAnimals.length === 0) {
+      return res.redirect(`/${version}/skin-test-untested`)
+    }
+    const untestedSet = new Set(untestedAnimals.map(function (a) { return a.officialId }))
+    const reasons = Object.assign({}, req.session.data.skinTestUntestedReasons || {})
+    const others = Object.assign({}, req.session.data.skinTestUntestedReasonOthers || {})
+
+    // "Skip and mark as no reason given" – bulk-mark every remaining
+    // untested animal and continue.
+    if (req.body.markAction === 'skip-no-reason') {
+      untestedAnimals.forEach(function (a) {
+        if (!reasons[a.officialId]) { reasons[a.officialId] = 'no-reason'; delete others[a.officialId] }
+      })
+      req.session.data.skinTestUntestedReasons = reasons
+      req.session.data.skinTestUntestedReasonOthers = others
+      return res.redirect(untestedReasonsDoneHref(req))
+    }
+
+    const selectedIds = (Array.isArray(req.body.selectedAnimals)
+      ? req.body.selectedAnimals
+      : (req.body.selectedAnimals ? [req.body.selectedAnimals] : []))
+      .filter(function (id) { return id && id !== '_unchecked' && untestedSet.has(id) })
+    const reason = (req.body.reason || '').trim()
+    const reasonOther = (req.body.reasonOther || '').trim()
+
+    const errors = {}
+    const errorList = []
+    if (selectedIds.length === 0) {
+      errors.selectedAnimals = { text: 'Select the cattle this reason applies to' }
+      errorList.push({ text: 'Select the cattle this reason applies to', href: '#selected-animals' })
+    }
+    if (!reason) {
+      errors.reason = { text: 'Select a reason these cattle were not tested' }
+      errorList.push({ text: 'Select a reason these cattle were not tested', href: '#reason' })
+    }
+    if (errorList.length) {
+      return renderUntestedReasons(req, res, {
+        errors,
+        errorSummary: { titleText: 'There is a problem', errorList: errorList },
+        formValues: { reason, reasonOther }
+      })
+    }
+
+    selectedIds.forEach(function (id) {
+      reasons[id] = reason
+      if (reason === 'other') { others[id] = reasonOther } else { delete others[id] }
+    })
+    req.session.data.skinTestUntestedReasons = reasons
+    req.session.data.skinTestUntestedReasonOthers = others
+
+    // Any untested cattle still without a reason? Loop. Otherwise continue.
+    const stillRemaining = untestedAnimals.some(function (a) { return !reasons[a.officialId] })
+    if (stillRemaining) {
+      return res.redirect(`/${version}/skin-test-untested-reason`)
+    }
+    return res.redirect(untestedReasonsDoneHref(req))
+  })
+
+  // --- v1-3: part-test explainer ---------------------------------------
+  // Shown when one or more animals were marked "to be tested on a return
+  // visit". The herd test isn't complete, so this confirms the report
+  // will be filed as a part test and the test stays open.
+  function getReturnVisitAnimals(req) {
+    const reasons = req.session.data.skinTestUntestedReasons || {}
+    return getUntestedAnimals(req).filter(function (a) { return isStillToTestReason(reasons[a.officialId]) })
+  }
+
+  router.get(`/${version}/skin-test-part-test`, function (req, res) {
+    if (version !== 'v1-3') {
+      return res.redirect(`/${version}/skin-test-add-cattle-question`)
+    }
+    const returnVisit = getReturnVisitAnimals(req)
+    if (returnVisit.length === 0) {
+      return res.redirect(`/${version}/skin-test-add-cattle-question`)
+    }
+    res.render(`${version}/skin-test-part-test`, {
+      stillToTestCount: returnVisit.length,
+      returnVisitAnimals: returnVisit
+    })
+  })
+
+  router.post(`/${version}/skin-test-part-test`, function (req, res) {
+    res.redirect(`/${version}/skin-test-add-cattle-question`)
   })
 
   router.get(`/${version}/skin-test-untested-reason/:index`, function (req, res) {
+    // v1-3 uses the bulk page above, not the per-animal wizard.
+    if (version === 'v1-3') {
+      return res.redirect(`/${version}/skin-test-untested-reason`)
+    }
     const untestedAnimals = getUntestedAnimals(req)
     if (untestedAnimals.length === 0) {
       return res.redirect(`/${version}/skin-test-untested`)
@@ -6350,6 +7778,10 @@ function registerSkinTestRoutes(version) {
   })
 
   router.post(`/${version}/skin-test-untested-reason/:index`, function (req, res) {
+    // v1-3 uses the bulk page above, not the per-animal wizard.
+    if (version === 'v1-3') {
+      return res.redirect(`/${version}/skin-test-untested-reason`)
+    }
     const untestedAnimals = getUntestedAnimals(req)
     if (untestedAnimals.length === 0) {
       return res.redirect(`/${version}/skin-test-untested`)
@@ -6491,7 +7923,7 @@ function registerSkinTestRoutes(version) {
     // than stepping through one animal at a time. Older versions
     // keep the per-animal measurement loop.
     if ((version === 'v1-2' || version === 'v1-3')) {
-      return res.redirect(`/${version}/skin-test-diva-table`)
+      return res.redirect(`/${version}/${testTablePath}`)
     }
     const entries = getEntriesForPhase(req, 'sicct')
     if (!entries.length) {
@@ -6513,7 +7945,7 @@ function registerSkinTestRoutes(version) {
     // v1-2: redirect the per-animal URL to the tabular measurement
     // page; v1-0 / v1-1 still use the per-animal loop.
     if ((version === 'v1-2' || version === 'v1-3')) {
-      return res.redirect(`/${version}/skin-test-diva-table`)
+      return res.redirect(`/${version}/${testTablePath}`)
     }
     const entries = getEntriesForPhase(req, 'sicct')
     if (!entries.length) {
@@ -6708,7 +8140,7 @@ function registerSkinTestRoutes(version) {
     // animal loop is still available via the "record one at a time"
     // link on that page (or directly at /skin-test-diva/:index).
     if ((version === 'v1-2' || version === 'v1-3')) {
-      return res.redirect(`/${version}/skin-test-diva-table`)
+      return res.redirect(`/${version}/${testTablePath}`)
     }
     const resumeIndex = Number.isInteger(req.session.data.currentDivaIndex)
       ? Math.min(req.session.data.currentDivaIndex, entries.length - 1)
@@ -6744,7 +8176,11 @@ function registerSkinTestRoutes(version) {
       })
   }
 
-  router.get(`/${version}/skin-test-diva-table`, function (req, res) {
+  // Render the bulk measurement table. Extracted so the POST handler can
+  // re-render it with validation errors (e.g. a normal reactor missing
+  // its readings) while preserving everything the vet has entered.
+  function renderDivaTable(req, res, extra) {
+    extra = extra || {}
     if ((version !== 'v1-2' && version !== 'v1-3')) {
       return res.redirect(`/${version}/skin-test-diva`)
     }
@@ -6774,7 +8210,23 @@ function registerSkinTestRoutes(version) {
     // per-row dropdown is locked. The combined-Both view keeps it
     // switchable for backwards compatibility.
     const canSwitchTest = isBoth && !perTest
-    const backHref = `/${version}/skin-test-reactors`
+
+    // Server-side pagination: show the reactor rows 10 at a time and
+    // "Save and continue" between pages (the GOV.UK approach for a long
+    // data-entry list). Each page saves its own rows, so nothing relies
+    // on JavaScript or a hidden full-length form.
+    const DIVA_PAGE_SIZE = 10
+    const totalPages = Math.max(1, Math.ceil(entries.length / DIVA_PAGE_SIZE))
+    let currentPage = parseInt(extra.page, 10)
+    if (isNaN(currentPage) || currentPage < 1) currentPage = 1
+    if (currentPage > totalPages) currentPage = totalPages
+    const pageStart = (currentPage - 1) * DIVA_PAGE_SIZE
+    const isLastPage = currentPage >= totalPages
+    // Back steps to the previous page, or out to the reactors list on
+    // page 1.
+    const backHref = currentPage > 1
+      ? `/${version}/${testTablePath}?page=${currentPage - 1}`
+      : `/${version}/skin-test-reactors`
 
     const divaBatches = (Array.isArray(req.session.data.skinTestDivaBatches)
       ? req.session.data.skinTestDivaBatches
@@ -6791,6 +8243,10 @@ function registerSkinTestRoutes(version) {
     getSkinTestAnimals(req).forEach(function (a) {
       skinAnimalsById[a.officialId] = a
     })
+
+    // Rows that failed validation (a reactor missing its readings) get a
+    // red marker so the vet can see which still need filling in.
+    const rowErrors = extra.rowErrors || {}
 
     // Source-page lookup: for each reactor entry, work out which page
     // of the printed list it came from so the table can group rows
@@ -6840,10 +8296,12 @@ function registerSkinTestRoutes(version) {
         displayBovinePre: bovinePre,
         displayBovinePost: bovinePost,
         vaccinationDate: animal.vaccinationDate || '',
-        // C / SO dropdowns in the Reaction Desc column. Default to
-        // "C" (clinical) when nothing's been picked yet.
-        avianOedema: e.avianOedema || 'C',
-        bovineOedema: e.bovineOedema || 'C',
+        // C / SO dropdowns in the Reaction Desc column. Left blank
+        // when nothing's been picked yet so the "Select" placeholder
+        // is the default option shown.
+        avianOedema: e.avianOedema || '',
+        bovineOedema: e.bovineOedema || '',
+        rowError: !!rowErrors[e.originalIndex],
         // Source-page back-reference – the page number on the
         // printed list where this animal was originally listed.
         // Drives the "From page N" dividers in the template.
@@ -6851,17 +8309,42 @@ function registerSkinTestRoutes(version) {
       })
     })
 
-    res.render(`${version}/skin-test-diva-table`, {
-      entries: enriched,
+    const pageEntries = enriched.slice(pageStart, pageStart + DIVA_PAGE_SIZE)
+
+    res.render(`${version}/${testTablePath}`, {
+      entries: pageEntries,
       backHref,
       divaBatches,
       sicctBatches,
       skinTestType,
-      canSwitchTest
+      canSwitchTest,
+      currentPage,
+      totalPages,
+      isLastPage,
+      pageStart,
+      totalReactors: entries.length,
+      errorSummary: extra.errorSummary,
+      showOverride: extra.showOverride
     })
+  }
+
+  router.get(`/${version}/${testTablePath}`, function (req, res) {
+    return renderDivaTable(req, res, { page: req.query.page })
   })
 
-  router.post(`/${version}/skin-test-diva-table`, function (req, res) {
+  // v1-3 legacy redirect: keep the old /skin-test-diva-table URL working
+  // (bookmarks, changelog links) by forwarding it to the new path.
+  if (version === 'v1-3') {
+    router.get(`/${version}/skin-test-diva-table`, function (req, res) {
+      const q = req.query.page ? `?page=${req.query.page}` : ''
+      return res.redirect(`/${version}/skin-test-table${q}`)
+    })
+    router.post(`/${version}/skin-test-diva-table`, function (req, res) {
+      return res.redirect(307, `/${version}/skin-test-table`)
+    })
+  }
+
+  router.post(`/${version}/${testTablePath}`, function (req, res) {
     if ((version !== 'v1-2' && version !== 'v1-3')) {
       return res.redirect(`/${version}/skin-test-diva`)
     }
@@ -6878,6 +8361,19 @@ function registerSkinTestRoutes(version) {
       }
       return res.redirect(`/${version}/skin-test-all-tested`)
     }
+
+    // Server-side pagination: this submit only carries the rows for the
+    // page the vet was on, so we save and validate just those rows and
+    // then step to the next page (or finish on the last one).
+    const DIVA_PAGE_SIZE = 10
+    const totalPages = Math.max(1, Math.ceil(entries.length / DIVA_PAGE_SIZE))
+    let currentPage = parseInt(req.body.page, 10)
+    if (isNaN(currentPage) || currentPage < 1) currentPage = 1
+    if (currentPage > totalPages) currentPage = totalPages
+    const pageStart = (currentPage - 1) * DIVA_PAGE_SIZE
+    const pageEntries = entries.slice(pageStart, pageStart + DIVA_PAGE_SIZE)
+    const isLastPage = currentPage >= totalPages
+
     const allAnimalsCount = getEntries(req).length
     const stored = Array.isArray(req.session.data.skinTestEntries)
       ? [...req.session.data.skinTestEntries]
@@ -6901,10 +8397,17 @@ function registerSkinTestRoutes(version) {
       ? sicctBatchesList[0]
       : (req.body.sicctBatchUsedAll || '').trim()
 
+    // Remember the chosen batch so it stays selected on the next page
+    // rather than resetting the radios each time.
+    if (divaBatchUsedForAll) req.session.data.divaBatchUsedAll = divaBatchUsedForAll
+    if (sicctBatchUsedForAll) req.session.data.sicctBatchUsedAll = sicctBatchUsedForAll
+
     const skinTestType = req.session.data.skinTestType || 'SICCT'
     const isBoth = skinTestType === 'Both'
 
-    entries.forEach(function (entry) {
+    // Only the rows on the submitted page are present in req.body, so
+    // save just those – iterating all entries would blank the others.
+    pageEntries.forEach(function (entry) {
       const i = entry.originalIndex
       let test = (req.body['test-' + i] || '').trim()
       if (test !== 'SICCT' && test !== 'DIVA') {
@@ -7020,6 +8523,60 @@ function registerSkinTestRoutes(version) {
     req.session.data.skinTestEntries = stored
     req.session.data.currentDivaIndex = entries.length - 1
 
+    // v1-3: a reactor must have its readings entered before the report
+    // can proceed. Validate after saving so the vet keeps everything they
+    // typed, and re-render the table with errors if any reactor is
+    // incomplete. "Save and continue later" bypasses this.
+    if (version === 'v1-3' && (req.body.saveAction || '').trim() !== 'save-exit') {
+      // The vet can override the "all readings required" check – a
+      // reading may be illegible or impossible to take, so they're
+      // allowed to leave boxes empty and still submit. The first
+      // incomplete submit shows which animals are affected and reveals
+      // an acknowledgement checkbox; ticking it and submitting again
+      // lets the report through with the gaps.
+      // The checkbox posts an array when the kit's hidden "_unchecked"
+      // companion field is present (e.g. ['_unchecked', 'yes']), so
+      // normalise to a simple "did they tick yes?" check.
+      const overrideRaw = req.body.overrideMissingReadings
+      const override = Array.isArray(overrideRaw)
+        ? overrideRaw.indexOf('yes') !== -1
+        : (overrideRaw || '').trim() === 'yes'
+      const rowErrors = {}
+      const errorList = []
+      pageEntries.forEach(function (entry) {
+        const i = entry.originalIndex
+        let test = (req.body['test-' + i] || '').trim()
+        if (test !== 'SICCT' && test !== 'DIVA') {
+          test = (req.session.data.skinTestType === 'DIVA') ? 'DIVA' : 'SICCT'
+        }
+        const v = function (n) { return (req.body[n + '-' + i] || '').trim() }
+        const missing = test === 'DIVA'
+          ? (v('bovinePre') === '' || v('bovinePost') === '')
+          : (v('avianPre') === '' || v('avianPost') === '' || v('bovinePre') === '' || v('bovinePost') === '')
+        if (missing) {
+          rowErrors[i] = true
+          errorList.push({ text: 'Enter all measurements for ' + entry.officialId, href: '#bovinePre-' + i })
+        }
+      })
+      if (errorList.length && !override) {
+        // Add an anchor link to the error summary so the vet can jump
+        // straight to the "submit with blank entries" option without
+        // scrolling past every animal.
+        const errorListWithOverride = errorList.concat([
+          { text: 'Or submit the report with blank entries', href: '#overrideMissingReadings' }
+        ])
+        return renderDivaTable(req, res, {
+          errorSummary: { titleText: 'There is a problem', errorList: errorListWithOverride },
+          rowErrors: rowErrors,
+          // Reveal the acknowledgement checkbox so the vet can choose to
+          // submit with readings missing.
+          showOverride: true,
+          // Stay on the page the vet was completing.
+          page: currentPage
+        })
+      }
+    }
+
     // "Save and continue later" – persist whatever the vet has filled
     // in, mark the report as in-progress so the dashboard can offer a
     // Resume link, and bail out before we mark the phases complete or
@@ -7033,6 +8590,12 @@ function registerSkinTestRoutes(version) {
       req.session.data.savedBanner = 'skin-test-report'
       req.session.data.skinTestInProgress = true
       return res.redirect(`/${version}/dashboard`)
+    }
+
+    // Not the last page yet – this page is saved and valid, so move on
+    // to the next 10 reactors rather than finishing the report.
+    if (!isLastPage) {
+      return res.redirect(`/${version}/${testTablePath}?page=${currentPage + 1}`)
     }
 
     // Per-test sub-flow: only mark the active test complete. Reactor
@@ -7085,7 +8648,7 @@ function registerSkinTestRoutes(version) {
     // /skin-test-diva-table view. Older versions keep the per-animal
     // loop so they still go through renderDivaMeasurement here.
     if ((version === 'v1-2' || version === 'v1-3')) {
-      return res.redirect(`/${version}/skin-test-diva-table`)
+      return res.redirect(`/${version}/${testTablePath}`)
     }
     const entries = getEntriesForPhase(req, 'diva')
     if (!entries.length) {
@@ -7536,9 +9099,17 @@ function registerSkinTestRoutes(version) {
     const reactorEntries = allEntries.filter(e => reactorSet.has(e.officialId))
     const sicctReactorEntries = allEntries.filter(e => sicctReactorIds.indexOf(e.officialId) !== -1)
     const divaReactorEntries = allEntries.filter(e => divaReactorIds.indexOf(e.officialId) !== -1)
-    const untestedEntries = allEntries.filter(e => untestedSet.has(e.officialId) && !reactorSet.has(e.officialId))
-    const clearEntries = allEntries.filter(e => !reactorSet.has(e.officialId) && !untestedSet.has(e.officialId))
     const untestedReasons = req.session.data.skinTestUntestedReasons || {}
+    // v1-3: animals still to test ("Could not be managed" or "Missing on
+    // day 2") are not "not tested" - they're still to test, and they make
+    // this a part test. Keep them out of the terminal "Not tested" count.
+    const returnVisitSet = new Set(untestedIds.filter(function (id) { return isStillToTestReason(untestedReasons[id]) }))
+    const untestedEntries = allEntries.filter(e => untestedSet.has(e.officialId) && !reactorSet.has(e.officialId) && !returnVisitSet.has(e.officialId))
+    const stillToTestEntries = (version === 'v1-3')
+      ? allEntries.filter(e => returnVisitSet.has(e.officialId) && !reactorSet.has(e.officialId))
+      : []
+    const isPartTest = version === 'v1-3' && stillToTestEntries.length > 0
+    const clearEntries = allEntries.filter(e => !reactorSet.has(e.officialId) && !untestedSet.has(e.officialId))
 
     // Batch numbers captured on /skin-test-type. Filter blanks so the
     // confirmation page only lists batches the vet actually entered.
@@ -7571,6 +9142,8 @@ function registerSkinTestRoutes(version) {
       sicctReactorCount: sicctReactorEntries.length,
       divaReactorCount: divaReactorEntries.length,
       untestedCount: untestedEntries.length,
+      stillToTestCount: stillToTestEntries.length,
+      isPartTest: isPartTest,
       clearCount: clearEntries.length,
       addedCount: addedEntries.length,
       isBothJourney: isBoth,
@@ -7628,7 +9201,7 @@ function registerSkinTestRoutes(version) {
   // Add another animal --------------------------------------------------------
 
   router.get(`/${version}/skin-test-add-another`, function (req, res) {
-    res.render(`${version}/skin-test-add-another`, { formValues: {} })
+    res.render(`${version}/skin-test-add-another`, { formValues: {}, breedItems: buildBreedItems('') })
   })
 
   router.post(`/${version}/skin-test-add-another`, function (req, res) {
@@ -7653,6 +9226,7 @@ function registerSkinTestRoutes(version) {
     if (!earTag) {
       return res.render(`${version}/skin-test-add-another`, {
         formValues,
+        breedItems: buildBreedItems(formValues.breed),
         errors: { earTag: { text: 'Enter the ear tag number' } },
         errorSummary: {
           titleText: 'There is a problem',
@@ -7681,6 +9255,42 @@ function registerSkinTestRoutes(version) {
 
     req.session.data.skinTestAddedEntries = added
     req.session.data.addedAnotherEarTag = earTag
+    res.redirect(`/${version}/skin-test-added-cattle`)
+  })
+
+  // Standard GOV.UK "add another" summary. After adding an animal the vet
+  // lands here: a list of everything added so far (each with a Change /
+  // remove action via the edit page), and a "Do you need to add another
+  // animal?" question that either loops back to the form or continues to
+  // the final review.
+  router.get(`/${version}/skin-test-added-cattle`, function (req, res) {
+    const addedEntries = getAddedEntries(req)
+    res.render(`${version}/skin-test-added-cattle`, {
+      addedEntries,
+      addedCount: addedEntries.length
+    })
+    // Show the "Added X" success banner once, then clear it so it doesn't
+    // reappear on the final confirmation page.
+    req.session.data.addedAnotherEarTag = null
+  })
+
+  router.post(`/${version}/skin-test-added-cattle`, function (req, res) {
+    const addAnotherAnimal = req.body.addAnotherAnimal
+    if (addAnotherAnimal !== 'yes' && addAnotherAnimal !== 'no') {
+      const addedEntries = getAddedEntries(req)
+      return res.render(`${version}/skin-test-added-cattle`, {
+        addedEntries,
+        addedCount: addedEntries.length,
+        errors: { addAnotherAnimal: { text: 'Select yes if you need to add another animal, or no to continue' } },
+        errorSummary: {
+          titleText: 'There is a problem',
+          errorList: [{ text: 'Select yes if you need to add another animal, or no to continue', href: '#addAnotherAnimal' }]
+        }
+      })
+    }
+    if (addAnotherAnimal === 'yes') {
+      return res.redirect(`/${version}/skin-test-add-another`)
+    }
     res.redirect(`/${version}/skin-test-confirmation`)
   })
 
@@ -7743,10 +9353,17 @@ function registerSkinTestRoutes(version) {
       : []
     const reactorSet = new Set(reactorIds)
     const untestedSet = new Set(untestedIds)
-    const reactorEntries = allEntries.filter(e => reactorSet.has(e.officialId))
-    const untestedEntries = allEntries.filter(e => untestedSet.has(e.officialId) && !reactorSet.has(e.officialId))
-    const clearCount = allEntries.length - reactorEntries.length - untestedEntries.length
     const untestedReasons = req.session.data.skinTestUntestedReasons || {}
+    // v1-3: still-to-test animals ("Could not be managed" or "Missing on
+    // day 2") are not terminal "not tested" - keep them separate (they
+    // make this a part test).
+    const returnVisitSet = new Set(untestedIds.filter(function (id) { return isStillToTestReason(untestedReasons[id]) }))
+    const reactorEntries = allEntries.filter(e => reactorSet.has(e.officialId))
+    const untestedEntries = allEntries.filter(e => untestedSet.has(e.officialId) && !reactorSet.has(e.officialId) && !returnVisitSet.has(e.officialId))
+    const stillToTestEntries = (version === 'v1-3')
+      ? allEntries.filter(e => returnVisitSet.has(e.officialId) && !reactorSet.has(e.officialId))
+      : []
+    const clearCount = allEntries.length - reactorEntries.length - untestedEntries.length - stillToTestEntries.length
 
     // Once the user has seen the final confirmation, the report is no longer in progress
     req.session.data.skinTestInProgress = false
@@ -7765,6 +9382,52 @@ function registerSkinTestRoutes(version) {
       req.session.data.millHouseSkinTestSubmitted = true
     }
 
+    // v1-3 part test: some animals are still to be tested on a return
+    // visit, so the herd's test stays open. Record it against the herd
+    // so the dashboard can offer "Test remaining cattle".
+    const stillToTestCountSubmitted = stillToTestEntries.length
+    const isPartTestSubmitted = version === 'v1-3' && stillToTestCountSubmitted > 0
+    if (version === 'v1-3' && submittedCph) {
+      const partTests = Object.assign({}, req.session.data.skinTestPartTests || {})
+      if (isPartTestSubmitted) {
+        // Some animals are still to test, so keep the herd's test open and
+        // record exactly which animals are outstanding. The return-visit
+        // print list and report are scoped to these IDs.
+        partTests[submittedCph] = {
+          cph: submittedCph,
+          farm: (req.session.data.herd && req.session.data.herd.farm) || 'Selected farm',
+          stillToTest: stillToTestCountSubmitted,
+          remainingIds: stillToTestEntries.map(function (e) { return e.officialId }),
+          testType: req.session.data.skinTestType || null,
+          submittedAt: new Date().toISOString()
+        }
+        // A part test is not the herd's final report, so don't let the
+        // demo seed treat Mill House as fully submitted.
+        if (submittedCph === '12/312/6802') {
+          req.session.data.millHouseSkinTestSubmitted = false
+        }
+      } else if (partTests[submittedCph]) {
+        // This was a return visit that tested every remaining animal, so
+        // the part test is now complete – drop it from the work list.
+        delete partTests[submittedCph]
+      }
+      req.session.data.skinTestPartTests = partTests
+
+      // A completed skin test (no animals still to test) moves off the work
+      // list and into the dashboard's "Recently completed" section.
+      if (!isPartTestSubmitted) {
+        recordCompletedReport(req, {
+          cph: submittedCph,
+          farm: (req.session.data.herd && req.session.data.herd.farm) || 'Selected farm',
+          type: 'skin-test',
+          typeLabel: 'Skin test report',
+          snapshot: snapshotSkinTestReport(req)
+        })
+      }
+    }
+    // Clear any return-visit scope so the next report covers the full herd.
+    req.session.data.skinTestScopeIds = null
+
     res.render(`${version}/skin-test-submitted`, {
       entriesSummary: summary,
       day1Formatted,
@@ -7777,7 +9440,9 @@ function registerSkinTestRoutes(version) {
       untestedCount: untestedEntries.length,
       addedCount: addedEntries.length,
       clearCount,
-      untestedReasons
+      untestedReasons,
+      isPartTest: isPartTestSubmitted,
+      stillToTestCount: stillToTestCountSubmitted
     })
   })
 
@@ -7792,7 +9457,7 @@ function registerSkinTestRoutes(version) {
     req.session.data.skinTestAddedEntries = added.filter(function (e) {
       return e.officialId !== earTag
     })
-    res.redirect(`/${version}/skin-test-confirmation`)
+    res.redirect(`/${version}/skin-test-added-cattle`)
   })
 
   // Edit (or remove) an animal that was previously added on
@@ -7813,6 +9478,7 @@ function registerSkinTestRoutes(version) {
     res.render(`${version}/skin-test-add-another`, {
       isEditMode: true,
       originalEarTag: earTag,
+      breedItems: buildBreedItems(entry.breed || ''),
       formValues: {
         earTag: entry.earTag || entry.officialId,
         breed: entry.breed || '',
@@ -7868,6 +9534,7 @@ function registerSkinTestRoutes(version) {
         isEditMode: true,
         originalEarTag,
         formValues,
+        breedItems: buildBreedItems(formValues.breed),
         errors: { earTag: { text: 'Enter the ear tag number' } },
         errorSummary: {
           titleText: 'There is a problem',
