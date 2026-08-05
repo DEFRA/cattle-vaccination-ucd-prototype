@@ -82,18 +82,6 @@
         errorMessage: { text: errors['earTag'].text } if errors and errors['earTag']
       }) }}
 
-      {# Breed picker. Rendered as a GOV.UK select and progressively
-         enhanced into an accessible autocomplete (see the script block
-         below), so the vet can type "lim" or "Limousin" to find a breed.
-         If JavaScript is unavailable the select still works. #}
-      {{ govukSelect({
-        id: "breed",
-        name: "breed",
-        label: { text: "Breed", classes: "govuk-label--m" },
-        hint: { text: "Start typing the breed name or code, for example Limousin or LIM" },
-        items: breedItems
-      }) }}
-
       {{ govukDateInput({
         id: "addedDob",
         namePrefix: "addedDob",
@@ -127,6 +115,18 @@
           { value: "F", text: "Female" },
           { value: "M", text: "Male" }
         ]
+      }) }}
+
+      {# Breed picker. Rendered as a GOV.UK select and progressively
+         enhanced into an accessible autocomplete (see the script block
+         below), so the vet can type "lim" or "Limousin" to find a breed.
+         If JavaScript is unavailable the select still works. #}
+      {{ govukSelect({
+        id: "breed",
+        name: "breed",
+        label: { text: "Breed", classes: "govuk-label--m" },
+        hint: { text: "Start typing the breed name or code, for example Limousin or LIM" },
+        items: breedItems
       }) }}
 
       {{ govukTextarea({

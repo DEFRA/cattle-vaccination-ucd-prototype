@@ -204,8 +204,8 @@
     </div>
 
     {# Page sizing – shared by the "Jump to page" navigation and the
-       in-table dividers. 20 cattle per page mirrors the printed list. #}
-    {% set _pageSize = 20 %}
+       in-table dividers. 18 cattle per page mirrors the printed list. #}
+    {% set _pageSize = 18 %}
     {% set _totalPages = ((animals.length + _pageSize - 1) / _pageSize) | int %}
     {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
 

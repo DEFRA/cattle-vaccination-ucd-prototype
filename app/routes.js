@@ -8252,7 +8252,7 @@ function registerSkinTestRoutes(version) {
     // of the printed list it came from so the table can group rows
     // under "From page N" dividers (matching the page-break cadence
     // on the vet's printed list).
-    const preparedPageSize = req.session.data.skinTestCattlePerPage || 20
+    const preparedPageSize = req.session.data.skinTestCattlePerPage || 18
     const allSkinTestAnimals = getSkinTestAnimals(req)
     const perTestAnimalIds = perTest
       ? getPerTestAnimalIdSet(req, req.session.data.currentSkinTest)
