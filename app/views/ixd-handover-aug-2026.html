@@ -1,0 +1,122 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  IxD handover – August 2026 – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back to all prototypes",
+  href: "/"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">August 2026</span>
+    <h1 class="govuk-heading-l">Interaction Design handover – Cattle Vaccination</h1>
+
+    <p class="govuk-body">
+      Start with the <a class="govuk-link" href="https://eaflood.atlassian.net/wiki/x/yYOoggE" target="_blank" rel="noreferrer noopener">project glossary</a> — it explains the terms used throughout this doc.
+    </p>
+    <p class="govuk-body">
+      In Alpha (where I joined) we focused on the vet journey; in Beta the focus has shifted to the APHA admin journey.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-6">Situation</h2>
+
+    <p class="govuk-body">
+      Bovine TB (bTB) is a chronic infectious disease of cattle and one of the UK's most pressing animal health problems. <a class="govuk-link" href="https://www.gov.uk/government/organisations/animal-and-plant-health-agency" target="_blank" rel="noreferrer noopener">APHA</a> (the Animal and Plant Health Agency, a Defra executive agency) runs bTB testing and control, and this work supports the wider <a class="govuk-link" href="https://www.gov.uk/government/publications/a-strategy-for-achieving-officially-bovine-tuberculosis-free-status-for-england" target="_blank" rel="noreferrer noopener">strategy for achieving Officially Bovine Tuberculosis Free status for England</a>.
+    </p>
+
+    <p class="govuk-body">
+      The point of the project is to introduce TB vaccination (still in clinical trials) and a way to collect and manage its data. A few things shape that:
+    </p>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>SICCT testing</strong> (the current skin test — Single Intradermal Comparative Cervical Tuberculin) lives in Sam, APHA's operational system for livestock registration, work management and bTB. Sam can't be changed as it's too expensive.</li>
+      <li><strong>Cattle data lives in CTS</strong> (the Cattle Tracing System), kept up to date by keepers (livestock owners / farmers).</li>
+      <li><strong>DIVA</strong> (Detecting Infected among Vaccinated Animals) is a new skin test thought to work better on vaccinated cattle. It won't simply replace SICCT — in some cases the two run alongside each other, and in Wales DIVA might not be used at all.</li>
+      <li>Because the vaccine and DIVA are still in trials, <strong>policy is still unclear</strong>, and a lot depends on the trial results.</li>
+      <li>To gather data, vets use a <a class="govuk-link" href="https://www.gov.uk/" target="_blank" rel="noreferrer noopener">GOV.UK</a> front end to print lists of animals to vaccinate and report on the vaccination — and to do the same for SICCT and DIVA.</li>
+      <li><strong>Salesforce</strong> ultimately manages the cases and reports on results. In Beta's first pass it holds some vax data and lets users mark cattle as vaccinated and edit vax data (batches etc.).</li>
+    </ul>
+
+    <p class="govuk-body">
+      For anything unfamiliar — bTB, SICCT, DIVA, keepers — the <a class="govuk-link" href="https://eaflood.atlassian.net/wiki/x/yYOoggE" target="_blank" rel="noreferrer noopener">project glossary</a> has the full list.
+    </p>
+
+    <p class="govuk-body">
+      <strong>User needs spreadsheet:</strong>
+      <a class="govuk-link" href="https://docs.google.com/spreadsheets/d/1dg-ZQJbEeQ-UPqvxKC0ga2eQDEQA5HrC3E-FQGeYcSI/edit?usp=sharing" target="_blank" rel="noreferrer noopener">User needs (Google Sheets)</a>
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-6">The vet journey</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li>Built with the GOV.UK Prototype Kit.</li>
+      <li>Prototype: <a class="govuk-link" href="https://cattle-vaccination-ucd-prototype.ext-test.cdp.defra.gov.uk/" target="_blank" rel="noreferrer noopener">cattle-vaccination-ucd-prototype.ext-test.cdp.defra.gov.uk</a></li>
+      <li>Mural: <a class="govuk-link" href="https://app.mural.co/t/coredefra2548/m/coredefra2548/1776419561326/7d1cc6890a0dd70dfc49b89de0b5a840a482e3fd" target="_blank" rel="noreferrer noopener">Vet journey workings</a></li>
+      <li>Mural: <a class="govuk-link" href="https://app.mural.co/t/coredefra2548/m/coredefra2548/1776419561326/7d1cc6890a0dd70dfc49b89de0b5a840a482e3fd?wid=1-1782463683280" target="_blank" rel="noreferrer noopener">Unhappy paths</a> — we reviewed what could go wrong through four lenses (Recovery, User mistakes, Data quality and Operational reality) and mapped it out.</li>
+      <li>We also have the design of the paper forms the vets fill in on farm: [add link]</li>
+    </ul>
+
+    <p class="govuk-body">
+      The vet logs in — via Gateway, One Login or saved credentials — and finds the holding by CPH, farm name or postcode, though farms with similar names or several holdings under one farm can make this fiddly. They review the herd and animal list to gauge the workload, then generate, filter or export a list to print or take on a device — the data can be out of date and rarely matches how animals are actually handled on the day. After arranging the visit with the farmer by phone, they carry out the vaccination or test on farm, handling the cattle and checking eligibility in real time, knowing not every animal will be presented or suitable.
+    </p>
+
+    <p class="govuk-body">
+      On farm they record animals, outcomes and batch numbers on paper or a handheld, then transcribe it into the system afterwards — so the same data is captured twice. They handle the exceptions (animals moved, dead or not eligible) and submit the records.
+    </p>
+
+    <p class="govuk-body">
+      <strong>User research</strong> — the vet prototype has been through rounds of user research covering both the vaccination journey and the SICCT journey. Each round's changes, and the reasons behind them, are documented on the prototype itself.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-6">The APHA admins journey</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li>Built with the Salesforce prototyping kit (SLDS).</li>
+      <li>Prototype: <a class="govuk-link" href="https://cattle-vaccination-sf-c7ea3879e365.herokuapp.com/mvp2-home.html" target="_blank" rel="noreferrer noopener">cattle-vaccination-sf-c7ea3879e365.herokuapp.com/mvp2-home.html</a></li>
+      <li>Mural: <a class="govuk-link" href="https://app.mural.co/t/coredefra2548/m/coredefra2548/1781785226524/0d688ee3592720b1ce46b579f4ac5cadde691cf6" target="_blank" rel="noreferrer noopener">Salesforce workings</a></li>
+    </ul>
+
+    <p class="govuk-body">
+      We assume a team in Exeter (CSCs) will manage this new work. We have BA and service mapping work showing where it could potentially fit in for them, but that's still to be decided.
+    </p>
+
+    <p class="govuk-body">
+      At this stage the focus is more about having somewhere to store TB data than a fixed process. We plan to take this prototype to that team as stimulus, to understand their mental model of the task — being careful not to anchor it on how Sam works today.
+    </p>
+
+    <p class="govuk-body">
+      On the Salesforce side, we modelled the journey around storing TB vaccination data first, then looked at how the user journey would fit around it. APHA officers and admins check and correct vaccination records in standard Salesforce. There are three journeys: checking a case's animals in bulk by pasting their ear tags, before reactor removal; pulling up a holding by CPH to record a herd's status; and finding a single animal by ear tag to correct a wrong status, date or batch. Vaccination status is derived and read-only, the Vaccination history tab is where vaccinations are managed, and a change log records every edit. Data correction is a big part of this and it's genuinely complex — a single amendment can have other activities chained to it.
+    </p>
+
+    <p class="govuk-body">
+      We'll shape the screens around the users' tasks — Salesforce is the constraint we work within, not the starting point. Two things there pull on the design. The <a class="govuk-link" href="https://defra.github.io/cattle-vaccination-documentation/likec4/#/view/cvac_evolution_1_vax_minimal/" target="_blank" rel="noreferrer noopener">data model</a> — shared across several projects — is still work in progress, and because the objects define the screens (fields, page layouts, related lists), the designs will keep moving until it settles. And Defra's policy for Salesforce is config only, no custom code, so everything stays within standard components.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-6">Related content</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><a class="govuk-link" href="https://app.mural.co/t/coredefra2548/m/coredefra2548/1781702201059?sender=ub7b1b514c284349b7cd30835" target="_blank" rel="noreferrer noopener">Map of systems</a></li>
+      <li><a class="govuk-link" href="https://app.mural.co/t/coredefra2548/m/coredefra2548/1770026310893/db51dc0df4b7bfe4710495b669e9e940790fcead?sender=u9115907a7b953a9704225649" target="_blank" rel="noreferrer noopener">To-be service</a></li>
+      <li><a class="govuk-link" href="https://defra.github.io/cattle-vaccination-documentation/likec4/#/view/cvac_evolution_1_vax_minimal/" target="_blank" rel="noreferrer noopener">Data model</a></li>
+      <li><a class="govuk-link" href="https://defra.sharepoint.com/:p:/r/sites/T_WorkDelivery99/Shared%20files/Cattle%20Vaccination/Discovery%20docs/Cattle%20Vaccination%20bTB%20discovery.pptx?d=w74c2f593740f4d7c8421bd933ec83068&csf=1&web=1&e=07dNrz" target="_blank" rel="noreferrer noopener">Discovery Exit report</a></li>
+      <li><a class="govuk-link" href="https://defra.sharepoint.com/:p:/r/sites/T_WorkDelivery99/Shared%20files/Cattle%20Vaccination/Alpha%20docs/Cattle%20Vaccination%20bTB%20alpha.pptx?d=w9979e0976db0477db7d516aef6353dbe&csf=1&web=1&e=CszVyA" target="_blank" rel="noreferrer noopener">Alpha Assessment report</a></li>
+    </ul>
+
+    <p class="govuk-body">
+      I'll link to more boards, prototypes and tickets as needed.
+    </p>
+
+    <p class="govuk-body govuk-!-margin-top-6">
+      <a class="govuk-link" href="/">Back to all prototypes</a>
+    </p>
+
+  </div>
+</div>
+{% endblock %}

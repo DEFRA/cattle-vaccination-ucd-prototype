@@ -21,6 +21,9 @@
   }
   .app-version-card__header h3 { margin-bottom: 0; }
   .app-version-card__badge { flex-shrink: 0; }
+  /* Keep the round / status tags on a single line. The tag component caps
+     width at 160px, which clips longer labels, so lift the cap here. */
+  .app-version-card .govuk-tag { white-space: nowrap; max-width: none; }
   .app-version-card__links { margin-bottom: 0; }
   .app-version-card__links li { margin-bottom: 4px; }
   .app-version-card__links li:last-child { margin-bottom: 0; }
@@ -56,6 +59,12 @@
           <li><a class="govuk-link" href="#sf-v1">V1 – Vaccination data in Salesforce</a></li>
         </ul>
       </div>
+      <div class="app-side-nav__group">
+        <h2 class="govuk-heading-s govuk-!-margin-bottom-2">Project</h2>
+        <ul class="govuk-list app-side-nav__list">
+          <li><a class="govuk-link" href="/ixd-handover-aug-2026">IxD handover (Aug 2026)</a></li>
+        </ul>
+      </div>
     </nav>
   </div>
 
@@ -68,7 +77,10 @@
     </p>
 
     {# ================= GOV.UK headless front end ================= #}
-    <h2 class="govuk-heading-l govuk-!-margin-top-6 app-group-heading" id="gov">GOV.UK headless front end</h2>
+    <h2 class="govuk-heading-l govuk-!-margin-top-6 govuk-!-margin-bottom-2 app-group-heading" id="gov">GOV.UK headless front end</h2>
+    <p class="govuk-body">
+      The GOV.UK front end vets use to prepare, download and print lists of cattle, and to report on vaccinations, SICCT and DIVA testing.
+    </p>
 
     {# ---- V1 ---- #}
     <div class="app-version-card" id="v1">
@@ -153,7 +165,7 @@
         <strong class="govuk-tag govuk-tag--grey app-version-card__badge">V4</strong>
       </div>
       <p class="govuk-!-margin-top-1 govuk-!-margin-bottom-3">
-        <strong class="govuk-tag govuk-tag--blue">Research round 3</strong>
+        <strong class="govuk-tag govuk-tag--yellow">Research round 3 to come</strong>
       </p>
 
       <p class="govuk-body">The active version, building on V3. Main updates:</p>
@@ -175,7 +187,10 @@
     </div>
 
     {# ================= Salesforce admin ================= #}
-    <h2 class="govuk-heading-l govuk-!-margin-top-8 app-group-heading" id="salesforce">Salesforce admin</h2>
+    <h2 class="govuk-heading-l govuk-!-margin-top-8 govuk-!-margin-bottom-2 app-group-heading" id="salesforce">Salesforce admin</h2>
+    <p class="govuk-body">
+      The Salesforce back office where APHA admins view, check and edit vaccination data.
+    </p>
 
     {# ---- Salesforce V1 ---- #}
     <div class="app-version-card" id="sf-v1">
