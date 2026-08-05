@@ -1,0 +1,74 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Vaccination data in Salesforce – prototype brief – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back to all prototypes",
+  href: "/"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">Salesforce admin</span>
+    <h1 class="govuk-heading-l">Vaccination data in Salesforce – prototype</h1>
+
+    <p class="govuk-!-margin-bottom-4">
+      <strong class="govuk-tag govuk-tag--orange">Business-need led</strong>
+    </p>
+
+    <p class="govuk-body-l">
+      A prototype exploring how vaccination data is searched, checked, edited and viewed in Salesforce.
+    </p>
+
+    <p class="govuk-body">
+      This is a business-need-led set of features — it describes what the organisation needs the system to do, rather than starting from researched user needs. It should be tested against real user needs before it is taken forward.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-6">What's in the prototype</h2>
+
+    <h3 class="govuk-heading-s">Multi ear tag search</h3>
+    <p class="govuk-body">
+      Search for several animals in one go by entering more than one ear tag number, rather than looking each one up separately.
+    </p>
+
+    <h3 class="govuk-heading-s">Vax checker</h3>
+    <p class="govuk-body">
+      Check the current vaccination status of an animal or a herd — for example whether an animal is vaccinated, unvaccinated, or overdue revaccination.
+    </p>
+
+    <h3 class="govuk-heading-s">Edit vax data</h3>
+    <p class="govuk-body">
+      Amend or correct vaccination details that have already been recorded against an animal or herd.
+    </p>
+
+    <h3 class="govuk-heading-s">Vax history</h3>
+    <p class="govuk-body">
+      View the vaccination history for an animal or herd — what was given, when, and by whom.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-6">A note on where these come from</h2>
+    <p class="govuk-body">
+      These features answer a business need, not a user need. That is worth stating plainly: they are driven by what the organisation wants the system to do, and have not been grounded in user research. Before building them out, they should be validated with the people who would actually use them, so the design starts from a real user need rather than assuming the business framing is the right one.
+    </p>
+
+    <div class="govuk-button-group govuk-!-margin-top-6">
+      {{ govukButton({
+        text: "Open the Salesforce prototype",
+        href: "https://cattle-vaccination-sf-c7ea3879e365.herokuapp.com/mvp2-home.html",
+        attributes: { target: "_blank", rel: "noreferrer noopener" }
+      }) }}
+      <a class="govuk-link" href="/">Back to all prototypes</a>
+    </div>
+    <p class="govuk-hint">Opens in a new tab</p>
+
+  </div>
+</div>
+{% endblock %}
