@@ -3,130 +3,227 @@
 {% set pageName="Home" %}
 
 {% block content %}
+<style>
+  /* Version option boxes. A light grey card per prototype version, with the
+     version number as a tag in the top-right, a "Start" action and the
+     what's-new links underneath. */
+  .app-version-card {
+    background: #f3f2f1;
+    padding: 20px 25px 25px;
+    margin-bottom: 20px;
+    scroll-margin-top: 20px;
+  }
+  .app-version-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 15px;
+  }
+  .app-version-card__header h3 { margin-bottom: 0; }
+  .app-version-card__badge { flex-shrink: 0; }
+  /* Keep the round / status tags on a single line. The tag component caps
+     width at 160px, which clips longer labels, so lift the cap here. */
+  .app-version-card .govuk-tag { white-space: nowrap; max-width: none; }
+  .app-version-card__links { margin-bottom: 0; }
+  .app-version-card__links li { margin-bottom: 4px; }
+  .app-version-card__links li:last-child { margin-bottom: 0; }
+
+  /* Left-hand anchor menu. Stacks above the content on small screens; on
+     wider screens it follows the viewport as the vet scrolls the cards. */
+  .app-side-nav { border-top: 2px solid #1d70b8; padding-top: 10px; }
+  .app-side-nav__group { margin-bottom: 20px; }
+  .app-side-nav__list li { margin-bottom: 8px; }
+  .app-group-heading { scroll-margin-top: 20px; }
+  @media (min-width: 48.0625em) {
+    .app-side-nav { position: sticky; top: 20px; }
+  }
+</style>
 
 <div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
 
+  {# ---- Left-hand anchor menu ---- #}
+  <div class="govuk-grid-column-one-third">
+    <nav class="app-side-nav" aria-label="Prototypes">
+      <div class="app-side-nav__group">
+        <h2 class="govuk-heading-s govuk-!-margin-bottom-2">GOV.UK headless front end</h2>
+        <ul class="govuk-list app-side-nav__list">
+          <li><a class="govuk-link" href="#v1">V1 – Vaccination</a></li>
+          <li><a class="govuk-link" href="#v2">V2 – SICCT tests</a></li>
+          <li><a class="govuk-link" href="#v3">V3 – End-to-end journeys</a></li>
+          <li><a class="govuk-link" href="#v4">V4 – Part tests and unhappy paths</a></li>
+        </ul>
+      </div>
+      <div class="app-side-nav__group">
+        <h2 class="govuk-heading-s govuk-!-margin-bottom-2">Salesforce admin</h2>
+        <ul class="govuk-list app-side-nav__list">
+          <li><a class="govuk-link" href="#sf-v1">V1 – Vaccination data in Salesforce</a></li>
+        </ul>
+      </div>
+      <div class="app-side-nav__group">
+        <h2 class="govuk-heading-s govuk-!-margin-bottom-2">Project</h2>
+        <ul class="govuk-list app-side-nav__list">
+          <li><a class="govuk-link" href="/ixd-handover-aug-2026">IxD handover (Aug 2026)</a></li>
+        </ul>
+      </div>
+    </nav>
+  </div>
 
-    <h1 class="govuk-heading-xl">
-      {{ serviceName }}
-    </h1>
-
-
-
-<div class="govuk-grid-row">
+  {# ---- Prototype cards ---- #}
   <div class="govuk-grid-column-two-thirds">
 
     <h1 class="govuk-heading-l">Prototype journeys</h1>
-
     <p class="govuk-body">
-      Select a version of the service to explore.
+      These prototypes show how the service has developed across research rounds. For the current design, start with the latest version, <a class="govuk-link" href="#v4">V4</a> — it covers the full end-to-end vaccination and skin test journeys. The earlier versions are kept so you can see how it got there.
     </p>
 
-    <div class="govuk-grid-row govuk-!-margin-top-6">
+    {# ================= GOV.UK headless front end ================= #}
+    <h2 class="govuk-heading-l govuk-!-margin-top-6 govuk-!-margin-bottom-2 app-group-heading" id="gov">GOV.UK headless front end</h2>
+    <p class="govuk-body">
+      The GOV.UK front end vets use to prepare, download and print lists of cattle, and to report on vaccinations, SICCT and DIVA testing.
+    </p>
 
-      <!-- Card 1 -->
-      <div class="govuk-grid-column-full govuk-!-margin-bottom-4">
-        <div class="app-card">
-
-          <h2 class="govuk-heading-m">
-            <a href="v1-0/start" class="govuk-link govuk-link--no-visited-state">
-              V1 – Vaccination – prepare a list and reporting
-            </a>
-          </h2>
-
-          <p class="govuk-body">
-            The first version of the service. Prepare a list of cattle to vaccinate, record vaccinations during the visit, and submit a report to APHA.
-          </p>
-
-          <p class="govuk-body govuk-!-margin-bottom-0">
-            <a href="v1-0/updates" class="govuk-link govuk-link--no-visited-state">What's in V1</a>
-          </p>
-
-        </div>
+    {# ---- V1 ---- #}
+    <div class="app-version-card" id="v1">
+      <div class="app-version-card__header">
+        <h3 class="govuk-heading-m">Vaccination – prepare a list and report</h3>
+        <strong class="govuk-tag govuk-tag--grey app-version-card__badge">V1</strong>
       </div>
+      <p class="govuk-!-margin-top-1 govuk-!-margin-bottom-3">
+        <strong class="govuk-tag govuk-tag--blue">Research round 1</strong>
+      </p>
 
-      <!-- Card 2 -->
-      <div class="govuk-grid-column-full govuk-!-margin-bottom-4">
-        <div class="app-card">
+      <p class="govuk-body">The first version of the service. Main updates:</p>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>prepare a list of cattle to vaccinate</li>
+        <li>record vaccinations during the visit</li>
+        <li>submit a vaccination report to APHA</li>
+      </ul>
 
-          <h2 class="govuk-heading-m">
-            <a href="v1-1/start" class="govuk-link govuk-link--no-visited-state">
-              V2 – Skin tests – prepare a list and reporting
-            </a>
-          </h2>
+      {{ govukButton({ text: "Start V1", href: "v1-0/start", classes: "govuk-!-margin-bottom-3" }) }}
 
-          <p class="govuk-body">
-            Adds the bovine TB skin test journey on top of the vaccination flow. Prepare a list of cattle to test, record measurements for each animal, and submit results to APHA.
-          </p>
-
-          <p class="govuk-body govuk-!-margin-bottom-1">
-            <a href="v1-1/updates" class="govuk-link govuk-link--no-visited-state">What's new in V2</a>
-          </p>
-          <p class="govuk-body govuk-!-margin-bottom-0">
-            <a href="v1-1/research-updates" class="govuk-link govuk-link--no-visited-state">Updates based on research – V2</a>
-          </p>
-
-        </div>
-      </div>
-
-      <!-- Card 3 -->
-      <div class="govuk-grid-column-full govuk-!-margin-bottom-4">
-        <div class="app-card">
-
-          <h2 class="govuk-heading-m">
-            <a href="v1-2/start" class="govuk-link govuk-link--no-visited-state">
-              V3 – Skin tests (Mixed herds) – prepare a list and reporting
-            </a>
-            <strong class="govuk-tag govuk-tag--grey govuk-!-margin-left-2">Frozen for demo</strong>
-          </h2>
-
-          <p class="govuk-body">
-            A redesigned skin test journey for mixed herds (some cattle vaccinated, some not). One combined list, a single screen to enter every reactor's measurements, automatic result interpretation, and a redesigned printable list that matches A4 paper exactly.
-          </p>
-
-          <p class="govuk-body govuk-!-margin-bottom-1">
-            <a href="v1-2/updates" class="govuk-link govuk-link--no-visited-state">What's new in V3</a>
-          </p>
-          <p class="govuk-body govuk-!-margin-bottom-0">
-            <a href="v1-2/research-updates" class="govuk-link govuk-link--no-visited-state">Updates based on research – V3</a>
-          </p>
-
-        </div>
-      </div>
-
-      <!-- Card 4 -->
-      <div class="govuk-grid-column-full govuk-!-margin-bottom-4">
-        <div class="app-card">
-
-          <h2 class="govuk-heading-m">
-            <a href="v1-3/start" class="govuk-link govuk-link--no-visited-state">
-              V4 – Prototype journeys
-            </a>
-          </h2>
-
-          <p class="govuk-body">
-            Work in progress. V4 picks up where V3 left off and is the active version for new design changes. Inherits all V3 behaviour as a starting point.
-          </p>
-
-          <p class="govuk-body govuk-!-margin-bottom-1">
-            <a href="v1-3/updates" class="govuk-link govuk-link--no-visited-state">What's new in V4</a>
-          </p>
-          <p class="govuk-body govuk-!-margin-bottom-0">
-            <a href="v1-3/research-updates" class="govuk-link govuk-link--no-visited-state">Updates based on research – V4</a>
-          </p>
-
-        </div>
-      </div>
-
-      <!-- Add more cards here later -->
-
+      <ul class="govuk-list app-version-card__links">
+        <li><a class="govuk-link govuk-link--no-visited-state" href="v1-0/updates">What's in V1</a></li>
+      </ul>
     </div>
 
-  </div>
-</div>
+    {# ---- V2 ---- #}
+    <div class="app-version-card" id="v2">
+      <div class="app-version-card__header">
+        <h3 class="govuk-heading-m">SICCT tests – prepare a list and report</h3>
+        <strong class="govuk-tag govuk-tag--grey app-version-card__badge">V2</strong>
+      </div>
+      <p class="govuk-!-margin-top-1 govuk-!-margin-bottom-3">
+        <strong class="govuk-tag govuk-tag--blue">Research round 2</strong>
+      </p>
 
+      <p class="govuk-body">Adds the bovine TB skin test journey on top of vaccination. Main updates:</p>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>prepare a list of cattle to test</li>
+        <li>record measurements for each animal</li>
+        <li>submit skin test results to APHA</li>
+      </ul>
 
+      {{ govukButton({ text: "Start V2", href: "v1-1/start", classes: "govuk-!-margin-bottom-3" }) }}
+
+      <ul class="govuk-list app-version-card__links">
+        <li><a class="govuk-link govuk-link--no-visited-state" href="v1-1/updates">What's new in V2</a></li>
+        <li><a class="govuk-link govuk-link--no-visited-state" href="v1-1/research-updates">Updates based on research – V2</a></li>
+      </ul>
+    </div>
+
+    {# ---- V3 ---- #}
+    <div class="app-version-card" id="v3">
+      <div class="app-version-card__header">
+        <h3 class="govuk-heading-m">End-to-end journeys for vaccination and SICCT</h3>
+        <strong class="govuk-tag govuk-tag--grey app-version-card__badge">V3</strong>
+      </div>
+      <p class="govuk-!-margin-top-1 govuk-!-margin-bottom-3">
+        <strong class="govuk-tag govuk-tag--purple">Alpha demo</strong>
+      </p>
+
+      <p class="govuk-body">A redesigned skin test journey for mixed herds (some cattle vaccinated, some not). Main updates:</p>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>full end-to-end journeys for both vaccination and SICCT skin tests</li>
+        <li>one combined list for mixed herds</li>
+        <li>a single screen to enter every reactor's measurements</li>
+        <li>automatic result interpretation</li>
+        <li>a redesigned printable list that matches A4 paper exactly</li>
+      </ul>
+
+      {{ govukButton({ text: "Start V3", href: "v1-2/start", classes: "govuk-!-margin-bottom-3" }) }}
+
+      <ul class="govuk-list app-version-card__links">
+        <li><a class="govuk-link govuk-link--no-visited-state" href="v1-2/updates">What's new in V3</a></li>
+        <li><a class="govuk-link govuk-link--no-visited-state" href="v1-2/research-updates">Updates based on research – V3</a></li>
+      </ul>
+    </div>
+
+    {# ---- V4 ---- #}
+    <div class="app-version-card" id="v4">
+      <div class="app-version-card__header">
+        <h3 class="govuk-heading-m">Part tests and unhappy paths</h3>
+        <strong class="govuk-tag govuk-tag--grey app-version-card__badge">V4</strong>
+      </div>
+      <p class="govuk-!-margin-top-1 govuk-!-margin-bottom-3">
+        <strong class="govuk-tag govuk-tag--yellow">Research round 3 to come</strong>
+      </p>
+
+      <p class="govuk-body">The active version, building on V3. Main updates:</p>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>part tests — report the animals done and return later for the rest</li>
+        <li>recovery routes for the unhappy paths when things don't go to plan</li>
+        <li>separate SICCT and DIVA lists for mixed herds</li>
+        <li>reopen and amend completed reports</li>
+        <li>work in progress and recently completed on the dashboard</li>
+        <li>consistent search, filter and page navigation across every selection screen</li>
+      </ul>
+
+      {{ govukButton({ text: "Start V4", href: "v1-3/start", classes: "govuk-!-margin-bottom-3" }) }}
+
+      <ul class="govuk-list app-version-card__links">
+        <li><a class="govuk-link govuk-link--no-visited-state" href="v1-3/updates">What's new in V4</a></li>
+        <li><a class="govuk-link govuk-link--no-visited-state" href="v1-3/research-updates">Updates based on research – V4</a></li>
+      </ul>
+    </div>
+
+    {# ================= Salesforce admin ================= #}
+    <h2 class="govuk-heading-l govuk-!-margin-top-8 govuk-!-margin-bottom-2 app-group-heading" id="salesforce">Salesforce admin</h2>
+    <p class="govuk-body">
+      The Salesforce back office where APHA admins view, check and edit vaccination data.
+    </p>
+
+    {# ---- Salesforce V1 ---- #}
+    <div class="app-version-card" id="sf-v1">
+      <div class="app-version-card__header">
+        <h3 class="govuk-heading-m">Vaccination data in Salesforce – prototype</h3>
+        <strong class="govuk-tag govuk-tag--grey app-version-card__badge">V1</strong>
+      </div>
+      <p class="govuk-!-margin-top-1 govuk-!-margin-bottom-3">
+        <strong class="govuk-tag govuk-tag--orange">Business-need led</strong>
+      </p>
+
+      <p class="govuk-body">
+        Explores how vaccination data is searched, checked, edited and viewed in Salesforce. This is based on a business need, not a user need — it has not yet been started from, or validated against, researched user needs. What's in the prototype:
+      </p>
+      <ul class="govuk-list govuk-list--bullet">
+        <li><strong>Multi ear tag search</strong> — look up several animals at once by entering more than one ear tag number.</li>
+        <li><strong>Vax checker</strong> — check the vaccination status of an animal or herd.</li>
+        <li><strong>Edit vax data</strong> — amend or correct recorded vaccination details.</li>
+        <li><strong>Vax history</strong> — view the vaccination history for an animal or herd.</li>
+      </ul>
+
+      {{ govukButton({
+        text: "Open the Salesforce prototype",
+        href: "https://cattle-vaccination-sf-c7ea3879e365.herokuapp.com/mvp2-home.html",
+        classes: "govuk-!-margin-bottom-1",
+        attributes: { target: "_blank", rel: "noreferrer noopener" }
+      }) }}
+      <p class="govuk-hint govuk-!-margin-bottom-3">Opens in a new tab</p>
+
+      <ul class="govuk-list app-version-card__links">
+        <li><a class="govuk-link govuk-link--no-visited-state" href="/salesforce-brief">Read the full brief</a></li>
+      </ul>
+    </div>
 
   </div>
 </div>

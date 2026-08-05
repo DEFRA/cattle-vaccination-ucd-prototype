@@ -15,7 +15,7 @@
 <style>
   .app-marking-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-columns: minmax(0, 1fr);
     gap: 30px;
     align-items: start;
   }
@@ -75,6 +75,37 @@
   .app-page-divider h2 {
     margin: 0;
   }
+  /* Offset the anchor target so a divider jumped to from the "Jump to
+     page" links isn't hidden behind the sticky nav on desktop. */
+  .app-page-divider { scroll-margin-top: 5rem; }
+  /* "Jump to page" navigation – a horizontal list of links, one per
+     printed page, that anchor to the matching divider row. As a
+     progressive enhancement it sticks to the top of the viewport on
+     wider screens so the vet can jump again without scrolling back up. */
+  /* Light grey box behind the ear-tag search filter so it reads as a
+     distinct tool above the list. */
+  .app-filter-box {
+    background-color: #f3f2f1;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+  }
+  .app-page-nav__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-bottom: 20px;
+  }
+  .app-page-nav__list li { margin-bottom: 0; }
+  @media (min-width: 48.0625em) {
+    .app-page-nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background-color: #ffffff;
+      padding: 10px 0;
+      border-bottom: 1px solid #b1b4b6;
+    }
+  }
   .app-dob-cell--under-age,
   .app-vax-cell--check {
     text-decoration: underline;
@@ -121,17 +152,6 @@
     min-height: auto;
     line-height: 1.2;
   }
-  .app-summary-card {
-    border: 1px solid #b1b4b6;
-    padding: 16px;
-    margin-bottom: 16px;
-    background: #fff;
-  }
-  .app-selected-list {
-    max-height: 180px;
-    overflow: auto;
-    margin-top: 10px;
-  }
   .app-link-button {
     background: none;
     border: 0;
@@ -164,7 +184,7 @@
 </style>
 
 <div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
+  <div class="govuk-grid-column-two-thirds">
     {% if errorSummary %}
       {{ govukErrorSummary(errorSummary) }}
     {% endif %}
@@ -191,16 +211,6 @@
     <div class="app-marking-layout">
       <div>
         <form action="/v1-3/select-vaccinated-animals" method="post" novalidate>
-          <div class="app-panel govuk-!-margin-bottom-4">
-            {# Live "X of Y selected" counter. The `data-total` value
-               is the server-rendered total cattle count; the inner
-               .js-selected-count span is updated by the script at the
-               bottom of the page on every checkbox change. #}
-            <p class="govuk-body govuk-!-margin-bottom-0">
-              You've selected <span class="js-selected-count">{{ selectedIds.length or 0 }}</span> of {{ totalAnimals }} cattle
-            </p>
-          </div>
-
           {% if errors and errors['selectedAnimals'] %}
             <p id="selected-animals" class="govuk-error-message">
               <span class="govuk-visually-hidden">Error:</span> {{ errors['selectedAnimals'].text }}
@@ -208,6 +218,38 @@
           {% endif %}
 
           {% if activeRows.length %}
+            {# Page sizing – shared by the "Jump to page" navigation and the
+               in-table dividers. cattlePerPage is the page size the vet
+               chose on the download list (20 or 40). #}
+            {% set _pageSize = cattlePerPage or 20 %}
+            {% set _totalPages = ((activeRows.length + _pageSize - 1) / _pageSize) | int %}
+            {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+
+            {# Filter the list by any part of the ear tag. Hidden until the
+               script runs (progressive enhancement); the result count is
+               announced in a live region for screen-reader users. #}
+            <div class="app-filter-box" id="vax-filter-box" hidden>
+              <div class="govuk-form-group govuk-!-margin-bottom-0" id="vax-filter-group">
+                <label class="govuk-label govuk-label--s" for="vax-filter">Search by ear tag number</label>
+                <div id="vax-filter-hint" class="govuk-hint">Enter any part of the ear tag to filter the list.</div>
+                <input class="govuk-input govuk-input--width-20" id="vax-filter" type="search" autocomplete="off" spellcheck="false" aria-describedby="vax-filter-hint">
+              </div>
+              <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-top-3 govuk-!-margin-bottom-0" id="vax-filter-status" role="status" aria-live="polite"></p>
+            </div>
+
+            {# Jump-to-page links. Only shown when the list runs to more than
+               one page. Each link anchors to the matching "Page N" divider. #}
+            {% if _totalPages > 1 %}
+              <nav class="app-page-nav" aria-label="Go to a page">
+                <h2 class="govuk-heading-s govuk-!-margin-bottom-2">Go to a page</h2>
+                <ul class="govuk-list app-page-nav__list">
+                  {% for _p in range(1, _totalPages + 1) %}
+                    <li><a class="govuk-link" href="#page-{{ _p }}">Page {{ _p }}</a></li>
+                  {% endfor %}
+                </ul>
+              </nav>
+            {% endif %}
+
             <div class="app-table-wrap" id="selected-animals">
               {# Standard GOV.UK design system table – this is a
                  selection page (checkbox per row), not a printable
@@ -241,14 +283,11 @@
                    page-break. The total page count is computed from
                    the number of active rows. The table now has 5
                    columns, so the divider td uses colspan="5". #}
-                {% set _pageSize = cattlePerPage or 20 %}
-                {% set _totalPages = ((activeRows.length + _pageSize - 1) / _pageSize) | int %}
-                {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
                 <tbody class="govuk-table__body">
                   {% for row in activeRows %}
                     {% if loop.index0 % _pageSize == 0 %}
                       {% set _pageNumber = (loop.index0 / _pageSize) | int + 1 %}
-                      <tr class="app-page-divider">
+                      <tr class="app-page-divider" id="page-{{ _pageNumber }}">
                         <td colspan="5">
                           <h2 class="govuk-heading-m">Page {{ _pageNumber }} of {{ _totalPages }}</h2>
                         </td>
@@ -258,7 +297,7 @@
                       <td class="govuk-table__cell">
                         <div class="govuk-checkboxes govuk-checkboxes--small">
                           <div class="govuk-checkboxes__item">
-                            <input class="govuk-checkboxes__input js-animal-checkbox" id="animal-{{ loop.index }}" name="selectedAnimals" type="checkbox" value="{{ row.id }}" {% if row.id in selectedIds %}checked{% endif %}>
+                            <input class="govuk-checkboxes__input js-animal-checkbox" id="animal-{{ loop.index }}" name="selectedAnimals" type="checkbox" value="{{ row.id }}" data-eartag="{{ row.officialId }}" {% if row.id in selectedIds %}checked{% endif %}>
                             <label class="govuk-label govuk-checkboxes__label" for="animal-{{ loop.index }}">
                               <span class="govuk-visually-hidden">Select {{ row.officialId }}</span>
                             </label>
@@ -284,6 +323,14 @@
               </table>
             </div>
 
+            {# Live "X of Y selected" counter. Sits below the list, next to
+               the action buttons, where it's most useful as the vet
+               finishes selecting. The .js-selected-count span is updated by
+               the script on every checkbox change. #}
+            <p class="govuk-body govuk-!-margin-top-2">
+              You've selected <strong><span class="js-selected-count">{{ selectedIds.length or 0 }}</span> of {{ totalAnimals }}</strong> cattle
+            </p>
+
             {# Show the reason picker whenever the vet is recording or
                editing reasons – either marking new cattle in the
                "remaining" group during the reasons phase, or viewing a
@@ -294,9 +341,17 @@
                status. #}
             {% set reasonGroupKeys = ['not-found', 'deceased', 'withdrawn-export', 'withdrawn-slaughter', 'withdrawn-owner', 'other'] %}
             {% set isReasonView = activeReviewGroup in reasonGroupKeys %}
-            {% set showReasonPicker = (activeReviewGroup == 'remaining' and markingPhase == 'reasons') or isReasonView %}
+            {# A "group edit" is reached via a Change link on the check page:
+               vaccinated, any not-vaccinated reason, or no-reason. The whole
+               herd is shown with that group's members pre-selected; the vet
+               ticks/unticks and saves. The reason is fixed (it's the group
+               being edited), so the radios aren't shown – it's submitted as a
+               hidden field. The radios only appear when picking reasons
+               during initial marking. #}
+            {% set isGroupEdit = isReasonView or activeReviewGroup == 'vaccinated' or activeReviewGroup == 'no-reason' %}
+            {% set showReasonPicker = (activeReviewGroup == 'remaining' and markingPhase == 'reasons') %}
 
-            {% if activeReviewGroup == 'remaining' or isReasonView %}
+            {% if activeReviewGroup == 'remaining' or isGroupEdit %}
               {% if showReasonPicker %}
                 {{ govukRadios({
                   idPrefix: "selectedStatus",
@@ -363,48 +418,36 @@
                     name: "markAction",
                     value: "mark"
                   }) }}
-                {% elif isReasonView %}
+                {% elif isGroupEdit %}
+                  {# The whole herd is shown with this group's members
+                     pre-selected, so saving sets the group to exactly the
+                     ticked cattle. The reason is fixed to the group being
+                     edited, passed as a hidden field. Unticking a vaccinated
+                     animal moves it back to remaining; unticking a
+                     not-vaccinated animal marks it vaccinated. #}
+                  <input type="hidden" name="selectedStatus" value="{{ activeReviewGroup }}">
                   {{ govukButton({
-                    text: "Update reason for selected cattle",
+                    text: "Save changes and continue",
                     name: "markAction",
                     value: "mark"
                   }) }}
-                  {{ govukButton({
-                    text: "Move selected back to remaining cattle",
-                    classes: "govuk-button--secondary",
-                    name: "markAction",
-                    value: "reset"
-                  }) }}
                 {% else %}
+                  {# In the "not vaccinated" flow this single action records
+                     the selected cattle with their reason, marks every other
+                     animal as vaccinated, and moves on to the check page –
+                     see the POST handler in routes.js. The hint sets that
+                     expectation. #}
+                  {% if isMarkNotVax %}
+                    <p class="govuk-hint">
+                      The cattle you've selected will be recorded with the reason above. All other cattle will be marked as vaccinated.
+                    </p>
+                  {% endif %}
                   {{ govukButton({
                     text: "Mark selected cattle",
                     name: "markAction",
                     value: "mark"
                   }) }}
-                  {# Inverse flow: once the vet has marked the cattle
-                     that were NOT vaccinated, this shortcut bulk-
-                     marks the remaining cattle as vaccinated and
-                     routes through the same confirmation screen. The
-                     confirmation screen then bumps the vet on to
-                     check the cattle that have been auto-marked. #}
-                  {% if isMarkNotVax and totalRemaining > 0 %}
-                    {{ govukButton({
-                      text: "Review what you've marked",
-                      classes: "govuk-button--secondary",
-                      name: "markAction",
-                      value: "bulk-vaccinate-remaining"
-                    }) }}
-                  {% endif %}
                 {% endif %}
-              </div>
-            {% else %}
-              <div class="govuk-button-group govuk-!-margin-bottom-8">
-                {{ govukButton({
-                  text: "Move selected back to remaining cattle",
-                  classes: "govuk-button--secondary",
-                  name: "markAction",
-                  value: "reset"
-                }) }}
               </div>
             {% endif %}
           {% else %}
@@ -437,73 +480,87 @@
           {% endif %}
         </form>
       </div>
-
-      <aside>
-        <div class="app-summary-card">
-          <h2 class="govuk-heading-m govuk-!-margin-bottom-2">Summary</h2>
-          <dl class="govuk-summary-list govuk-summary-list--no-border govuk-!-margin-bottom-0">
-            <div class="govuk-summary-list__row">
-              <dt class="govuk-summary-list__key">Total cattle</dt>
-              <dd class="govuk-summary-list__value">{{ totalAnimals }}</dd>
-            </div>
-            <div class="govuk-summary-list__row">
-              <dt class="govuk-summary-list__key">To do</dt>
-              <dd class="govuk-summary-list__value">{{ totalRemaining }}</dd>
-            </div>
-            <div class="govuk-summary-list__row">
-              <dt class="govuk-summary-list__key">Done</dt>
-              <dd class="govuk-summary-list__value">{{ totalMarked }}</dd>
-            </div>
-          </dl>
-        </div>
-        {% if selectedAnimalSummary.length %}
-          <div class="app-summary-card">
-            <h2 class="govuk-heading-s govuk-!-margin-bottom-2">Currently selected</h2>
-            <p class="govuk-body govuk-!-margin-bottom-2">{{ selectedAnimalSummary.length }} cattle selected.</p>
-            <div class="app-selected-list">
-              <ul class="govuk-list govuk-list--bullet govuk-!-font-size-16 govuk-!-margin-bottom-0">
-                {% for item in selectedAnimalSummary %}
-                  <li>{{ item }}</li>
-                {% endfor %}
-              </ul>
-            </div>
-          </div>
-        {% endif %}
-      </aside>
     </div>
   </div>
 </div>
 
 <script>
+  // 1. The header "All" checkbox ticks / clears the row checkboxes,
+  //    scoped to the rows currently VISIBLE so it works with the filter.
+  // 2. The "You've selected X of Y" counter always reflects every checked
+  //    box, including any hidden by the filter.
+  // 3. The ear-tag filter narrows the visible rows by any part of the ear
+  //    tag, announces the count, and hides the page dividers + jump nav
+  //    while active.
   document.addEventListener('DOMContentLoaded', function () {
     var selectAll = document.getElementById('select-all-active')
     var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-animal-checkbox'))
-
-    if (!selectAll || !checkboxes.length) {
-      return
-    }
+    if (!checkboxes.length) { return }
 
     var selectedCountEls = Array.prototype.slice.call(document.querySelectorAll('.js-selected-count'))
+    var filterBox = document.getElementById('vax-filter-box')
+    var filterInput = document.getElementById('vax-filter')
+    var status = document.getElementById('vax-filter-status')
+    var dividers = Array.prototype.slice.call(document.querySelectorAll('.app-page-divider'))
+    var jumpNav = document.querySelector('.app-page-nav')
 
-    function syncSelectAll() {
-      var checkedCount = checkboxes.filter(function (checkbox) { return checkbox.checked }).length
-      selectAll.checked = checkedCount === checkboxes.length
-      selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length
-      // Keep the "You've selected X of Y cattle" counter in the
-      // grey panel above the table in sync with the checked boxes.
+    function isVisible (c) { var tr = c.closest('tr'); return tr && tr.style.display !== 'none' }
+    function visibleCheckboxes () { return checkboxes.filter(isVisible) }
+
+    function updateCount () {
+      var checkedCount = checkboxes.filter(function (c) { return c.checked }).length
       selectedCountEls.forEach(function (el) { el.textContent = checkedCount })
     }
 
-    selectAll.addEventListener('change', function () {
-      checkboxes.forEach(function (checkbox) {
-        checkbox.checked = selectAll.checked
-      })
-      syncSelectAll()
-    })
+    function syncSelectAll () {
+      if (selectAll) {
+        var vis = visibleCheckboxes()
+        var checkedCount = vis.filter(function (c) { return c.checked }).length
+        selectAll.checked = vis.length > 0 && checkedCount === vis.length
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < vis.length
+      }
+      updateCount()
+    }
 
-    checkboxes.forEach(function (checkbox) {
-      checkbox.addEventListener('change', syncSelectAll)
-    })
+    if (selectAll) {
+      selectAll.addEventListener('change', function () {
+        visibleCheckboxes().forEach(function (c) { c.checked = selectAll.checked })
+        syncSelectAll()
+      })
+    }
+    checkboxes.forEach(function (c) { c.addEventListener('change', syncSelectAll) })
+
+    function normalise (s) { return (s || '').toLowerCase().replace(/\s+/g, '') }
+
+    function applyFilter () {
+      var q = normalise(filterInput.value)
+      var filtering = q !== ''
+      var visible = 0
+      checkboxes.forEach(function (c) {
+        var tr = c.closest('tr')
+        var match = !filtering || normalise(c.getAttribute('data-eartag')).indexOf(q) !== -1
+        tr.style.display = match ? '' : 'none'
+        if (match) { visible++ }
+      })
+      dividers.forEach(function (d) { d.style.display = filtering ? 'none' : '' })
+      if (jumpNav) { jumpNav.style.display = filtering ? 'none' : '' }
+      if (status) {
+        status.textContent = !filtering
+          ? ''
+          : (visible === 0
+              ? 'No cattle match “' + filterInput.value + '”'
+              : 'Showing ' + visible + ' of ' + checkboxes.length + ' cattle')
+      }
+      syncSelectAll()
+    }
+
+    if (filterInput && filterBox) {
+      filterBox.hidden = false
+      filterInput.addEventListener('input', applyFilter)
+      filterInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault() }
+      })
+    }
 
     syncSelectAll()
   })

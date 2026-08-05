@@ -55,6 +55,92 @@
      single line. */
   .govuk-table .govuk-checkboxes__item { padding-left: 28px; margin-bottom: 0; }
   .govuk-table .govuk-checkboxes__label { padding-top: 0; padding-bottom: 0; }
+
+  /* "All" select-all checkbox in the table header - matches the reactor
+     picker so the label sits level with the other column headings. */
+  .govuk-table th .govuk-checkboxes { margin: 0; }
+  .govuk-table th .govuk-checkboxes__item { min-height: 0; padding-left: 28px; }
+  .govuk-table th .govuk-checkboxes__label { font-weight: 700; padding-top: 0; padding-bottom: 0; line-height: 1.25; white-space: nowrap; }
+  .govuk-table .govuk-table__header { vertical-align: middle; }
+  .govuk-checkboxes--small .govuk-checkboxes__input { margin-left: -36px; }
+
+  /* Page-break dividers. The list is chunked 20 cattle per page to
+     mirror the printed-list page breaks, so the vet can find each
+     animal against their paper sheet. Each divider is a white card
+     with a light border (1px / #b1b4b6, 16/20 padding) and an H2
+     "Page N of M" heading at the GOV.UK medium scale. Matches the
+     dividers on /v1-3/skin-test-reactors. */
+  .app-page-divider td {
+    border: 1px solid #b1b4b6;
+    background-color: #ffffff;
+    padding: 16px 20px;
+  }
+  .app-page-divider h2 {
+    margin: 0;
+  }
+  /* Offset the scroll target so a divider anchored from the "Jump to
+     page" links isn't hidden behind the sticky nav on desktop. */
+  .app-page-divider { scroll-margin-top: 5rem; }
+
+  /* Ineligibility banner. A full-width row that sits directly below the
+     animal it applies to. The animal row's bottom border is removed and
+     the banner sits tight beneath it so the two read as one block. The
+     reason has room to sit on a single line rather than wrapping in a
+     narrow column. */
+  .app-row--before-banner > .govuk-table__cell {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+  /* Banner cells carry the row separator so there's a clear line before
+     the next animal's checkbox row. */
+  .app-ineligible-row__spacer { border-bottom: 1px solid #b1b4b6; }
+  .app-ineligible-row__cell {
+    padding-top: 0;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #b1b4b6;
+    vertical-align: top;
+  }
+  .app-ineligible-row__cell > * { margin-top: -18px; }
+  /* Vertically centre each animal row's cells so the text has equal
+     top and bottom margins, and the checkbox lines up with the ear-tag
+     text instead of sitting low against it. */
+  .govuk-table__body .govuk-table__row > .govuk-table__cell { vertical-align: middle; }
+  .app-ineligible-row__reason {
+    color: #505a5f;
+    margin-left: 8px;
+  }
+
+  /* "Jump to page" navigation. Lets the vet hop straight to the page
+     that matches their printed sheet. Rendered as a simple horizontal
+     list of links (no sticky column – that isn't a GOV.UK pattern and
+     causes focus/overlap issues). As a progressive enhancement it
+     follows the viewport on wider screens so the vet can jump again
+     without scrolling back up; on small screens it stays in normal
+     flow. */
+  /* Light grey box behind the ear-tag search filter so it reads as a
+     distinct tool above the list. */
+  .app-filter-box {
+    background-color: #f3f2f1;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+  }
+  .app-page-nav__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-bottom: 20px;
+  }
+  .app-page-nav__list li { margin-bottom: 0; }
+  @media (min-width: 48.0625em) {
+    .app-page-nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background-color: #ffffff;
+      padding: 10px 0;
+      border-bottom: 1px solid #b1b4b6;
+    }
+  }
 </style>
 
 <div class="govuk-grid-row">
@@ -65,19 +151,66 @@
     {% endif %}
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ (data['skinTestType'] or 'Skin test') | replace('Both', 'DIVA and SICCT') }}</span>
-    <h1 class="govuk-heading-l">Identify the cattle</h1>
+    <h1 class="govuk-heading-l">Select any cattle that were not tested</h1>
 
     {% if animals.length == 0 %}
       <p class="govuk-body">
         Every animal on this visit has been accounted for. You can continue to the review step.
+      </p>
+      <p class="govuk-body">
+        If that’s not right - for example if you marked cattle as reactors by mistake - you can
+        <a class="govuk-link" href="/v1-3/skin-test-reactors-any">change which cattle reacted</a>
+        and then choose again.
       </p>
       <form action="/v1-3/skin-test-untested" method="post" novalidate>
         {{ govukButton({ text: "Continue to review" }) }}
       </form>
     {% else %}
       <p class="govuk-body">
-        Select all cattle that were not tested.
+        Select any cattle that were eligible for testing but were not fully tested. This includes cattle missing on day 1 or day 2.
       </p>
+
+      {# Cattle that were never eligible (too young, or tested on another
+         farm in the last 60 days) are flagged in the Eligibility column.
+         They stay selectable in case of a data error, but usually will
+         not need marking. #}
+      <p class="govuk-body">
+        Cattle that were not eligible for testing are flagged. You do not normally need to select these.
+      </p>
+
+      {# Filter the list by any part of the ear tag. Sits outside the POST
+         form so pressing Enter can't submit early. Hidden until the script
+         runs (progressive enhancement); the result count is announced in a
+         live region for screen-reader users. #}
+      <div class="app-filter-box" id="untested-filter-box" hidden>
+        <div class="govuk-form-group govuk-!-margin-bottom-0" id="untested-filter-group">
+          <label class="govuk-label govuk-label--s" for="untested-filter">Search by ear tag number</label>
+          <div id="untested-filter-hint" class="govuk-hint">Enter any part of the ear tag to filter the list.</div>
+          <input class="govuk-input govuk-input--width-20" id="untested-filter" type="search" autocomplete="off" spellcheck="false" aria-describedby="untested-filter-hint">
+        </div>
+        <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-top-3 govuk-!-margin-bottom-0" id="untested-filter-status" role="status" aria-live="polite"></p>
+      </div>
+
+      {# Page sizing – shared by the "Jump to page" navigation below and
+         the in-table dividers. The list is chunked 20 cattle per page
+         to mirror the printed-list page breaks. #}
+      {% set _pageSize = 20 %}
+      {% set _totalPages = ((animals.length + _pageSize - 1) / _pageSize) | int %}
+      {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+
+      {# Jump-to-page links. Only shown when the list runs to more than
+         one page – with a single page there's nowhere to jump. Each
+         link anchors to the matching "Page N" divider in the table. #}
+      {% if _totalPages > 1 %}
+        <nav class="app-page-nav" aria-label="Go to a page">
+          <h2 class="govuk-heading-s govuk-!-margin-bottom-2">Go to a page</h2>
+          <ul class="govuk-list app-page-nav__list">
+            {% for _p in range(1, _totalPages + 1) %}
+              <li><a class="govuk-link" href="#page-{{ _p }}">Page {{ _p }}</a></li>
+            {% endfor %}
+          </ul>
+        </nav>
+      {% endif %}
 
       <form action="/v1-3/skin-test-untested" method="post" novalidate>
 
@@ -89,21 +222,41 @@
         <table class="govuk-table">
           <thead class="govuk-table__head">
             <tr class="govuk-table__row">
-              <th scope="col" class="govuk-table__header">Select</th>
+              <th scope="col" class="govuk-table__header">
+                <div class="govuk-checkboxes govuk-checkboxes--small">
+                  <div class="govuk-checkboxes__item">
+                    <input class="govuk-checkboxes__input" id="select-all-untested" type="checkbox">
+                    <label class="govuk-label govuk-checkboxes__label" for="select-all-untested">All</label>
+                  </div>
+                </div>
+              </th>
               <th scope="col" class="govuk-table__header">Ear tag number</th>
+              <th scope="col" class="govuk-table__header">TB Vax</th>
               <th scope="col" class="govuk-table__header">DOB</th>
               <th scope="col" class="govuk-table__header">Sex</th>
               <th scope="col" class="govuk-table__header">Breed</th>
-              <th scope="col" class="govuk-table__header">TB Vax</th>
             </tr>
           </thead>
+          {# Page dividers. The first divider sits above the first row
+             ("Page 1 of M") so every animal is clearly grouped under a
+             page. Each carries an id ("page-N") so the jump links above
+             can anchor to it. The table has 6 columns, so the divider
+             td uses colspan=6. Matches the reactor picker. #}
           <tbody class="govuk-table__body">
             {% for animal in animals %}
-              <tr class="govuk-table__row">
+              {% if loop.index0 % _pageSize == 0 %}
+                {% set _pageNumber = (loop.index0 / _pageSize) | int + 1 %}
+                <tr class="app-page-divider" id="page-{{ _pageNumber }}">
+                  <td colspan="6">
+                    <h2 class="govuk-heading-m">Page {{ _pageNumber }} of {{ _totalPages }}</h2>
+                  </td>
+                </tr>
+              {% endif %}
+              <tr class="govuk-table__row{% if animal.ineligible %} app-row--before-banner{% endif %}">
                 <td class="govuk-table__cell">
                   <div class="govuk-checkboxes govuk-checkboxes--small">
                     <div class="govuk-checkboxes__item">
-                      <input class="govuk-checkboxes__input" id="untested-{{ loop.index }}" name="untested" type="checkbox" value="{{ animal.officialId }}" {% if animal.officialId in selectedUntested %}checked{% endif %}>
+                      <input class="govuk-checkboxes__input js-untested-checkbox" id="untested-{{ loop.index }}" name="untested" type="checkbox" value="{{ animal.officialId }}"{% if animal.ineligible %} aria-describedby="ineligible-reason-{{ loop.index }}"{% endif %} {% if animal.officialId in selectedUntested %}checked{% endif %}>
                       <label class="govuk-label govuk-checkboxes__label" for="untested-{{ loop.index }}">
                         <span class="govuk-visually-hidden">{{ animal.officialId }} was not tested</span>
                       </label>
@@ -120,14 +273,38 @@
                           {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
                   </div>
                 </td>
+                <td class="govuk-table__cell{% if animal.isVaxCheckDue %} app-vax-cell--check{% endif %}">{{ animal.vaccinationDate or '-' }}</td>
                 <td class="govuk-table__cell{% if animal.isUnderTestAge %} app-dob-cell--under-age{% endif %}">{{ animal.dob }}</td>
                 <td class="govuk-table__cell">{{ animal.sex }}</td>
                 <td class="govuk-table__cell">{{ animal.breed }}</td>
-                <td class="govuk-table__cell{% if animal.isVaxCheckDue %} app-vax-cell--check{% endif %}">{{ animal.vaccinationDate or '-' }}</td>
               </tr>
+              {# Ineligibility banner. Cattle that were never eligible (too
+                 young, or tested on another farm within 60 days) get a
+                 full-width row directly below their own row, so the reason
+                 has room to read on one line instead of being squashed into
+                 a narrow column. The reason text carries an id that the
+                 animal's checkbox references via aria-describedby, so a
+                 screen reader announces "not eligible" and why when the
+                 checkbox is focused. The row stays selectable. #}
+              {% if animal.ineligible %}
+                <tr class="app-ineligible-row js-ineligible-row" data-for="untested-{{ loop.index }}">
+                  <td class="app-ineligible-row__spacer"></td>
+                  <td colspan="5" class="app-ineligible-row__cell">
+                    <strong class="govuk-tag govuk-tag--grey">Not eligible</strong>
+                    <span class="app-ineligible-row__reason" id="ineligible-reason-{{ loop.index }}">{{ animal.ineligibleReason }} — {{ animal.ineligibleDetail }}</span>
+                  </td>
+                </tr>
+              {% endif %}
             {% endfor %}
           </tbody>
         </table>
+
+        {# Live "X of Y selected" counter. Sits below the list, next to the
+           Continue button. The .js-selected-count span is updated by the
+           script on every checkbox change. #}
+        <p class="govuk-body govuk-!-margin-top-2">
+          You've selected <strong><span class="js-selected-count">{{ selectedUntested | length }}</span> of {{ animals.length }}</strong> cattle
+        </p>
 
         <div class="govuk-button-group">
           {{ govukButton({ text: "Continue" }) }}
@@ -138,4 +315,91 @@
 
   </div>
 </div>
+
+<script>
+  // 1. The header "All" checkbox ticks / clears the row checkboxes,
+  //    scoped to the rows currently VISIBLE so it works with the filter.
+  // 2. The ear-tag filter narrows the visible rows by any part of the ear
+  //    tag, announces the count, and hides the page dividers + jump nav
+  //    while active.
+  document.addEventListener('DOMContentLoaded', function () {
+    var selectAll = document.getElementById('select-all-untested')
+    var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-untested-checkbox'))
+    if (!checkboxes.length) { return }
+
+    var filterBox = document.getElementById('untested-filter-box')
+    var filterInput = document.getElementById('untested-filter')
+    var status = document.getElementById('untested-filter-status')
+    var dividers = Array.prototype.slice.call(document.querySelectorAll('.app-page-divider'))
+    var jumpNav = document.querySelector('.app-page-nav')
+    var selectedCountEls = Array.prototype.slice.call(document.querySelectorAll('.js-selected-count'))
+
+    function isVisible (c) { var tr = c.closest('tr'); return tr && tr.style.display !== 'none' }
+    function visibleCheckboxes () { return checkboxes.filter(isVisible) }
+
+    // Keep the "You've selected X of Y cattle" counter in sync with every
+    // checked box, including any hidden by the filter.
+    function updateCount () {
+      var checkedCount = checkboxes.filter(function (c) { return c.checked }).length
+      selectedCountEls.forEach(function (el) { el.textContent = checkedCount })
+    }
+
+    function syncSelectAll () {
+      updateCount()
+      if (!selectAll) { return }
+      var vis = visibleCheckboxes()
+      var checkedCount = vis.filter(function (c) { return c.checked }).length
+      selectAll.checked = vis.length > 0 && checkedCount === vis.length
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < vis.length
+    }
+
+    if (selectAll) {
+      selectAll.addEventListener('change', function () {
+        visibleCheckboxes().forEach(function (c) { c.checked = selectAll.checked })
+        syncSelectAll()
+      })
+    }
+    checkboxes.forEach(function (c) { c.addEventListener('change', syncSelectAll) })
+
+    function normalise (s) { return (s || '').toLowerCase().replace(/\s+/g, '') }
+
+    function applyFilter () {
+      var q = normalise(filterInput.value)
+      var filtering = q !== ''
+      var visible = 0
+      checkboxes.forEach(function (c) {
+        var tr = c.closest('tr')
+        var match = !filtering || normalise(c.value).indexOf(q) !== -1
+        tr.style.display = match ? '' : 'none'
+        // Keep any "Not eligible" banner row in step with the animal row it
+        // sits below, so filtering never leaves an orphaned banner.
+        var banner = tr.nextElementSibling
+        if (banner && banner.classList.contains('js-ineligible-row')) {
+          banner.style.display = match ? '' : 'none'
+        }
+        if (match) { visible++ }
+      })
+      dividers.forEach(function (d) { d.style.display = filtering ? 'none' : '' })
+      if (jumpNav) { jumpNav.style.display = filtering ? 'none' : '' }
+      if (status) {
+        status.textContent = !filtering
+          ? ''
+          : (visible === 0
+              ? 'No cattle match “' + filterInput.value + '”'
+              : 'Showing ' + visible + ' of ' + checkboxes.length + ' cattle')
+      }
+      syncSelectAll()
+    }
+
+    if (filterInput && filterBox) {
+      filterBox.hidden = false
+      filterInput.addEventListener('input', applyFilter)
+      filterInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault() }
+      })
+    }
+
+    syncSelectAll()
+  })
+</script>
 {% endblock %}

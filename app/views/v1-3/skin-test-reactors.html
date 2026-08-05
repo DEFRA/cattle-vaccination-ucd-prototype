@@ -125,6 +125,38 @@
   .app-page-divider h2 {
     margin: 0;
   }
+  /* Offset the scroll target so a divider anchored from the "Jump to
+     page" links isn't hidden behind the sticky nav on desktop. */
+  .app-page-divider { scroll-margin-top: 5rem; }
+
+  /* Light grey box behind the ear-tag search filter so it reads as a
+     distinct tool above the list. */
+  .app-filter-box {
+    background-color: #f3f2f1;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+  }
+  /* "Go to a page" navigation – lets the vet hop straight to the page
+     that matches their printed sheet. Simple horizontal list of links;
+     on wider screens it follows the viewport as a progressive
+     enhancement so they can jump again without scrolling back up. */
+  .app-page-nav__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-bottom: 20px;
+  }
+  .app-page-nav__list li { margin-bottom: 0; }
+  @media (min-width: 48.0625em) {
+    .app-page-nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background-color: #ffffff;
+      padding: 10px 0;
+      border-bottom: 1px solid #b1b4b6;
+    }
+  }
 </style>
 
 <div class="govuk-grid-row">
@@ -148,7 +180,7 @@
     </h1>
 
     <p class="govuk-body">
-      Select all cattle that seemed to show a detectable reaction.
+      Select all cattle that showed a detectable reaction.
     </p>
 
   </div>
@@ -156,6 +188,39 @@
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-three-quarters">
+
+    {# Filter the list by any part of the ear tag. Sits outside the POST
+       form so pressing Enter can't submit reactors early. Hidden until
+       the script runs (progressive enhancement) so non-JS users still
+       get the full list. The result count is announced in a live region
+       for screen-reader users. #}
+    <div class="app-filter-box" id="reactor-filter-box" hidden>
+      <div class="govuk-form-group govuk-!-margin-bottom-0" id="reactor-filter-group">
+        <label class="govuk-label govuk-label--s" for="reactor-filter">Search by ear tag number</label>
+        <div id="reactor-filter-hint" class="govuk-hint">Enter any part of the ear tag to filter the list.</div>
+        <input class="govuk-input govuk-input--width-20" id="reactor-filter" type="search" autocomplete="off" spellcheck="false" aria-describedby="reactor-filter-hint">
+      </div>
+      <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-top-3 govuk-!-margin-bottom-0" id="reactor-filter-status" role="status" aria-live="polite"></p>
+    </div>
+
+    {# Page sizing – shared by the "Jump to page" navigation and the
+       in-table dividers. 18 cattle per page mirrors the printed list. #}
+    {% set _pageSize = 18 %}
+    {% set _totalPages = ((animals.length + _pageSize - 1) / _pageSize) | int %}
+    {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+
+    {# Jump-to-page links. Only shown when the list runs to more than one
+       page. Each link anchors to the matching "Page N" divider below. #}
+    {% if _totalPages > 1 %}
+      <nav class="app-page-nav" aria-label="Go to a page">
+        <h2 class="govuk-heading-s govuk-!-margin-bottom-2">Go to a page</h2>
+        <ul class="govuk-list app-page-nav__list">
+          {% for _p in range(1, _totalPages + 1) %}
+            <li><a class="govuk-link" href="#page-{{ _p }}">Page {{ _p }}</a></li>
+          {% endfor %}
+        </ul>
+      </nav>
+    {% endif %}
 
     <form action="/v1-3/skin-test-reactors" method="post" novalidate>
 
@@ -192,19 +257,16 @@
               <th scope="col" class="govuk-table__header">TB Vax</th>
             </tr>
           </thead>
-          {# Page divider logic. The reactor picker chunks 20 cattle
-             per page to mirror the printed-list page breaks. The
-             first divider sits above the first row ("Page 1 of M")
-             so every animal is clearly grouped under a page. The
-             table has 6 columns, so the divider td uses colspan=6. #}
-          {% set _pageSize = 20 %}
-          {% set _totalPages = ((animals.length + _pageSize - 1) / _pageSize) | int %}
-          {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+          {# Page dividers. The first divider sits above the first row
+             ("Page 1 of M") so every animal is clearly grouped under a
+             page. Each carries an id ("page-N") so the jump links above
+             can anchor to it. The table has 6 columns, so the divider
+             td uses colspan=6. (_pageSize / _totalPages are set above.) #}
           <tbody class="govuk-table__body">
             {% for animal in animals %}
               {% if loop.index0 % _pageSize == 0 %}
                 {% set _pageNumber = (loop.index0 / _pageSize) | int + 1 %}
-                <tr class="app-page-divider">
+                <tr class="app-page-divider" id="page-{{ _pageNumber }}">
                   <td colspan="6">
                     <h2 class="govuk-heading-m">Page {{ _pageNumber }} of {{ _totalPages }}</h2>
                   </td>
@@ -241,6 +303,13 @@
         </table>
       </fieldset>
 
+      {# Live "X of Y selected" counter. Sits below the list, next to the
+         Continue button. The .js-selected-count span is updated by the
+         script on every checkbox change. #}
+      <p class="govuk-body govuk-!-margin-top-2">
+        You've selected <strong><span class="js-selected-count">{{ selectedReactors | length }}</span> of {{ animals.length }}</strong> cattle
+      </p>
+
       <div class="govuk-button-group">
         {{ govukButton({ text: "Continue" }) }}
       </div>
@@ -266,34 +335,88 @@
 </div>
 
 <script>
-  // Wire the header "All" checkbox to every row checkbox – ticking
-  // it ticks all rows, unticking it clears them, and editing an
-  // individual row keeps the header in sync (including the
-  // indeterminate state when only some rows are selected).
+  // Two behaviours:
+  //   1. The header "All" checkbox ticks / clears the row checkboxes –
+  //      scoped to the rows currently VISIBLE, so it works sensibly
+  //      alongside the filter.
+  //   2. The ear-tag filter narrows the visible rows by any part of the
+  //      ear tag (fuzzy substring match), announces the count in a live
+  //      region, and hides the page dividers + jump nav while active.
   document.addEventListener('DOMContentLoaded', function () {
     var selectAll = document.getElementById('select-all-reactors')
     var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-reactor-checkbox'))
+    if (!checkboxes.length) { return }
 
-    if (!selectAll || !checkboxes.length) {
-      return
+    var filterBox = document.getElementById('reactor-filter-box')
+    var filterInput = document.getElementById('reactor-filter')
+    var status = document.getElementById('reactor-filter-status')
+    var dividers = Array.prototype.slice.call(document.querySelectorAll('.app-page-divider'))
+    var jumpNav = document.querySelector('.app-page-nav')
+    var selectedCountEls = Array.prototype.slice.call(document.querySelectorAll('.js-selected-count'))
+
+    function isVisible (checkbox) {
+      var tr = checkbox.closest('tr')
+      return tr && tr.style.display !== 'none'
+    }
+    function visibleCheckboxes () { return checkboxes.filter(isVisible) }
+
+    // Keep the "You've selected X of Y cattle" counter in sync with every
+    // checked box, including any hidden by the filter.
+    function updateCount () {
+      var checkedCount = checkboxes.filter(function (c) { return c.checked }).length
+      selectedCountEls.forEach(function (el) { el.textContent = checkedCount })
     }
 
     function syncSelectAll () {
-      var checkedCount = checkboxes.filter(function (checkbox) { return checkbox.checked }).length
-      selectAll.checked = checkedCount === checkboxes.length
-      selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length
+      updateCount()
+      if (!selectAll) { return }
+      var vis = visibleCheckboxes()
+      var checkedCount = vis.filter(function (c) { return c.checked }).length
+      selectAll.checked = vis.length > 0 && checkedCount === vis.length
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < vis.length
     }
 
-    selectAll.addEventListener('change', function () {
-      checkboxes.forEach(function (checkbox) {
-        checkbox.checked = selectAll.checked
+    if (selectAll) {
+      selectAll.addEventListener('change', function () {
+        visibleCheckboxes().forEach(function (c) { c.checked = selectAll.checked })
+        syncSelectAll()
       })
-      syncSelectAll()
-    })
+    }
+    checkboxes.forEach(function (c) { c.addEventListener('change', syncSelectAll) })
 
-    checkboxes.forEach(function (checkbox) {
-      checkbox.addEventListener('change', syncSelectAll)
-    })
+    // ---- Filter ----------------------------------------------------
+    function normalise (s) { return (s || '').toLowerCase().replace(/\s+/g, '') }
+
+    function applyFilter () {
+      var q = normalise(filterInput.value)
+      var filtering = q !== ''
+      var visible = 0
+      checkboxes.forEach(function (c) {
+        var tr = c.closest('tr')
+        var match = !filtering || normalise(c.value).indexOf(q) !== -1
+        tr.style.display = match ? '' : 'none'
+        if (match) { visible++ }
+      })
+      dividers.forEach(function (d) { d.style.display = filtering ? 'none' : '' })
+      if (jumpNav) { jumpNav.style.display = filtering ? 'none' : '' }
+      if (status) {
+        status.textContent = !filtering
+          ? ''
+          : (visible === 0
+              ? 'No cattle match “' + filterInput.value + '”'
+              : 'Showing ' + visible + ' of ' + checkboxes.length + ' cattle')
+      }
+      syncSelectAll()
+    }
+
+    if (filterInput && filterBox) {
+      filterBox.hidden = false
+      filterInput.addEventListener('input', applyFilter)
+      // The field sits outside the form, but guard Enter anyway.
+      filterInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault() }
+      })
+    }
 
     syncSelectAll()
   })

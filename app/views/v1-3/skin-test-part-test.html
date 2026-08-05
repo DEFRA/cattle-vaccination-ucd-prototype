@@ -1,0 +1,42 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  You're reporting a part test – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-3/skin-test-untested-reason"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    <h1 class="govuk-heading-l">You're reporting a part test</h1>
+
+    <p class="govuk-body">
+      You've identified
+      <strong>{{ stillToTestCount }}</strong>
+      {{ "animal" if stillToTestCount == 1 else "animals" }}
+      that still need to be tested. The work order will stay open until these animals are fully tested.
+    </p>
+
+    <h2 class="govuk-heading-m">What happens next</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li>your work is saved</li>
+      <li>you'll report this as a part test</li>
+      <li>the work order stays open until all cattle are fully tested</li>
+      <li>you'll need to arrange a return visit to finish testing all the animals</li>
+    </ul>
+
+    <form action="/v1-3/skin-test-part-test" method="post" novalidate>
+      {{ govukButton({ text: "Continue" }) }}
+    </form>
+
+  </div>
+</div>
+{% endblock %}

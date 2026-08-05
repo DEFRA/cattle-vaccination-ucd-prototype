@@ -1,84 +1,88 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  Why was this animal not tested? – GOV.UK
+  Why were these cattle not tested? – GOV.UK
 {% endblock %}
 
 {% block beforeContent %}
 {{ govukBackLink({
   text: "Back",
-  href: backHref
+  href: "/v1-3/skin-test-untested"
 }) }}
 {% endblock %}
 
 {% block content %}
 <style>
-  .app-progress-summary { margin: 0 0 20px; }
-
-  .app-animal { margin: 0 0 25px; }
-  .app-animal__ear-tag-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin: 0 0 12px;
-  }
-  .app-animal__ear-tag {
-    font-size: 24px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2;
-    margin: 0;
+  /* Ear-tag content presentation – matches the other v1-3 skin-test
+     tables: regular-weight wrapper, bold last-4, no surrounding box,
+     duplicates banded top/bottom. */
+  .app-ear-tag {
     display: inline-flex;
     align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
     white-space: nowrap;
   }
-  /* No gap between "UK" and the number on the ear tag. */
-  .app-animal__ear-tag-prefix { margin-right: 0; }
-  .app-animal__ear-tag-last {
-    padding: 2px 8px;
-    margin-left: 2px;
-    border: 2px solid #0b0c0c;
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 { padding: 0; font-weight: 700; }
+  .app-ear-tag__part--last4--duplicate {
+    border: 0;
+    border-top: 4px solid #000;
+    border-bottom: 4px solid #000;
   }
-  .app-tag-dark {
-    display: inline-block;
+  .app-dob-cell--under-age {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  /* Checkbox cells keep the row a clean single line. */
+  .govuk-table .govuk-checkboxes__item { margin-bottom: 0; }
+  .govuk-table th .govuk-checkboxes { margin: 0; }
+  .govuk-table th .govuk-checkboxes__item { min-height: 0; }
+  .govuk-table th .govuk-checkboxes__label { font-weight: 700; padding-top: 0; padding-bottom: 0; line-height: 1.25; }
+  .govuk-table__header, .govuk-table__cell { vertical-align: middle; }
+  .app-panel {
+    border: 1px solid #b1b4b6;
+    padding: 16px 20px;
+    background: #f8f8f8;
+  }
+  .app-panel > :first-child { margin-top: 0; }
+  .app-panel > :last-child { margin-bottom: 0; }
+  /* Page-boundary divider row, matching the other v1-3 selection tables. */
+  .app-page-divider td {
+    border: 1px solid #b1b4b6;
+    background-color: #ffffff;
+    padding: 16px 20px;
+  }
+  .app-page-divider h2 { margin: 0; }
+  .app-page-divider { scroll-margin-top: 5rem; }
+  /* Light grey box behind the ear-tag search filter. */
+  .app-filter-box {
     background-color: #f3f2f1;
-    color: #505a5f;
-    font-family: "GDS Transport", arial, sans-serif;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    padding: 4px 10px;
-    text-transform: uppercase;
-    line-height: 1.2;
-    white-space: nowrap;
+    padding: 15px 20px;
+    margin-bottom: 20px;
   }
-
-  /* Compact, single-column animal-details list using a semantic
-     definition list. Each row is a flex line: muted label on the
-     left, bold value on the right. Values share a common left edge
-     so they read cleanly down the column. */
-  .app-animal__meta {
-    margin: 0;
-    line-height: 1.5;
-  }
-  .app-animal__meta-item {
+  /* "Go to a page" navigation – horizontal list of links, sticky on wider
+     screens as a progressive enhancement. */
+  .app-page-nav__list {
     display: flex;
-    align-items: baseline;
-    gap: 12px;
-    padding: 4px 0;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-bottom: 20px;
   }
-  .app-animal__meta dt {
-    color: #505a5f;
-    margin: 0;
-    flex: 0 0 5rem;
-  }
-  .app-animal__meta dd {
-    color: #0b0c0c;
-    font-weight: 700;
-    margin: 0;
-    flex: 1 1 auto;
-    word-break: break-word;
+  .app-page-nav__list li { margin-bottom: 0; }
+  @media (min-width: 48.0625em) {
+    .app-page-nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background-color: #ffffff;
+      padding: 10px 0;
+      border-bottom: 1px solid #b1b4b6;
+    }
   }
 </style>
 
@@ -90,55 +94,110 @@
     {% endif %}
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }} - Not tested</span>
-    <h1 class="govuk-heading-l govuk-!-margin-bottom-3">Why was this animal not tested?</h1>
+    <h1 class="govuk-heading-l govuk-!-margin-bottom-2">Why were these cattle not tested?</h1>
+    <p class="govuk-body govuk-!-margin-bottom-4">
+      Select cattle and choose the reason why they were not tested. Repeat until all cattle have a reason.
+    </p>
 
-    <p class="govuk-body app-progress-summary"><strong>Cattle {{ currentPosition }} of {{ totalUntested }}</strong></p>
+    <form action="/v1-3/skin-test-untested-reason" method="post" novalidate>
 
-    <form action="/v1-3/skin-test-untested-reason/{{ currentIndex }}" method="post" novalidate>
+      {% if errors and errors['selectedAnimals'] %}
+        <p id="selected-animals" class="govuk-error-message">
+          <span class="govuk-visually-hidden">Error:</span> {{ errors['selectedAnimals'].text }}
+        </p>
+      {% endif %}
 
-      <div class="app-animal" aria-label="Animal details">
-        <div class="app-animal__ear-tag-row">
-          <p class="app-animal__ear-tag">
-            <span class="app-animal__ear-tag-prefix">{{ currentAnimal.earTagParts.prefix }}</span>
-            <span>{{ currentAnimal.earTagParts.herd }}</span>
-            <span>{{ currentAnimal.earTagParts.check }}</span>
-            <span>{{ currentAnimal.earTagParts.individualStart }}</span>
-            <span class="app-animal__ear-tag-last">{{ currentAnimal.earTagParts.last4 }}</span>
-          </p>
-          {% if currentAnimal.isVaccinated %}
-            <strong class="app-tag-dark" title="BCG vaccinated">VAX</strong>
-          {% endif %}
-          {% if currentAnimal.isDuplicate %}
-            <strong class="app-tag-dark" title="Another animal on this farm shares the last 4 digits of this ear tag">DUP</strong>
-          {% endif %}
+      {# Page sizing – shared by the "Go to a page" navigation and the
+         in-table dividers. 20 cattle per page mirrors the printed list. #}
+      {% set _pageSize = 20 %}
+      {% set _totalPages = ((remainingAnimals.length + _pageSize - 1) / _pageSize) | int %}
+      {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+
+      {# Filter the list by any part of the ear tag. Hidden until the script
+         runs (progressive enhancement); the result count is announced in a
+         live region for screen-reader users. #}
+      <div class="app-filter-box" id="reason-filter-box" hidden>
+        <div class="govuk-form-group govuk-!-margin-bottom-0" id="reason-filter-group">
+          <label class="govuk-label govuk-label--s" for="reason-filter">Search by ear tag number</label>
+          <div id="reason-filter-hint" class="govuk-hint">Enter any part of the ear tag to filter the list.</div>
+          <input class="govuk-input govuk-input--width-20" id="reason-filter" type="search" autocomplete="off" spellcheck="false" aria-describedby="reason-filter-hint">
         </div>
-
-        {# Compact single-column animal details. Order is fixed:
-           Age, DOB, Sex, Breed. Each row keeps its label and value
-           on a single line; values share a common left edge so they
-           visually align down the column. #}
-        <dl class="app-animal__meta govuk-body">
-          <div class="app-animal__meta-item">
-            <dt>Age</dt>
-            <dd>{{ currentAnimal.age }}</dd>
-          </div>
-          <div class="app-animal__meta-item">
-            <dt>DOB</dt>
-            <dd>{{ currentAnimal.dob }}</dd>
-          </div>
-          <div class="app-animal__meta-item">
-            <dt>Sex</dt>
-            <dd>{{ currentAnimal.sex }}</dd>
-          </div>
-          <div class="app-animal__meta-item">
-            <dt>Breed</dt>
-            <dd>{{ currentAnimal.breed }}</dd>
-          </div>
-        </dl>
+        <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-top-3 govuk-!-margin-bottom-0" id="reason-filter-status" role="status" aria-live="polite"></p>
       </div>
 
-      {% set reasonValue = formValues['reason'] or savedReason %}
-      {% set reasonOtherValue = formValues['reasonOther'] or savedReasonOther %}
+      {# Jump-to-page links. Only shown when the list runs to more than one
+         page. Each link anchors to the matching "Page N" divider. #}
+      {% if _totalPages > 1 %}
+        <nav class="app-page-nav" aria-label="Go to a page">
+          <h2 class="govuk-heading-s govuk-!-margin-bottom-2">Go to a page</h2>
+          <ul class="govuk-list app-page-nav__list">
+            {% for _p in range(1, _totalPages + 1) %}
+              <li><a class="govuk-link" href="#page-{{ _p }}">Page {{ _p }}</a></li>
+            {% endfor %}
+          </ul>
+        </nav>
+      {% endif %}
+
+      <div id="selected-animals" class="govuk-!-margin-bottom-4">
+        <table class="govuk-table">
+          <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+              <th scope="col" class="govuk-table__header">
+                <div class="govuk-checkboxes govuk-checkboxes--small">
+                  <div class="govuk-checkboxes__item">
+                    <input class="govuk-checkboxes__input" id="select-all-untested" type="checkbox">
+                    <label class="govuk-label govuk-checkboxes__label" for="select-all-untested">All</label>
+                  </div>
+                </div>
+              </th>
+              <th scope="col" class="govuk-table__header">Ear tag number</th>
+              <th scope="col" class="govuk-table__header">DOB</th>
+              <th scope="col" class="govuk-table__header">Sex</th>
+              <th scope="col" class="govuk-table__header">Breed</th>
+            </tr>
+          </thead>
+          <tbody class="govuk-table__body">
+            {% for animal in remainingAnimals %}
+              {% if loop.index0 % _pageSize == 0 %}
+                {% set _pageNumber = (loop.index0 / _pageSize) | int + 1 %}
+                <tr class="app-page-divider" id="page-{{ _pageNumber }}">
+                  <td colspan="5">
+                    <h2 class="govuk-heading-m">Page {{ _pageNumber }} of {{ _totalPages }}</h2>
+                  </td>
+                </tr>
+              {% endif %}
+              <tr class="govuk-table__row">
+                <td class="govuk-table__cell">
+                  <div class="govuk-checkboxes govuk-checkboxes--small">
+                    <div class="govuk-checkboxes__item">
+                      <input class="govuk-checkboxes__input js-untested-checkbox" id="untested-{{ loop.index }}" name="selectedAnimals" type="checkbox" value="{{ animal.officialId }}">
+                      <label class="govuk-label govuk-checkboxes__label" for="untested-{{ loop.index }}">
+                        <span class="govuk-visually-hidden">Select {{ animal.officialId }}</span>
+                      </label>
+                    </div>
+                  </div>
+                </td>
+                <td class="govuk-table__cell">
+                  <div class="app-ear-tag">
+                    <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--check">{{ animal.earTagParts.check }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ animal.earTagParts.individualStart }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--last4{% if animal.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                          {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
+                  </div>
+                </td>
+                <td class="govuk-table__cell{% if animal.isUnderTestAge %} app-dob-cell--under-age{% endif %}">{{ animal.dob }}</td>
+                <td class="govuk-table__cell">{{ animal.sex }}</td>
+                <td class="govuk-table__cell">{{ animal.breed }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% set reasonValue = formValues['reason'] %}
+      {% set reasonOtherValue = formValues['reasonOther'] %}
 
       {% set otherReasonInputHtml %}
         {{ govukInput({
@@ -155,33 +214,131 @@
         name: "reason",
         fieldset: {
           legend: {
-            text: "Reason for not testing",
+            text: "Reason these cattle were not tested",
             classes: "govuk-fieldset__legend--m"
           }
         },
+        hint: { text: "The reason will apply to all the animals you've selected." },
         value: reasonValue,
         errorMessage: { text: errors['reason'].text } if errors and errors['reason'],
         items: [
-          { value: "not-found",           text: "Cattle not found",                        checked: reasonValue == "not-found" },
-          { value: "deceased",            text: "Cattle deceased",                         checked: reasonValue == "deceased" },
-          { value: "withdrawn-export",    text: "Cattle withdrawn for export purposes",    checked: reasonValue == "withdrawn-export" },
-          { value: "withdrawn-slaughter", text: "Cattle withdrawn for slaughter",          checked: reasonValue == "withdrawn-slaughter" },
-          { value: "withdrawn-owner",     text: "Cattle withdrawn by the livestock owner", checked: reasonValue == "withdrawn-owner" },
+          { value: "return-visit",        text: "Could not be managed" },
+          { value: "could-not-read-day-2", text: "Missing on day 2" },
+          { value: "not-found",           text: "Cattle not found" },
+          { value: "deceased",            text: "Cattle deceased" },
+          { value: "withdrawn-export",    text: "Cattle withdrawn for export purposes" },
+          { value: "withdrawn-slaughter", text: "Cattle withdrawn for slaughter" },
+          { value: "withdrawn-owner",     text: "Cattle withdrawn by the livestock owner" },
           {
             value: "other",
             text: "Other reason",
-            checked: reasonValue == "other",
             conditional: { html: otherReasonInputHtml }
           }
         ]
       }) }}
 
-      <div class="govuk-button-group govuk-!-margin-top-6">
-        {{ govukButton({ text: "Save and continue" }) }}
+      {# Live "X of Y selected" counter. Moved from the top of the form to
+         here, next to the action button, matching the other selection
+         pages. The .js-selected-count span is updated by the script. #}
+      <p class="govuk-body govuk-!-margin-top-2">
+        You've selected <strong><span class="js-selected-count">0</span> of {{ remainingCount }}</strong> cattle
+      </p>
+
+      <div class="govuk-button-group govuk-!-margin-top-2">
+        {{ govukButton({ text: "Mark selected cattle", name: "markAction", value: "mark" }) }}
       </div>
+
+      <p class="govuk-body">
+        <button type="submit"
+                name="markAction"
+                value="skip-no-reason"
+                class="govuk-link"
+                style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
+          Skip and mark the rest as no reason given
+        </button>
+      </p>
 
     </form>
 
   </div>
 </div>
+
+<script>
+  // 1. The header "All" checkbox ticks / clears the row checkboxes, scoped
+  //    to the rows currently VISIBLE so it works with the filter.
+  // 2. The "You've selected X of Y" counter counts every checked box,
+  //    including any hidden by the filter.
+  // 3. The ear-tag filter narrows the visible rows, announces the count, and
+  //    hides the page dividers + jump nav while active.
+  document.addEventListener('DOMContentLoaded', function () {
+    var selectAll = document.getElementById('select-all-untested')
+    var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-untested-checkbox'))
+    if (!checkboxes.length) { return }
+    var counters = Array.prototype.slice.call(document.querySelectorAll('.js-selected-count'))
+    var filterBox = document.getElementById('reason-filter-box')
+    var filterInput = document.getElementById('reason-filter')
+    var status = document.getElementById('reason-filter-status')
+    var dividers = Array.prototype.slice.call(document.querySelectorAll('.app-page-divider'))
+    var jumpNav = document.querySelector('.app-page-nav')
+
+    function isVisible (c) { var tr = c.closest('tr'); return tr && tr.style.display !== 'none' }
+    function visibleCheckboxes () { return checkboxes.filter(isVisible) }
+
+    function updateCount () {
+      var checked = checkboxes.filter(function (c) { return c.checked }).length
+      counters.forEach(function (el) { el.textContent = checked })
+    }
+
+    function syncSelectAll () {
+      updateCount()
+      if (!selectAll) { return }
+      var vis = visibleCheckboxes()
+      var checked = vis.filter(function (c) { return c.checked }).length
+      selectAll.checked = vis.length > 0 && checked === vis.length
+      selectAll.indeterminate = checked > 0 && checked < vis.length
+    }
+
+    if (selectAll) {
+      selectAll.addEventListener('change', function () {
+        visibleCheckboxes().forEach(function (c) { c.checked = selectAll.checked })
+        syncSelectAll()
+      })
+    }
+    checkboxes.forEach(function (c) { c.addEventListener('change', syncSelectAll) })
+
+    function normalise (s) { return (s || '').toLowerCase().replace(/\s+/g, '') }
+
+    function applyFilter () {
+      var q = normalise(filterInput.value)
+      var filtering = q !== ''
+      var visible = 0
+      checkboxes.forEach(function (c) {
+        var tr = c.closest('tr')
+        var match = !filtering || normalise(c.value).indexOf(q) !== -1
+        tr.style.display = match ? '' : 'none'
+        if (match) { visible++ }
+      })
+      dividers.forEach(function (d) { d.style.display = filtering ? 'none' : '' })
+      if (jumpNav) { jumpNav.style.display = filtering ? 'none' : '' }
+      if (status) {
+        status.textContent = !filtering
+          ? ''
+          : (visible === 0
+              ? 'No cattle match “' + filterInput.value + '”'
+              : 'Showing ' + visible + ' of ' + checkboxes.length + ' cattle')
+      }
+      syncSelectAll()
+    }
+
+    if (filterInput && filterBox) {
+      filterBox.hidden = false
+      filterInput.addEventListener('input', applyFilter)
+      filterInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault() }
+      })
+    }
+
+    syncSelectAll()
+  })
+</script>
 {% endblock %}

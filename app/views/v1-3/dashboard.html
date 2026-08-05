@@ -30,6 +30,10 @@
   .app-task-list__line {
     margin: 0 0 4px;
   }
+  .app-task-list__meta {
+    color: #505a5f;
+    margin: 0 0 8px;
+  }
   .app-task-list__cph {
     color: #505a5f;
     margin: 16px 0 0;
@@ -82,26 +86,60 @@
           {% for farm in farmsInProgress %}
             <li class="app-task-list__item">
               <h3 class="govuk-heading-s app-task-list__farm">
-                <a class="govuk-link" href="{{ farm.href }}">{{ farm.farm }}</a>
+                <a class="govuk-link" href="{{ farm.href }}">{{ farm.titleLine }}</a>
               </h3>
-              {% if farm.preparedAtLabel %}
-                <p class="govuk-body app-task-list__line">
-                  List prepared on {{ farm.preparedAtLabel }} by {{ farm.user }}
-                </p>
+              {% if farm.locationLine %}
+                <p class="govuk-body-s app-task-list__meta">{{ farm.locationLine }}</p>
               {% endif %}
               {% if farm.todoTitle %}
                 <p class="govuk-body app-task-list__line">
                   To do: <strong>{{ farm.todoTitle }}</strong>
                 </p>
               {% endif %}
-              <p class="govuk-body-s app-task-list__cph">
-                CPH {{ farm.cph }}
+            </li>
+          {% endfor %}
+        </ul>
+        {% if showAllWorkInProgress %}
+          <p class="govuk-body govuk-!-margin-top-2">
+            <a class="govuk-link" href="/v1-3/dashboard/work-in-progress">View all {{ workInProgressTotal }} farms with work in progress</a>
+          </p>
+        {% endif %}
+      {% else %}
+        <p class="govuk-body">You have no work in progress.</p>
+      {% endif %}
+    </section>
+
+    {# ------------------------------------------------------------------
+       Recently completed – reports the vet has filed. A completed report
+       moves here from "Work in progress". Each row links to the farm's
+       page so the vet can view or reprint what they submitted.
+    ------------------------------------------------------------------ #}
+    <section class="app-dashboard-section">
+      <h2 class="govuk-heading-m">Recently completed</h2>
+
+      {% if completedReports and completedReports.length > 0 %}
+        <ul class="app-task-list">
+          {% for report in completedReports %}
+            <li class="app-task-list__item">
+              <h3 class="govuk-heading-s app-task-list__farm">
+                <a class="govuk-link" href="{{ report.href }}">{{ report.titleLine }}</a>
+              </h3>
+              {% if report.locationLine %}
+                <p class="govuk-body-s app-task-list__meta">{{ report.locationLine }}</p>
+              {% endif %}
+              <p class="govuk-body app-task-list__line">
+                {{ report.typeLabel }}{% if report.completedAtLabel %} completed on {{ report.completedAtLabel }}{% endif %}
               </p>
             </li>
           {% endfor %}
         </ul>
+        {% if showAllCompleted %}
+          <p class="govuk-body govuk-!-margin-top-2">
+            <a class="govuk-link" href="/v1-3/dashboard/completed">View all {{ completedTotal }} completed reports</a>
+          </p>
+        {% endif %}
       {% else %}
-        <p class="govuk-body">You have no work in progress.</p>
+        <p class="govuk-body">You have no recently completed work.</p>
       {% endif %}
     </section>
 

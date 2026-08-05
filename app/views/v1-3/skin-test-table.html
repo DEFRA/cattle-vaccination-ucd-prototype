@@ -273,6 +273,24 @@
     margin: 0;
     font-family: "GDS Transport", arial, sans-serif;
   }
+
+  /* A reactor left incomplete on submit. The red marker sits only
+     against the measurement (Day 1 / Day 2) cells - the boxes that need
+     filling - rather than every cell in the row. The prompt itself is
+     shown on a message row directly above the animal's row. */
+  .app-row--error .app-col-day { box-shadow: inset 5px 0 0 0 #d4351c; }
+  .app-error-row td {
+    border: 0;
+    background: transparent;
+    padding: 10px 10px 2px;
+    text-align: left;
+  }
+  .app-error-row__text {
+    color: #d4351c;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
 </style>
 
 <div class="govuk-grid-row">
@@ -288,7 +306,16 @@
       Record the readings for every reactor. The reaction description and overall result are calculated automatically as you enter measurements.
     </p>
 
-    <form action="/v1-3/skin-test-diva-table" method="post" novalidate>
+    {% if totalPages > 1 %}
+      <p class="govuk-body govuk-!-font-weight-bold">
+        Page {{ currentPage }} of {{ totalPages }}
+        <span class="govuk-!-font-weight-regular govuk-!-margin-left-2">Reactors {{ pageStart + 1 }} to {{ pageStart + entries.length }} of {{ totalReactors }}</span>
+      </p>
+    {% endif %}
+
+    <form action="/v1-3/skin-test-table" method="post" novalidate>
+
+      <input type="hidden" name="page" value="{{ currentPage }}">
 
       <table class="app-record-table">
         <thead>
@@ -311,15 +338,28 @@
            each cluster of reactors was. The table has 9 columns so
            the divider td uses colspan=9. #}
         <tbody>
-          {% set _prevSourcePage = 0 %}
           {% for entry in entries %}
-            {% if entry.sourcePage and entry.sourcePage != _prevSourcePage %}
+            {# Printed-list cross-reference. Each reactor knows which page
+               of the vet's printed sheet it came from (entry.sourcePage),
+               so a "From printed page N" divider is shown whenever that
+               changes. This is separate from the on-screen "Page X of Y"
+               pagination – it lets the vet find each animal on paper. #}
+            {% if entry.sourcePage and (loop.first or entries[loop.index0 - 1].sourcePage != entry.sourcePage) %}
               <tr class="app-page-divider">
                 <td colspan="9">
-                  <h2 class="govuk-heading-m">From page {{ entry.sourcePage }}</h2>
+                  <h2 class="govuk-heading-m">From printed page {{ entry.sourcePage }}</h2>
                 </td>
               </tr>
-              {% set _prevSourcePage = entry.sourcePage %}
+            {% endif %}
+            {# Validation prompt for an incomplete normal reactor – shown
+               on its own row directly above the animal's row so it sits
+               clear of the measurement cells (which carry the red marker). #}
+            {% if entry.rowError %}
+              <tr class="app-error-row">
+                <td colspan="9">
+                  <span class="app-error-row__text">Enter the Day 1 and Day 2 readings for this animal</span>
+                </td>
+              </tr>
             {% endif %}
             {# Each row's test is fixed by the active per-test phase
                (or the per-animal recommendation in legacy combined
@@ -327,7 +367,7 @@
                drive the DIVA/SICCT layout without a visible Test
                dropdown. The hidden input keeps the value flowing to
                the POST handler. #}
-            <tr class="app-row {% if entry.rowTest == 'DIVA' %}app-row--diva{% else %}app-row--sicct{% endif %}"
+            <tr class="app-row {% if entry.rowTest == 'DIVA' %}app-row--diva{% else %}app-row--sicct{% endif %}{% if entry.rowError %} app-row--error{% endif %}"
                 data-row-index="{{ entry.originalIndex }}"
                 data-row-test="{{ entry.rowTest }}">
               <td class="app-cell app-col-ear-tag">
@@ -438,7 +478,8 @@
                     <select class="govuk-select app-reaction-select app-avian-input"
                             id="avianOedema-{{ entry.originalIndex }}"
                             name="avianOedema-{{ entry.originalIndex }}">
-                      <option value="C"  {% if entry.avianOedema != 'SO' %}selected{% endif %}>C</option>
+                      <option value="">Select</option>
+                      <option value="C"  {% if not entry.avianOedema or entry.avianOedema == 'C' %}selected{% endif %}>C</option>
                       <option value="SO" {% if entry.avianOedema == 'SO' %}selected{% endif %}>SO</option>
                     </select>
                     <span class="app-reaction-mm app-reaction-desc-a"><span class="app-readout-placeholder">—</span></span>
@@ -450,7 +491,8 @@
                     <select class="govuk-select app-reaction-select"
                             id="bovineOedema-{{ entry.originalIndex }}"
                             name="bovineOedema-{{ entry.originalIndex }}">
-                      <option value="C"  {% if entry.bovineOedema != 'SO' %}selected{% endif %}>C</option>
+                      <option value="">Select</option>
+                      <option value="C"  {% if not entry.bovineOedema or entry.bovineOedema == 'C' %}selected{% endif %}>C</option>
                       <option value="SO" {% if entry.bovineOedema == 'SO' %}selected{% endif %}>SO</option>
                     </select>
                     <span class="app-reaction-mm app-reaction-desc-b"><span class="app-readout-placeholder">—</span></span>
@@ -501,6 +543,42 @@
         }) }}
       {% endif %}
 
+      {# Override for missing readings. Shown only after a submit that
+         left some measurements blank. A reading may be illegible or
+         impossible to take, so the vet can acknowledge the gaps and
+         submit anyway rather than being hard-blocked. #}
+      {% if showOverride %}
+        {{ govukWarningText({
+          text: "Some cattle are missing measurements. Enter the readings, or confirm you want to submit the report without them.",
+          iconFallbackText: "Warning",
+          classes: "govuk-!-margin-top-4"
+        }) }}
+        {{ govukCheckboxes({
+          name: "overrideMissingReadings",
+          classes: "govuk-checkboxes--small",
+          items: [
+            {
+              value: "yes",
+              text: "I would like to submit with blank entries."
+            }
+          ]
+        }) }}
+      {% endif %}
+
+      {# Repeat the page context next to the buttons. The table can be
+         long, so after scrolling to the bottom the vet has lost the
+         "Page X of Y" indicator at the top. This is plain text, not the
+         GOV.UK pagination component – that component is for navigating
+         content/search results, and its own guidance says not to use it
+         for a linear form journey like this one (use Continue + Back
+         instead, which this page does). #}
+      {% if totalPages > 1 %}
+        <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-top-4">
+          Page {{ currentPage }} of {{ totalPages }}
+          <span class="govuk-!-font-weight-regular govuk-!-margin-left-2">Reactors {{ pageStart + 1 }} to {{ pageStart + entries.length }} of {{ totalReactors }}</span>
+        </p>
+      {% endif %}
+
       <div class="govuk-button-group govuk-!-margin-top-4">
         {{ govukButton({ text: "Save and continue" }) }}
         {{ govukButton({
@@ -521,26 +599,23 @@
      1. Test switcher – toggles app-row--diva / --sicct on the row,
         which hides/shows the Avian sub-row and disables the Avian
         inputs when DIVA is active.
-     2. Live calc – on any measurement keystroke, recompute the
-        reaction description and overall result for that row.
-        SICCT uses the same threshold model as the server-side
-        rules engine in app/helpers/sicctInterpretation.js (see
-        BASE_THRESHOLDS there); the client-side mirror is a thin
-        copy so the on-screen result matches the value that will
-        actually be stored on submit. DIVA still uses the simpler
-        bovine-only thresholds described inline below.
-          DIVA (bovine increase):
-            < 2 mm  → Negative
-            2–4 mm → Inconclusive
-            ≥ 4 mm  → Positive (Reactor)
-          SICCT (bovine - avian increase), standard interpretation:
-            diff ≤ 0   → Pass (negative)
-            diff = 1   → Inconclusive
-            diff = 2   → Severe reactor (inconclusive band, would be
-                         a reactor under severe interpretation)
-            diff ≥ 3   → Reactor (positive)
-        PROTOTYPE thresholds – must be validated against the
-        official TB64 / SICCT matrix before production use.
+     2. Live calc – on any measurement or oedema change, recompute the
+        reaction description and overall result for that row. This is a
+        thin client-side mirror of the official TB64 rules in
+        app/helpers/sicctInterpretation.js, so the on-screen result
+        matches the value stored on submit.
+          Reaction is POSITIVE (+) if increase > 2 mm OR oedema (SO);
+          otherwise NEGATIVE (-). Let D = bovine increase − avian increase.
+          SICCT standard interpretation (shown here):
+            negative bovine                       → Pass
+            both positive and D ≤ 0               → Pass
+            positive bovine and D > 4             → Reactor
+            otherwise (positive bovine, D 1–4)    → Inconclusive reactor
+          DIVA (single reading): positive (> 2 mm or oedema) → Positive,
+          else Negative.
+        Severe interpretation (reactor at D > 2, or bovine +/avian −) is
+        applied server-side; see the helper for the standard/severe split
+        and the England/Scotland vs Wales note.
 ---------------------------------------------------------------- #}
 <script>
   (function () {
@@ -550,6 +625,20 @@
       if (!el) return NaN
       var v = parseFloat(el.value)
       return isNaN(v) ? NaN : v
+    }
+
+    // Read a select/text value (used for the C / SO oedema dropdowns).
+    function readStr(row, name) {
+      var idx = row.dataset.rowIndex
+      var el = row.querySelector('[name="' + name + '-' + idx + '"]')
+      return el ? String(el.value || '').trim().toUpperCase() : ''
+    }
+
+    // A reaction is positive if the increase is more than 2 mm, or any
+    // oedema (SO) is present. Mirrors isReactionPositive() in
+    // app/helpers/sicctInterpretation.js.
+    function isPositive(increaseMm, oedema) {
+      return increaseMm > 2 || oedema === 'SO'
     }
 
     // Populate one of the two Reaction-Desc sub-cells. Pass an empty
@@ -595,9 +684,9 @@
         || (row.querySelector('input[name^="test-"]') || {}).value
         || 'SICCT'
       if (test === 'DIVA') {
-        // DIVA – single reading, labelled "DIVA" in the reaction
-        // description (not "Bovine"). Anything over 2 mm registers
-        // as a reactor; everything else is negative.
+        // DIVA – single reading. A positive reaction (increase over 2 mm
+        // or oedema present) is a positive result; everything else is
+        // negative.
         var bPre = readNum(row, 'bovinePre')
         var bPost = readNum(row, 'bovinePost')
         if (isNaN(bPre) || isNaN(bPost)) {
@@ -605,13 +694,13 @@
         }
         var diff = bPost - bPre
         var descB = descLine('DIVA', diff)
-        if (diff > 2) return setReadout(row, '', descB, 'Positive', 'red')
+        if (isPositive(diff, readStr(row, 'bovineOedema'))) return setReadout(row, '', descB, 'Positive', 'red')
         return setReadout(row, '', descB, 'Negative', 'green')
       }
-      // SICCT – two reaction descriptions, one per site. Mirrors the
-      // server-side rules engine; oedema / reaction inputs aren't
-      // captured on the bulk table yet so the severity nudge is
-      // skipped client-side.
+      // SICCT – official TB64 standard interpretation (the default the
+      // report is stored at). Each reaction is first classified +/- (over
+      // 2 mm or oedema), then compared. Mirrors classifyStandard() in
+      // app/helpers/sicctInterpretation.js.
       var aPre = readNum(row, 'avianPre')
       var aPost = readNum(row, 'avianPost')
       var bp = readNum(row, 'bovinePre')
@@ -621,14 +710,19 @@
       }
       var aInc = aPost - aPre
       var bInc = bb - bp
-      var sdiff = bInc - aInc
+      var d = bInc - aInc
+      var bovinePos = isPositive(bInc, readStr(row, 'bovineOedema'))
+      var avianPos = isPositive(aInc, readStr(row, 'avianOedema'))
       var descA = descLine('Avian', aInc)
       var descBSicct = descLine('Bovine', bInc)
-      if (sdiff <= 0) return setReadout(row, descA, descBSicct, 'Pass', 'green')
-      if (sdiff >= 3) return setReadout(row, descA, descBSicct, 'Reactor', 'red')
-      if (sdiff >= 2) return setReadout(row, descA, descBSicct, 'Severe reactor', 'orange')
-      // sdiff === 1
-      return setReadout(row, descA, descBSicct, 'Inconclusive', 'yellow')
+      // A negative bovine reaction is always a Pass, regardless of D.
+      if (!bovinePos) return setReadout(row, descA, descBSicct, 'Pass', 'green')
+      // Positive bovine equal to or less than a positive avian – Pass.
+      if (avianPos && d <= 0) return setReadout(row, descA, descBSicct, 'Pass', 'green')
+      // Positive bovine more than 4 mm greater than avian – Reactor.
+      if (d > 4) return setReadout(row, descA, descBSicct, 'Reactor', 'red')
+      // Positive bovine 1–4 mm greater than avian – Inconclusive reactor.
+      return setReadout(row, descA, descBSicct, 'Inconclusive reactor', 'yellow')
     }
 
     function syncRow(row) {
@@ -653,7 +747,13 @@
       row.querySelectorAll('.app-meas-input').forEach(function (input) {
         input.addEventListener('input', function () { recalcRow(row) })
       })
+      // The C / SO oedema dropdowns feed the positive/negative gate, so
+      // recalculate when they change too.
+      row.querySelectorAll('.app-reaction-select').forEach(function (select) {
+        select.addEventListener('change', function () { recalcRow(row) })
+      })
     })
   })()
 </script>
+
 {% endblock %}
