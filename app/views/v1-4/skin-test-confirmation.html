@@ -1,0 +1,928 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check and send – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{# Back goes to the step the vet actually came from. /skin-test-measurements
+   is not in this journey at all - it belongs to the older one-animal-at-a-time
+   flow and only 302s away - so it was sending them somewhere they had never
+   been. The last step before this page is the add-cattle question, or the
+   added-cattle list when they added any. #}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-4/skin-test-added-cattle" if (addedEntries and addedEntries.length > 0) else "/v1-4/skin-test-add-cattle-question"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Ear-tag rendering – matches /v1-4/skin-test-reactors and the other
+     skin-test tables: an inline-flex wrapper (which drops the whitespace
+     between the digit-group spans, so the tag reads with no gaps) and a
+     bold last-4 segment. Without these styles the spans render as plain
+     inline elements and the HTML whitespace shows as spaces. */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 { padding: 0; font-weight: 700; }
+  /* Duplicate last-4 segment - heavy band above and below just the four
+     bold digits. The same treatment as the printed list and the review
+     table, because it is answering the same question: another animal on
+     this farm ends in these four digits, so read the whole number. */
+  .app-ear-tag__part--last4--duplicate {
+    border: 0;
+    border-top: 4px solid #000;
+    border-bottom: 4px solid #000;
+  }
+  /* ------------------------------------------------------------------
+     Recorded animals, laid out the way the paper sheet lays them out.
+
+     The vet is checking a screen against a printed TB64, so the columns
+     here are the sheet's columns in the sheet's order: number, ear tag,
+     site, pre, post, reaction, overall result, notes. Two rows per
+     animal - avian above bovine - with the ear tag spanning both,
+     exactly as it is printed.
+
+     A summary list's value column is roughly half of two thirds of the
+     page, which is nowhere near enough for eight columns, so this sits
+     outside the list at the full width of the page.
+  ------------------------------------------------------------------ */
+  /* The grid is wider than a phone. It scrolls inside this box so the
+     page itself never scrolls sideways (WCAG 1.4.10 Reflow); max-width
+     stops the box itself being stretched by its own content. */
+  .app-record-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+    min-width: 0;
+  }
+  /* Fixed layout so the Reacted grid and the Not tested grid put their
+     columns in the same places. Left to size themselves, two tables with
+     different content line up differently, and the eye reads that as two
+     unrelated tables rather than one list split in two. */
+  .app-record-check { margin-bottom: 0; table-layout: fixed; width: 100%; }
+  /* Back to the page's normal type size. The 16px was only there to fit
+     the grid into a two-thirds column; with the full width there is room
+     to read it at the same size as everything else. */
+  .app-record-check .govuk-table__header,
+  .app-record-check .govuk-table__cell {
+    padding: 10px 12px 10px 0;
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+  }
+  /* The ear tag and the animal's number belong to both of its rows, so
+     they are centred across the pair the way the sheet prints them. */
+  .app-record-check .app-rec-num,
+  .app-record-check .app-rec-tag { vertical-align: middle; }
+  /* Percentages, not rem: with table-layout fixed they are honoured
+     exactly and always total the table's width, so the two grids put
+     their columns in identical places and nothing overlaps its
+     neighbour when a value runs long. */
+  .app-record-check .app-rec-num {
+    width: 5%;
+    text-align: right;
+    color: #505a5f;
+    padding-right: 10px;
+  }
+  .app-record-check .app-rec-tag { width: 28%; padding-right: 12px; }
+  .app-record-check .app-rec-site { width: 6%; font-weight: 700; }
+  .app-record-check .app-rec-mm { width: 7%; }
+  .app-record-check .app-rec-reaction { width: 13%; }
+  .app-record-check .app-rec-result { width: 24%; padding-right: 10px; }
+  /* The note under the result: the reason an animal was not tested, or
+     the reference written in the sheet's Notes column. */
+  .app-rec-note { margin: 4px 0 0; color: #505a5f; }
+  /* Not tested grid: same number, ear tag and Change widths as the grid
+     above so they line up; the reason takes the space the measurement
+     columns would have used. */
+  .app-record-check--untested .app-rec-reason { width: 57%; }
+  .app-rec-tagline { margin-bottom: 4px; }
+
+  /* ------------------------------------------------------------------
+     The record bar, as on the review screen. Same component, same
+     reasons: 38 animals is more than a screenful and the vet checking
+     line 24 against the paper should not have to scroll back up.
+  ------------------------------------------------------------------ */
+  .app-review-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #fff;
+    border-bottom: 2px solid #b1b4b6;
+    margin-bottom: 20px;
+    max-width: 100%;
+  }
+  .app-page-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 20px;
+    background: #f3f2f1;
+    border-top: 1px solid #b1b4b6;
+    padding: 15px;
+  }
+  .app-sub-nav { padding-top: 5px; }
+  .app-page-nav__control { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .app-page-nav__label { margin: 0; white-space: nowrap; }
+  .app-page-nav__input { margin: 0; }
+  .app-page-nav__button { margin: 0; width: auto; min-height: 40px; }
+  .app-page-nav__button.govuk-button--secondary { border: 1px solid #505a5f; }
+  .app-page-nav__hint { margin: 0; }
+  .app-nav-status { margin: -12px 0 15px; }
+  .app-nav-status:empty { display: none; }
+  .app-sub-nav__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 15px;
+  }
+  .app-sub-nav__item { margin: 0; }
+  .app-sub-nav .app-sub-nav__link {
+    display: block;
+    padding: 10px 5px 6px;
+    border-bottom: 4px solid transparent;
+    text-decoration: none;
+  }
+  .app-sub-nav .app-sub-nav__link:hover { text-decoration: underline; }
+  .app-sub-nav .app-sub-nav__link[aria-current] {
+    color: #0b0c0c;
+    font-weight: 700;
+    border-bottom-color: #1d70b8;
+  }
+  .app-sub-nav__link--end {
+    margin-left: 5px;
+    border-left: 1px solid #b1b4b6;
+    padding-left: 20px;
+  }
+  @media (max-height: 30em) {
+    .app-review-bar { position: static; }
+  }
+  .app-review-bar.app-review-bar--unstuck { position: static; }
+
+  /* The sticky bar covers the top of the viewport, so an anchor jump
+     would otherwise land a page heading underneath it. */
+  .app-page-heading { scroll-margin-top: 9rem; margin-top: 30px; }
+  .app-page-heading:focus { outline: none; }
+  #check-submit { scroll-margin-top: 10rem; }
+  @media (max-width: 40.0625em) {
+    .app-page-heading { scroll-margin-top: 13rem; }
+    #check-submit { scroll-margin-top: 14rem; }
+  }
+
+  /* Structural things take the full width; things people read in lines
+     do not. GDS caps body text at two thirds for a reason, and the
+     container being wider does not change how far the eye can track. */
+  .govuk-grid-column-full > .govuk-body,
+  .govuk-grid-column-full > .govuk-warning-text,
+  .app-result-counts,
+  .app-declaration-prose { max-width: 38em; }
+  .govuk-checkboxes__label { max-width: 38em; }
+
+  .app-result-counts { margin-bottom: 20px; }
+  /* The submit button was sitting flush against the bottom of the last
+     table - no gap at all. It closes the page, so it gets room. */
+  .app-submit-group { margin-top: 30px; }
+  .app-submit-group:focus { outline: none; }
+  /* Clear is the answer for most of the herd, so it is quiet. */
+  .app-rec-clear { color: #505a5f; }
+  /* Quiet, but not invisible. #b1b4b6 was only 1.86:1 against white -
+     the dash is the sole visual signal that nothing was recorded here,
+     so it has to meet contrast like any other text. #505a5f is the
+     Design System's secondary text colour, 7:1. */
+  .app-rec-blank { color: #505a5f; }
+  /* The animal Go found, brought to the vet with the rest of the list
+     left exactly where it was. */
+  .app-rec-animal.app-rec-found > tr > td,
+  .app-rec-animal.app-rec-found > tr > th {
+    background: #fff7bf;
+  }
+  .app-rec-animal.app-rec-found { outline: 3px solid #ffdd00; }
+  .app-rec-animal:focus { outline: none; }
+  .app-record-check .app-rec-change {
+    width: 10%;
+    text-align: right;
+    padding-right: 0;
+    padding-left: 8px;
+  }
+  /* Column headings stay on one line: a heading wrapping mid-word makes
+     the grid taller than the rows it labels. */
+  .app-record-check thead .govuk-table__header { white-space: nowrap; }
+  .app-rec-nowrap { white-space: nowrap; }
+  /* The animal is one block of two rows. A rule between animals, not
+     between an animal's own avian and bovine lines. */
+  .app-record-check tbody.app-rec-animal + tbody.app-rec-animal {
+    border-top: 1px solid #b1b4b6;
+  }
+  .app-record-check tbody.app-rec-animal .govuk-table__cell,
+  .app-record-check tbody.app-rec-animal .govuk-table__header { border: 0; }
+  .app-rec-meta { margin: 2px 0 0; font-size: 16px; color: #505a5f; }
+  .app-rec-meta__sep { padding: 0 4px; }
+  .app-rec-empty { color: #505a5f; }
+</style>
+<div class="govuk-grid-row">
+  {# Full width, not two thirds. The check grid is eight columns of
+     tabular data and was being squeezed; everything on the page shares
+     the same width, so the page widens rather than the grid breaking
+     out of it. Prose is capped separately below - a 960px line of body
+     text is hard to read whatever the container does. #}
+  <div class="govuk-grid-column-full">
+
+    {% if data['addedAnotherEarTag'] %}
+      {{ govukNotificationBanner({
+        titleText: "Success",
+        type: "success",
+        html: "<h3 class='govuk-notification-banner__heading'>Added " + data['addedAnotherEarTag'] + " to this report</h3>"
+      }) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    <h1 class="govuk-heading-l">Check and send</h1>
+
+    <p class="govuk-body">
+      Check what you recorded against your paper list before you send it.
+    </p>
+
+    {% if isPartTest %}
+      {{ govukWarningText({
+        text: "You're reporting a part test",
+        iconFallbackText: "Warning"
+      }) }}
+    {% endif %}
+
+
+    {# Batch numbers entered on /skin-test-type are rendered as
+       bullet lists when there's more than one, or a plain line when
+       there's just one – matches how the vet entered them. When the
+       vet hasn't recorded anything earlier in the journey the page
+       falls back to a sensible dummy value so the prototype can be
+       demoed without forcing data entry. #}
+    {% set sicctBatchesHtml %}
+      {% if sicctBatches and sicctBatches.length > 1 %}
+        <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
+          {% for batch in sicctBatches %}<li>{{ batch }}</li>{% endfor %}
+        </ul>
+      {% elif sicctBatches and sicctBatches.length == 1 and sicctBatches[0] %}
+        {{ sicctBatches[0] }}
+      {% else %}
+        138009G
+      {% endif %}
+    {% endset %}
+
+    {% set divaBatchesHtml %}
+      {% if divaBatches and divaBatches.length > 1 %}
+        <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
+          {% for batch in divaBatches %}<li>{{ batch }}</li>{% endfor %}
+        </ul>
+      {% elif divaBatches and divaBatches.length == 1 and divaBatches[0] %}
+        {{ divaBatches[0] }}
+      {% else %}
+        447112F
+      {% endif %}
+    {% endset %}
+
+    {% set summaryRows = [
+      {
+        key: { text: "Farm" },
+        value: { text: data['herd']['farm'] }
+      },
+      {
+        key: { text: "CPH" },
+        value: { text: data['herd']['cph'] }
+      },
+      {
+        key: { text: "Day 1 (injection)" },
+        value: { text: day1Formatted or "Not recorded" },
+        actions: { items: [{ href: "/v1-4/skin-test-date", text: "Change", visuallyHiddenText: "day 1 date and start time" }] }
+      },
+      {
+        key: { text: "Day 2 (reading)" },
+        value: {
+          html: (day2Formatted or "Not recorded") + ('<br><span class="govuk-hint govuk-!-margin-bottom-0">Calculated as 72 hours after Day 1</span>' if day2Calculated and day2Formatted else '')
+        },
+        actions: { items: [{ href: "/v1-4/skin-test-date", text: "Change", visuallyHiddenText: "day 2 date and start time" }] }
+      },
+      {
+        key: { text: "Test type" },
+        value: { text: (skinTestType or data['skinTestType'] or "Not recorded") | replace('Both', 'DIVA and SICCT') },
+        actions: { items: [{ href: "/v1-4/skin-test-type", text: "Change", visuallyHiddenText: "test type" }] }
+      }
+    ] %}
+
+    {% if showSicct %}
+      {% set summaryRows = summaryRows.concat([{
+        key: { text: "SICCT batch" + ("es" if sicctBatches.length > 1 else "") },
+        value: { html: sicctBatchesHtml },
+        actions: { items: [{ href: "/v1-4/skin-test-batch-details/sicct", text: "Change", visuallyHiddenText: "SICCT batch numbers" }] }
+      }]) %}
+    {% endif %}
+
+    {% if showDiva %}
+      {% set summaryRows = summaryRows.concat([{
+        key: { text: "DIVA batch" + ("es" if divaBatches.length > 1 else "") },
+        value: { html: divaBatchesHtml },
+        actions: { items: [{ href: "/v1-4/skin-test-batch-details/diva", text: "Change", visuallyHiddenText: "DIVA batch numbers" }] }
+      }]) %}
+    {% endif %}
+
+    {{ govukSummaryList({ rows: summaryRows }) }}
+
+    {# ------------------------------------------------------------------
+       Reactor / untested / clear breakdown – this is the headline for
+       the vet: most cattle are clear, a few reacted (and need full
+       measurements), a few were not tested (with reasons).
+       The not-tested row carries an inline list of ear tags + reasons
+       so the vet doesn't have to scroll to a separate section.
+    ------------------------------------------------------------------ #}
+    <h2 class="govuk-heading-m">Results</h2>
+
+    {# Helper: render just the summary count for a reactor row. Used by
+       the Both journey, which splits reactors across two rows and has no
+       per-animal readings to show. #}
+    {% macro reactorListHtml(entries, count) %}
+      {{ count }} {{ "animal" if count == 1 else "animals" }}
+    {% endmacro %}
+
+    {# The ear tag, printed the way the sheet prints it: the last 4
+       digits bold, and banded top and bottom when another animal on this
+       farm ends in the same four. #}
+    {% macro earTag(row) %}
+      <span class="app-ear-tag">
+        <span class="app-ear-tag__prefix">{{ row.earTagParts.prefix }}</span><span class="app-ear-tag__part">{{ row.earTagParts.herd }}</span><span class="app-ear-tag__part">{{ row.earTagParts.check }}</span><span class="app-ear-tag__part">{{ row.earTagParts.individualStart }}</span><span class="app-ear-tag__part app-ear-tag__part--last4{% if row.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"{% if row.isDuplicate %} title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
+      </span>
+    {% endmacro %}
+
+    {% macro outcomeTag(row) %}
+      {%- if row.outcome == 'reactor' -%}
+        {{ govukTag({ text: "Reactor", classes: "govuk-tag--red" }) }}
+      {%- elif row.outcome == 'inconclusive' -%}
+        {{ govukTag({ text: "Inconclusive", classes: "govuk-tag--yellow" }) }}
+      {%- elif row.outcome == 'pass' -%}
+        {{ govukTag({ text: "Pass", classes: "govuk-tag--green" }) }}
+      {%- elif row.outcome == 'incomplete' -%}
+        {{ govukTag({ text: "Readings missing", classes: "govuk-tag--orange" }) }}
+      {%- elif row.outcome == 'not-tested' -%}
+        {{ govukTag({ text: "Not tested", classes: "govuk-tag--grey" }) }}
+        {%- if row.partTest %} {{ govukTag({ text: "Part test", classes: "govuk-tag--blue" }) }}{% endif -%}
+      {%- endif -%}
+    {% endmacro %}
+
+    {# One animal as two rows, avian above bovine, with the number, ear
+       tag, result and notes spanning the pair - the shape of a row on
+       the printed sheet. #}
+    {% macro recordedAnimal(row) %}
+      <tbody class="govuk-table__body app-rec-animal">
+        <tr class="govuk-table__row">
+          <td class="govuk-table__cell app-rec-num" rowspan="2">{{ row.n }}</td>
+          <td class="govuk-table__cell app-rec-tag" rowspan="2">
+            {{ earTag(row) }}
+            <p class="app-rec-meta">
+              <span>
+                {%- if row.sex == 'F' -%}Female{% elif row.sex == 'M' %}Male{% else %}{{ row.sex }}{% endif -%}
+              </span>
+              <span class="app-rec-meta__sep" aria-hidden="true">·</span>
+              <span><span class="govuk-visually-hidden">Breed </span>{{ row.breed }}</span>
+            </p>
+          </td>
+          <th scope="row" class="govuk-table__header app-rec-site">
+            <span aria-hidden="true">A</span><span class="govuk-visually-hidden">Avian</span>
+          </th>
+          <td class="govuk-table__cell app-rec-mm">{{ row.measurements.avianBeforeInjection if row.measurements and row.measurements.avianBeforeInjection else '—' }}</td>
+          <td class="govuk-table__cell app-rec-mm">{{ row.measurements.avianAfter72Hours if row.measurements and row.measurements.avianAfter72Hours else '—' }}</td>
+          <td class="govuk-table__cell app-rec-reaction">
+            {%- if not row.measurements -%}<span class="app-rec-empty">—</span>
+            {%- elif row.measurements.avianOedema == 'SO' -%}SO
+            {%- else -%}C{%- endif -%}
+          </td>
+          {# Result and its note together. A separate Notes column meant
+             nine columns in the width of a summary list, which crowded
+             the ear tag and the result tag into each other; the note
+             belongs to the result anyway. #}
+          <td class="govuk-table__cell app-rec-result" rowspan="2">
+            {{ outcomeTag(row) }}
+            {%- if row.reasonLabel %}<p class="app-rec-note">{{ row.reasonLabel }}</p>{% endif -%}
+            {%- if row.reactorReference %}<p class="app-rec-note">Tag {{ row.reactorReference }}</p>{% endif -%}
+          </td>
+          {# One Change per animal, spanning its two rows. Named for the
+             animal it belongs to, because a column of identical "Change"
+             links is unusable to anyone reading them out of context. #}
+          <td class="govuk-table__cell app-rec-change" rowspan="2">
+            <a class="govuk-link" href="/v1-4/skin-test-reactors">Change<span class="govuk-visually-hidden"> the result for animal {{ row.n }}, {{ row.officialId }}</span></a>
+          </td>
+        </tr>
+        <tr class="govuk-table__row">
+          <th scope="row" class="govuk-table__header app-rec-site">
+            <span aria-hidden="true">B</span><span class="govuk-visually-hidden">Bovine</span>
+          </th>
+          <td class="govuk-table__cell app-rec-mm">{{ row.measurements.bovineBeforeInjection if row.measurements and row.measurements.bovineBeforeInjection else '—' }}</td>
+          <td class="govuk-table__cell app-rec-mm">{{ row.measurements.bovineAfter72Hours if row.measurements and row.measurements.bovineAfter72Hours else '—' }}</td>
+          <td class="govuk-table__cell app-rec-reaction">
+            {%- if not row.measurements -%}<span class="app-rec-empty">—</span>
+            {%- elif row.measurements.bovineOedema == 'SO' -%}SO
+            {%- else -%}C{%- endif -%}
+          </td>
+        </tr>
+      </tbody>
+    {% endmacro %}
+
+    {# One grid for the whole list. An animal with readings takes two
+       rows, avian above bovine, exactly as the sheet prints it. An animal
+       without readings - clear, or never tested - takes one, and the four
+       measurement columns are simply not drawn for it rather than filled
+       with a row of em dashes.
+
+       Columns are the sheet's columns in the sheet's order, abbreviated
+       the way the sheet abbreviates them, which is what lets eight fit in
+       the width of the page. #}
+    {% macro checkTable(rows, caption) %}
+      <div class="app-record-scroll">
+        <table class="govuk-table govuk-table--small-text-until-tablet app-record-check">
+          <caption class="govuk-table__caption govuk-visually-hidden">{{ caption }}</caption>
+          <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+              <th scope="col" class="govuk-table__header app-rec-num">#</th>
+              <th scope="col" class="govuk-table__header app-rec-tag">Ear tag</th>
+              {# No visible heading: the column holds A and B, which the
+                 rows either side of it explain by context, and the word
+                 was taking width the readings needed. The name is kept
+                 for anyone who cannot see that context. #}
+              <th scope="col" class="govuk-table__header app-rec-site">
+                <span class="govuk-visually-hidden">Site, A for avian and B for bovine</span>
+              </th>
+              <th scope="col" class="govuk-table__header app-rec-mm">Pre<span class="govuk-visually-hidden"> in millimetres</span></th>
+              <th scope="col" class="govuk-table__header app-rec-mm">Post<span class="govuk-visually-hidden"> in millimetres</span></th>
+              <th scope="col" class="govuk-table__header app-rec-reaction">Reaction</th>
+              <th scope="col" class="govuk-table__header app-rec-result">Result</th>
+              <th scope="col" class="govuk-table__header app-rec-change"><span class="govuk-visually-hidden">Change</span></th>
+            </tr>
+          </thead>
+          {% for row in rows %}
+            <tbody class="govuk-table__body app-rec-animal" data-n="{{ row.n }}" data-ear-tag="{{ row.officialId }}">
+              {% if row.measurements %}
+                <tr class="govuk-table__row">
+                  <td class="govuk-table__cell app-rec-num" rowspan="2">{{ row.n }}</td>
+                  <td class="govuk-table__cell app-rec-tag" rowspan="2">{{ animalCell(row) }}</td>
+                  <th scope="row" class="govuk-table__header app-rec-site">
+                    <span aria-hidden="true">A</span><span class="govuk-visually-hidden">Avian</span>
+                  </th>
+                  <td class="govuk-table__cell app-rec-mm">{{ row.measurements.avianBeforeInjection or "—" }}</td>
+                  <td class="govuk-table__cell app-rec-mm">{{ row.measurements.avianAfter72Hours or "—" }}</td>
+                  <td class="govuk-table__cell app-rec-reaction">{{ "SO" if row.measurements.avianOedema == 'SO' else "C" }}</td>
+                  <td class="govuk-table__cell app-rec-result" rowspan="2">{{ resultCell(row) }}</td>
+                  <td class="govuk-table__cell app-rec-change" rowspan="2">{{ changeCell(row) }}</td>
+                </tr>
+                <tr class="govuk-table__row">
+                  <th scope="row" class="govuk-table__header app-rec-site">
+                    <span aria-hidden="true">B</span><span class="govuk-visually-hidden">Bovine</span>
+                  </th>
+                  <td class="govuk-table__cell app-rec-mm">{{ row.measurements.bovineBeforeInjection or "—" }}</td>
+                  <td class="govuk-table__cell app-rec-mm">{{ row.measurements.bovineAfter72Hours or "—" }}</td>
+                  <td class="govuk-table__cell app-rec-reaction">{{ "SO" if row.measurements.bovineOedema == 'SO' else "C" }}</td>
+                </tr>
+              {% else %}
+                <tr class="govuk-table__row">
+                  <td class="govuk-table__cell app-rec-num">{{ row.n }}</td>
+                  <td class="govuk-table__cell app-rec-tag">{{ animalCell(row) }}</td>
+                  {# No readings were taken. One dash across the four
+                     measurement columns rather than four, which on a list
+                     where most animals are clear would be a wall of
+                     punctuation - but not nothing either, because an
+                     empty cell reads as data that failed to arrive
+                     rather than data that was never taken.
+
+                     The dash is decoration; a screen reader gets the
+                     words, because "dash" in a column of numbers says
+                     nothing useful. #}
+                  <td class="govuk-table__cell app-rec-blank" colspan="4">
+                    <span aria-hidden="true">&mdash;</span>
+                    <span class="govuk-visually-hidden">No readings taken</span>
+                  </td>
+                  <td class="govuk-table__cell app-rec-result">{{ resultCell(row) }}</td>
+                  <td class="govuk-table__cell app-rec-change">{{ changeCell(row) }}</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          {% endfor %}
+        </table>
+      </div>
+    {% endmacro %}
+
+    {% macro animalCell(row) %}
+      {{ earTag(row) }}
+      <p class="app-rec-meta">
+        <span>
+          {%- if row.sex == 'F' -%}Female{% elif row.sex == 'M' %}Male{% else %}{{ row.sex }}{% endif -%}
+        </span>
+        <span class="app-rec-meta__sep" aria-hidden="true">·</span>
+        <span><span class="govuk-visually-hidden">Breed </span>{{ row.breed }}</span>
+      </p>
+    {% endmacro %}
+
+    {# Clear is plain text, not a tag. It is the answer for most of the
+       herd, and 35 grey tags would bury the four that are not. #}
+    {% macro resultCell(row) %}
+      {%- if row.outcome == 'clear' -%}
+        <span class="app-rec-clear">Clear</span>
+      {%- else -%}
+        {{ outcomeTag(row) }}
+        {%- if row.reasonLabel %}<p class="app-rec-note">{{ row.reasonLabel }}</p>{% endif -%}
+        {%- if row.reactorReference %}<p class="app-rec-note">Tag {{ row.reactorReference }}</p>{% endif -%}
+      {%- endif -%}
+    {% endmacro %}
+
+    {# Straight to the animal, not to the top of a list of 38. The review
+       page reads the fragment on load and brings that row to the vet, the
+       same way its own Go control does. #}
+    {% macro changeCell(row) %}
+      <a class="govuk-link" href="/v1-4/skin-test-reactors#animal-{{ row.n }}">Change<span class="govuk-visually-hidden"> the result for animal {{ row.n }}, {{ row.officialId }}</span></a>
+    {% endmacro %}
+
+    {# Counts for the headline. checkList holds every animal now, so these
+       test for the status they want rather than treating anything that is
+       not "not tested" as a reaction. #}
+    {% set checkedReacted = [] %}
+    {% set checkedNotTested = [] %}
+    {% for row in checkList %}
+      {% if row.status == 'not-tested' %}
+        {% set _ = checkedNotTested.push(row) %}
+      {% elif row.status == 'reaction' %}
+        {% set _ = checkedReacted.push(row) %}
+      {% endif %}
+    {% endfor %}
+
+    {# Single "Reacted" cell content for non-Both journeys. The Both
+       journey uses two separate rows below (one for SICCT, one for
+       DIVA), so this fallback is only used for SICCT-only and
+       DIVA-only reports. #}
+    {% set reactedHtml %}
+      {{ reactorListHtml(reactorEntries, reactorCount) }}
+    {% endset %}
+
+    {# "Not tested" cell. Part-test animals (still to test on a return
+       visit / missing on day 2) are now included in this count and
+       flagged with a "Part test" tag, rather than sitting in a separate
+       "Still to test" row. The per-animal list with each reason is
+       reached via the Change link. #}
+    {% set notTestedTotal = (untestedCount or 0) + (stillToTestCount or 0) %}
+    {% set notTestedHtml %}
+      {% if stillToTestCount and stillToTestCount > 0 %}{{ govukTag({ text: "Part test", classes: "govuk-tag--blue" }) }} {% endif %}{{ notTestedTotal }} {{ "animal" if notTestedTotal == 1 else "animals" }}
+    {% endset %}
+
+    {% set sicctReactedHtml %}
+      {{ reactorListHtml(sicctReactorEntries, sicctReactorCount) }}
+    {% endset %}
+    {% set divaReactedHtml %}
+      {{ reactorListHtml(divaReactorEntries, divaReactorCount) }}
+    {% endset %}
+
+    {# Declaration row – the vet's "all cattle tested?" answer from
+       /skin-test-all-tested. Sits as the final row of the Results
+       summary list so it reads as the closing confirmation. #}
+    {% set declarationText = "Not confirmed" %}
+    {% if data['allCattleTestedReport'] == 'yes' %}
+      {% set declarationText = "Confirmed all cattle were tested" %}
+    {% elif data['allCattleTestedReport'] == 'no' %}
+      {% set declarationText = "Some cattle were not tested" %}
+    {% endif %}
+    {% set declarationRow = {
+      key: { text: "Declaration" },
+      value: { text: declarationText },
+      actions: { items: [{ href: "/v1-4/skin-test-all-tested", text: "Change", visuallyHiddenText: "the declaration that all cattle were tested" }] }
+    } %}
+
+    {% if isBothJourney %}
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Reacted to SICCT" },
+            value: { html: sicctReactedHtml },
+            actions: { items: [{ href: "/v1-4/skin-test-reactors-any", text: "Change", visuallyHiddenText: "which cattle reacted to SICCT" }] }
+          },
+          {
+            key: { text: "Reacted to DIVA" },
+            value: { html: divaReactedHtml },
+            actions: { items: [{ href: "/v1-4/skin-test-reactors-any", text: "Change", visuallyHiddenText: "which cattle reacted to DIVA" }] }
+          },
+          {
+            key: { text: "Not tested" },
+            value: { html: notTestedHtml },
+            actions: { items: [{ href: "/v1-4/skin-test-untested", text: "Change", visuallyHiddenText: "which cattle were not tested" }] }
+          },
+          {
+            key: { text: "Negative" },
+            value: { text: clearCount + (" animal" if clearCount == 1 else " animals") },
+            actions: { items: [{ href: "/v1-4/skin-test-reactors-any", text: "Change", visuallyHiddenText: "to mark a clear animal as a reactor" }] }
+          },
+          declarationRow
+        ]
+      }) }}
+    {% else %}
+      {# ------------------------------------------------------------------
+         Reacted and Not tested are no longer summary rows. The count they
+         carried now sits in each section's own heading, above the grid
+         that lists those animals, so the count and the animals it counts
+         are never separated. Each animal carries its own Change link, so
+         the section-level ones are gone with the rows.
+
+         Clear is the exception and stays a summary row: there is nothing
+         to list. It sits last, after the animals that need checking,
+         because it is the residue - whatever was not one of the above.
+      ------------------------------------------------------------------ #}
+      {# The counts, on one line. They are the headline; the list below
+         is the detail, so they do not each need a row of their own. #}
+      <p class="govuk-body app-result-counts">
+        <strong>{{ checkedReacted.length }}</strong> reacted,
+        <strong>{{ checkedNotTested.length }}</strong> not tested,
+        <strong>{{ clearCount }}</strong> clear.
+      </p>
+
+      {% set _pageSize = 18 %}
+      {% set _totalPages = ((checkList.length + _pageSize - 1) / _pageSize) | int %}
+      {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+
+      {# The same bar as the review screen, for the same reason: 38
+         animals is more than a screenful, and the vet checking line 24
+         against the paper should not have to scroll back up to get
+         there. Read-only here, so Go moves and highlights rather than
+         putting focus in a field. #}
+      <div class="app-review-bar" id="check-page-nav">
+        <nav class="app-page-nav" aria-label="Find an animal">
+          <div class="app-page-nav__control">
+            <label class="govuk-label app-page-nav__label" for="check-go-to">Go to</label>
+            <input class="govuk-input govuk-input--width-5 app-page-nav__input"
+                   id="check-go-to" type="text" autocomplete="off" maxlength="14"
+                   aria-describedby="check-go-to-hint check-nav-status">
+            <button type="button" class="govuk-button govuk-button--secondary app-page-nav__button" id="check-go-to-button">
+              Go<span class="govuk-visually-hidden"> to animal</span>
+            </button>
+            <span class="govuk-hint app-page-nav__hint" id="check-go-to-hint">Animal number, or the last 4 digits of the ear tag</span>
+          </div>
+        </nav>
+
+        {% if _totalPages > 1 %}
+          <nav class="app-sub-nav" aria-label="Move through the cattle list">
+            <ul class="app-sub-nav__list">
+              {% for _p in range(1, _totalPages + 1) %}
+                <li class="app-sub-nav__item">
+                  <a class="govuk-link app-sub-nav__link" href="#check-page-{{ _p }}" data-page="{{ _p }}"{% if _p == 1 %} aria-current="true"{% endif %}>Page {{ _p }}</a>
+                </li>
+              {% endfor %}
+              <li class="app-sub-nav__item">
+                <a class="govuk-link app-sub-nav__link app-sub-nav__link--end" href="#check-submit">End<span class="govuk-visually-hidden"> of the list</span></a>
+              </li>
+            </ul>
+          </nav>
+        {% endif %}
+      </div>
+      <p class="govuk-body govuk-!-font-weight-bold app-nav-status" id="check-nav-status" role="status" aria-live="polite"></p>
+
+      {% for _page in range(0, _totalPages) %}
+        {% set _start = _page * _pageSize %}
+        {% set _pageRows = checkList.slice(_start, _start + _pageSize) %}
+        <h3 class="govuk-heading-s app-page-heading" id="check-page-{{ _page + 1 }}" tabindex="-1">
+          Page {{ _page + 1 }} of {{ _totalPages }}
+        </h3>
+        {{ checkTable(_pageRows, "Page " + (_page + 1) + " of " + _totalPages + " of the cattle list") }}
+      {% endfor %}
+    {% endif %}
+
+    {# ------------------------------------------------------------------
+       Animals added in this report (not on the original list). Each
+       row mirrors the Change-link pattern used on the rows above:
+       one summary-list row per animal with a single "Change" action
+       that opens an edit page (where the vet can update the details
+       or remove the animal entirely).
+    ------------------------------------------------------------------ #}
+    {% if addedEntries and addedEntries.length > 0 %}
+      <h2 class="govuk-heading-m govuk-!-margin-top-6">Cattle added</h2>
+      {# Summary row only. The vet changes each added animal individually
+         on /skin-test-added-cattle (reached via the Change link), rather
+         than seeing every added animal listed out here. #}
+      <dl class="govuk-summary-list">
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Added to list</dt>
+          <dd class="govuk-summary-list__value">
+            {{ addedEntries.length }} {{ "animal" if addedEntries.length == 1 else "cattle" }}
+          </dd>
+          <dd class="govuk-summary-list__actions">
+            <a class="govuk-link" href="/v1-4/skin-test-added-cattle">
+              Change<span class="govuk-visually-hidden"> the cattle added to this report</span>
+            </a>
+          </dd>
+        </div>
+      </dl>
+    {% endif %}
+
+
+    {# ------------------------------------------------------------------
+       Declaration. On this page rather than one of its own, because the
+       thing being declared is the list directly above it - a vet who has
+       to remember what they saw on the previous screen is not really
+       checking anything.
+
+       The wording follows the report: it can only claim every animal was
+       tested when every animal was. On a part test it claims what is
+       actually true instead.
+    ------------------------------------------------------------------ #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">Declaration</h2>
+
+    <form action="/v1-4/skin-test-confirmation" method="post" novalidate>
+      {% if declarationError %}
+        <p class="govuk-error-message" id="declaration-error">
+          <span class="govuk-visually-hidden">Error:</span>
+          You must confirm the results before you submit
+        </p>
+      {% endif %}
+
+      <div class="govuk-form-group {% if declarationError %}govuk-form-group--error{% endif %}">
+        <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+          <div class="govuk-checkboxes__item">
+            <input class="govuk-checkboxes__input" id="declaration" name="declaration" type="checkbox" value="confirmed"
+                   {% if declarationConfirmed %}checked{% endif %}
+                   {% if declarationError %}aria-describedby="declaration-error"{% endif %}>
+            <label class="govuk-label govuk-checkboxes__label" for="declaration">
+              {% if checkedNotTested.length %}
+                I confirm that I tested the cattle recorded above, that these results are correct, and that the
+                {{ checkedNotTested.length }} {{ "animal" if checkedNotTested.length == 1 else "animals" }}
+                marked as not tested could not be tested for the reasons given
+              {% else %}
+                I confirm that I tested all {{ checkList.length }} cattle on this list and that these results are correct
+              {% endif %}
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="govuk-button-group app-submit-group" id="check-submit" tabindex="-1">
+        {{ govukButton({ text: "Accept and submit part test" if isPartTest else "Accept and submit" }) }}
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<script>
+  (function () {
+    // The record bar, read-only twin of the one on the review screen.
+    // Same matching rules, same page marking; the difference is that
+    // there is no field to put focus in here, so Go moves focus to the
+    // animal's own row instead.
+    var rows = [].slice.call(document.querySelectorAll('.app-record-check tbody.app-rec-animal'))
+    if (!rows.length) return
+
+    var navStatus = document.getElementById('check-nav-status')
+    var goInput = document.getElementById('check-go-to')
+    var goButton = document.getElementById('check-go-to-button')
+    var subLinks = [].slice.call(document.querySelectorAll('.app-sub-nav__link'))
+    var pageTables = [].slice.call(document.querySelectorAll('.app-record-check'))
+    var totalPages = pageTables.length
+
+    function say(message) { if (navStatus) navStatus.textContent = message || '' }
+    function normTag(v) { return String(v || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase() }
+
+    function markPage(n) {
+      subLinks.forEach(function (link) {
+        if (link.getAttribute('data-page') === String(n)) link.setAttribute('aria-current', 'true')
+        else link.removeAttribute('aria-current')
+      })
+    }
+
+    function pageOfRow(row) {
+      var table = row.closest && row.closest('.app-record-check')
+      var i = pageTables.indexOf(table)
+      return i === -1 ? 1 : i + 1
+    }
+
+    function goToPage(n) {
+      var heading = document.getElementById('check-page-' + n)
+      if (!heading) return false
+      heading.focus()
+      heading.scrollIntoView({ block: 'start' })
+      markPage(n)
+      return true
+    }
+
+    subLinks.forEach(function (link) {
+      if (!link.hasAttribute('data-page')) return
+      link.addEventListener('click', function (event) {
+        event.preventDefault()
+        goToPage(parseInt(link.getAttribute('data-page'), 10))
+        say('')
+      })
+    })
+
+    var endLink = document.querySelector('.app-sub-nav__link--end')
+    if (endLink) {
+      endLink.addEventListener('click', function (event) {
+        var target = document.getElementById('check-submit')
+        if (!target) return
+        event.preventDefault()
+        target.focus()
+        target.scrollIntoView({ block: 'end' })
+        say('')
+      })
+    }
+
+    // Up to 3 characters reads as the number in the # column; 4 or more
+    // as an ear tag. Whichever finds nothing, the other is tried.
+    function findMatch(raw) {
+      var q = normTag(raw)
+      if (!q) return { error: 'Enter an animal number or ear tag' }
+      var byTag = rows.filter(function (r) {
+        return normTag(r.getAttribute('data-ear-tag')).slice(-q.length) === q
+      })
+      var byNumber = /^[0-9]{1,3}$/.test(q)
+        ? rows.filter(function (r) { return r.getAttribute('data-n') === String(parseInt(q, 10)) })[0]
+        : null
+      if (q.length >= 4 && byTag.length) return { row: byTag[0], tags: byTag.length }
+      if (byNumber) return { row: byNumber }
+      if (byTag.length) return { row: byTag[0], tags: byTag.length }
+      return { error: 'No animal on this list matches ' + raw }
+    }
+
+    var sayTimer = null
+    function sayLater(message) {
+      window.clearTimeout(sayTimer)
+      sayTimer = window.setTimeout(function () { say(message) }, 900)
+    }
+
+    function goTo() {
+      rows.forEach(function (r) { r.classList.remove('app-rec-found') })
+      window.clearTimeout(sayTimer)
+      var found = findMatch(goInput.value)
+      if (found.error) return say(found.error)
+      var row = found.row
+      row.classList.add('app-rec-found')
+      row.scrollIntoView({ block: 'center' })
+      // Nothing on this page is focusable inside a row, so the row itself
+      // takes focus - otherwise the next Tab would go back to the bar.
+      if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex', '-1')
+      row.focus()
+      markPage(pageOfRow(row))
+      if (found.tags > 1) {
+        sayLater(found.tags + ' animals end in those digits. Showing the first, animal '
+          + row.getAttribute('data-n') + ', ' + row.getAttribute('data-ear-tag'))
+      } else {
+        say('')
+      }
+    }
+
+    if (goButton) goButton.addEventListener('click', goTo)
+    if (goInput) goInput.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter') return
+      event.preventDefault()
+      goTo()
+    })
+
+    // Which page is on screen, measured from the row nearest the middle
+    // of the readable area so it agrees with what Go does.
+    var rowPages = rows.map(pageOfRow)
+    function syncCurrentPage() {
+      if (!subLinks.length) return
+      var bar = document.getElementById('check-page-nav')
+      var top = bar ? bar.getBoundingClientRect().bottom : 0
+      var middle = top + (window.innerHeight - top) / 2
+      var best = 0, bestGap = Infinity
+      for (var i = 0; i < rows.length; i++) {
+        var box = rows[i].getBoundingClientRect()
+        var gap = Math.abs((box.top + box.bottom) / 2 - middle)
+        if (gap < bestGap) { bestGap = gap; best = i }
+      }
+      markPage(rowPages[best])
+    }
+    var queued = false
+    function queueSync() {
+      if (queued) return
+      queued = true
+      window.requestAnimationFrame(function () { queued = false; syncCurrentPage() })
+    }
+    window.addEventListener('scroll', queueSync, { passive: true })
+    window.addEventListener('resize', queueSync)
+    syncCurrentPage()
+
+    // A sticky bar is only worth its place while there is a list left to
+    // see underneath it.
+    function checkBarHeight() {
+      var bar = document.getElementById('check-page-nav')
+      if (!bar) return
+      bar.classList.remove('app-review-bar--unstuck')
+      if (bar.getBoundingClientRect().height > window.innerHeight * 0.25) {
+        bar.classList.add('app-review-bar--unstuck')
+      }
+    }
+    window.addEventListener('resize', checkBarHeight)
+    checkBarHeight()
+  })()
+</script>
+
+{% endblock %}

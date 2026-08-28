@@ -1,0 +1,22 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+Report submitted details – GOV.UK Prototype Kit
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-4/confirm-herd-or-animal-to-report"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    <h1 class="govuk-heading-l">This part of the journey has not been built yet</h1>
+    <p class="govuk-body">You can still continue to test the vaccination reporting journey from the dashboard.</p>
+    <p class="govuk-body"><a href="/v1-4/dashboard" class="govuk-link">Go to the dashboard</a></p>
+  </div>
+</div>
+{% endblock %}

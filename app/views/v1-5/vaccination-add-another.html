@@ -1,0 +1,165 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  {% if isEditMode %}
+    Change details for {{ originalEarTag }} – GOV.UK
+  {% else %}
+    Add cattle – GOV.UK
+  {% endif %}
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-5/vaccination-add-cattle-question"
+}) }}
+{% endblock %}
+
+{# Accessible autocomplete styles (from alphagov/accessible-autocomplete),
+   inlined so the breed picker is styled even offline. The library's
+   JavaScript is loaded in the scripts block below; if it fails to load the
+   breed field stays a working GOV.UK select. #}
+{% block stylesheets %}
+  {{ super() }}
+  <style>
+  .autocomplete__wrapper{position:relative}.autocomplete__hint,.autocomplete__input{-webkit-appearance:none;appearance:none;border:2px solid #0b0c0c;border-radius:0;box-sizing:border-box;height:2.5rem;line-height:1.25;margin-bottom:0;width:100%}.autocomplete__input{background-color:transparent;position:relative}.autocomplete__hint{color:#505a5f;position:absolute}.autocomplete__input--default{padding:5px}.autocomplete__input--focused{box-shadow:inset 0 0 0 2px;outline:3px solid #fd0;outline-offset:0}.autocomplete__input--show-all-values{cursor:pointer;padding:5px 35px 5px 5px}.autocomplete__dropdown-arrow-down{display:inline-block;height:24px;position:absolute;right:8px;top:10px;width:24px;z-index:-1}.autocomplete__menu{background-color:#fff;border:2px solid #0b0c0c;border-top:0;color:#0b0c0c;margin:0;max-height:342px;overflow-x:hidden;padding:0;width:100%;width:calc(100% - 4px)}.autocomplete__menu--visible{display:block}.autocomplete__menu--hidden{display:none}.autocomplete__menu--overlay{box-shadow:0 2px 6px rgba(0,0,0,.257);left:0;position:absolute;top:100%;z-index:100}.autocomplete__menu--inline{position:relative}.autocomplete__option{border-bottom:1px solid #b1b4b6;border-left-width:0;border-right-width:0;border-top-width:1px;cursor:pointer;display:block;position:relative}.autocomplete__option>*{pointer-events:none}.autocomplete__option:first-of-type{border-top-width:0}.autocomplete__option:last-of-type{border-bottom-width:0}.autocomplete__option--odd{background-color:#f3f2f1}.autocomplete__option--focused,.autocomplete__option:hover{background-color:#1d70b8;border-color:#1d70b8;color:#fff;outline:none}@media (-ms-high-contrast:active),(forced-colors:active){.autocomplete__menu{border-color:FieldText}.autocomplete__option{background-color:Field;color:FieldText}.autocomplete__option--focused,.autocomplete__option:hover{background-color:Highlight;background-color:SelectedItem;border-color:SelectedItem;color:HighlightText;color:SelectedItemText;forced-color-adjust:none;outline-color:SelectedItemText}}.autocomplete__option--no-results{background-color:#f3f2f1;color:#505a5f;cursor:not-allowed}.autocomplete__hint,.autocomplete__input,.autocomplete__option{font-size:1rem;font-weight:400}.autocomplete__hint,.autocomplete__option{padding:5px}@media (min-width:641px){.autocomplete__hint,.autocomplete__input,.autocomplete__option{font-size:1.1875rem;line-height:1.3157894737}}
+  </style>
+{% endblock %}
+
+{% block pageScripts %}
+  <script src="https://cdn.jsdelivr.net/npm/accessible-autocomplete@3.0.1/dist/accessible-autocomplete.min.js"></script>
+  <script>
+    (function () {
+      function init () {
+        var select = document.querySelector('#breed')
+        // Only enhance if the library loaded and we still have the native
+        // select (so a failed CDN load falls back to the working select).
+        if (select && select.tagName === 'SELECT' && window.accessibleAutocomplete) {
+          window.accessibleAutocomplete.enhanceSelectElement({
+            selectElement: select,
+            showAllValues: true,
+            defaultValue: ''
+          })
+        }
+      }
+      if (document.readyState !== 'loading') { init() }
+      else { document.addEventListener('DOMContentLoaded', init) }
+    })()
+  </script>
+{% endblock %}
+
+{% block content %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    {% if isEditMode %}
+      <h1 class="govuk-heading-l">Change details for {{ originalEarTag }}</h1>
+      <p class="govuk-body">
+        Update the details for this cattle, or remove it from the report.
+      </p>
+    {% else %}
+      <h1 class="govuk-heading-l">Add cattle</h1>
+      <p class="govuk-body">
+        Enter the details for cattle that weren't on the original list.
+        Added cattle are recorded as vaccinated – you can change this on
+        the next screen if needed.
+      </p>
+    {% endif %}
+
+    <form action="{{ '/v1-5/vaccination-add-another/edit/' + originalEarTag if isEditMode else '/v1-5/vaccination-add-another' }}" method="post" novalidate>
+
+      {{ govukInput({
+        label: { text: "Ear tag number", classes: "govuk-label--m" },
+        id: "earTag",
+        name: "earTag",
+        classes: "govuk-input--width-20",
+        hint: { text: "For example, UK341234412177" },
+        value: formValues['earTag'],
+        errorMessage: { text: errors['earTag'].text } if errors and errors['earTag']
+      }) }}
+
+      {# Breed picker. Rendered as a GOV.UK select and progressively
+         enhanced into an accessible autocomplete (see the script block
+         above), so the vet can type "lim" or "Limousin" to find a breed.
+         If JavaScript is unavailable the select still works. #}
+      {{ govukSelect({
+        id: "breed",
+        name: "breed",
+        label: { text: "Breed", classes: "govuk-label--m" },
+        hint: { text: "Start typing the breed name or code, for example Limousin or LIM" },
+        items: breedItems
+      }) }}
+
+      {{ govukDateInput({
+        id: "addedDob",
+        namePrefix: "addedDob",
+        fieldset: {
+          legend: {
+            text: "Date of birth",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        hint: { text: "For example, 27 3 2024" },
+        items: [
+          { name: "day",   classes: "govuk-input--width-2", value: formValues['addedDobDay'] },
+          { name: "month", classes: "govuk-input--width-2", value: formValues['addedDobMonth'] },
+          { name: "year",  classes: "govuk-input--width-4", value: formValues['addedDobYear'] }
+        ],
+        errorMessage: { text: errors['addedDob'].text } if errors and errors['addedDob']
+      }) }}
+
+      {{ govukRadios({
+        idPrefix: "addedSex",
+        name: "addedSex",
+        classes: "govuk-radios--inline",
+        value: formValues['addedSex'],
+        fieldset: {
+          legend: {
+            text: "Sex",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        items: [
+          { value: "F", text: "Female" },
+          { value: "M", text: "Male" }
+        ]
+      }) }}
+
+      {{ govukTextarea({
+        label: { text: "Remarks", classes: "govuk-label--m" },
+        id: "remarks",
+        name: "remarks",
+        rows: 3,
+        value: formValues['remarks'],
+        hint: { text: "Optional. Note anything unusual about this cattle." }
+      }) }}
+
+      {% if isEditMode %}
+        <div class="govuk-button-group govuk-!-margin-top-6">
+          {{ govukButton({ text: "Save changes" }) }}
+          {{ govukButton({
+            text: "Remove this cattle",
+            classes: "govuk-button--warning",
+            name: "addedAction",
+            value: "remove"
+          }) }}
+          <a class="govuk-link" href="/v1-5/vaccination-add-cattle-question">Cancel</a>
+        </div>
+      {% else %}
+        <div class="govuk-button-group govuk-!-margin-top-6">
+          {{ govukButton({ text: "Add this cattle" }) }}
+          <a class="govuk-link" href="/v1-5/vaccination-add-cattle-question">Cancel</a>
+        </div>
+      {% endif %}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Skin test report submitted – GOV.UK
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if isPartTest %}
+      {{ govukPanel({
+        titleText: "Part test reported",
+        html: stillToTestCount + (" animal" if stillToTestCount == 1 else " animals") + " not tested"
+      }) }}
+
+      {# GDS has no dedicated "info callout"; inset text is the component for
+         additional information about the page, so it's used here. #}
+      <div class="govuk-inset-text">
+        The work order will stay open until the remaining animals are fully tested.
+      </div>
+    {% else %}
+      {{ govukPanel({
+        titleText: "Skin test report submitted"
+      }) }}
+    {% endif %}
+
+    <p class="govuk-body">
+      This information will be updated in Sam, the online system for submitting bovine tuberculosis (TB) test results in the UK.
+    </p>
+
+    <h2 class="govuk-heading-m">What you reported</h2>
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Farm" },
+          value: { text: data['herd']['farm'] or 'Not recorded' }
+        },
+        {
+          key: { text: "CPH" },
+          value: { text: data['herd']['cph'] or 'Not recorded' }
+        },
+        {
+          key: { text: "Day 1" },
+          value: { text: day1Formatted or 'Not recorded' }
+        },
+        {
+          key: { text: "Day 2" },
+          value: {
+            html: (day2Formatted or 'Not recorded') + ('<br><span class="govuk-hint govuk-!-margin-bottom-0">Calculated as 72 hours after Day 1</span>' if day2Calculated and day2Formatted else '')
+          }
+        },
+        {
+          key: { text: "Test type" },
+          value: { text: (data['skinTestType'] or 'Not recorded') | replace('Both', 'DIVA and SICCT') }
+        }
+      ]
+    }) }}
+
+    {# Reactor / untested / clear breakdown – mirrors the same Results
+       summary the vet signed off on at /v1-5/skin-test-confirmation
+       so the submitted page shows what was actually reported. #}
+    <h2 class="govuk-heading-m">Results</h2>
+
+    {% set reactedSubmittedHtml %}
+      {{ reactorCount or 0 }} {{ "animal" if reactorCount == 1 else "animals" }}
+    {% endset %}
+
+    {% set notTestedSubmittedHtml %}
+      {{ untestedCount or 0 }} {{ "animal" if untestedCount == 1 else "animals" }}
+    {% endset %}
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Reacted" },
+          value: { html: reactedSubmittedHtml }
+        },
+        {
+          key: { text: "Not tested" },
+          value: { html: notTestedSubmittedHtml }
+        },
+        {
+          key: { text: "Negative" },
+          value: { text: clearCount + (" animal" if clearCount == 1 else " animals") }
+        }
+      ]
+    }) }}
+
+    {% if addedEntries and addedEntries.length > 0 %}
+      <h2 class="govuk-heading-m govuk-!-margin-top-6">Cattle added</h2>
+      {# Summary only – the submitted page is a record of what was sent, so
+         it shows how many cattle were added rather than each one's details. #}
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Added to list" },
+            value: { text: addedEntries.length + (" animal" if addedEntries.length == 1 else " cattle") }
+          }
+        ]
+      }) }}
+    {% endif %}
+
+    <h2 class="govuk-heading-m">What happens next</h2>
+    <p class="govuk-body">
+      {% if isPartTest %}You'll need to arrange a return visit to finish testing all the animals.{% else %}Defra will review the report.{% endif %}
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-5/#" class="govuk-link">Send a report to the livestock keeper</a>
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-5/dashboard" class="govuk-link">Report another skin test</a>
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-5/dashboard" class="govuk-link">Exit the service</a>
+    </p>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,400 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  {% if errorSummary %}Error: {% endif %}Add untested animals – GOV.UK
+{% endblock %}
+
+{% block stylesheets %}
+  {{ super() }}
+  {# GOV.UK accessible autocomplete (alphagov), vendored into
+     app/assets so the prototype has no runtime dependency on a CDN. #}
+  <link rel="stylesheet" href="/public/stylesheets/vendor/accessible-autocomplete.min.css">
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({ text: "Back", href: backHref }) }}
+{% endblock %}
+
+{% block content %}
+{#
+  V5, variant 2 - the untested half of the "add another" journey.
+
+  The vet names each animal that was not tested and why. One block per
+  animal, added and removed with the Design System's "add another"
+  pattern, driven by the server so it works with script off. The only
+  scripted extra is hiding the "Other reason" text box until it is
+  needed - without script it is simply always visible, which is the
+  correct fallback rather than a broken one.
+#}
+<style>
+  /* One block per animal, on grey-5 - the same treatment as the reactions
+     page, so the two halves of the journey read as one thing. */
+  .app-entry {
+    background-color: #f3f2f1;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .app-entry__heading { margin-bottom: 15px; }
+
+  /* The library renders the autocomplete at full width. Held to the same
+     width the input had, so the field does not stretch across the panel. */
+  .app-tag-field { max-width: 20em; }
+  .app-tag-field .autocomplete__wrapper { margin-bottom: 0; }
+
+  /* --- Accessible autocomplete, matched to the Design System ---------
+     The vendored stylesheet is framework-agnostic: it hardcodes Arial on
+     the input, leaves the menu to the browser default (which renders as
+     serif), and makes the input transparent - so on these grey panels the
+     box looked grey while every other field on the page is white. */
+  .autocomplete__input,
+  .autocomplete__hint,
+  .autocomplete__menu,
+  .autocomplete__option {
+    font-family: "GDS Transport", arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-weight: 400;
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+  @media (min-width: 40.0625em) {
+    .autocomplete__input,
+    .autocomplete__hint,
+    .autocomplete__menu,
+    .autocomplete__option {
+      font-size: 1.1875rem;
+      line-height: 1.31579;
+    }
+  }
+  /* White like every other input, whatever it is sitting on. */
+  .autocomplete__input { background-color: #ffffff; }
+
+  .app-entry__remove { margin: 20px 0 0; }
+  .app-entry .govuk-form-group:last-of-type { margin-bottom: 0; }
+
+  /* Revealed by the reason select. Indented and ruled the way the Design
+     System's own conditional reveal is, so it reads as belonging to the
+     answer above it. */
+  .app-reveal {
+    margin-top: 15px;
+    margin-left: 8px;
+    padding-left: 25px;
+    border-left: 4px solid #b1b4b6;
+  }
+  /* Hidden only when there is script to show it again. With script off
+     the box is visible from the start and the vet fills it in if it
+     applies. */
+  .js-enabled .app-reveal--hidden { display: none; }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ currentTestLabel }}</span>
+    <h1 class="govuk-heading-l">Add untested animals</h1>
+
+    <p class="govuk-body">
+      Add every animal on the list that was not tested, and say why. If every
+      animal was tested, select Continue.
+    </p>
+
+    {# Announces the "Provide a reason" box when Other reason is chosen.
+       Visually hidden - a sighted user can see it appear. #}
+    <p class="govuk-visually-hidden" id="reason-status" role="status" aria-live="polite"></p>
+
+    <form action="/v1-5/skin-test-untested-animals" method="post" novalidate
+            class="js-entry-form"{% if focusRow %} data-focus-row="{{ focusRow }}"{% endif %}{% if focusAdd %} data-focus-add="true"{% endif %}>
+
+      {# Enter in the ear-tag field submits the FIRST submit button in the
+         form. Without this it would fire whichever Remove button happens
+         to come first and silently delete an animal. #}
+      <button type="submit" name="action" value="continue" class="govuk-visually-hidden" tabindex="-1">
+        Continue
+      </button>
+
+      {% for row in rows %}
+        <div class="app-entry js-entry" id="animal-{{ row.number }}">
+
+          <h2 class="govuk-heading-m app-entry__heading">
+            {% if total > 1 %}Animal {{ row.number }} of {{ total }}{% else %}Animal {{ row.number }}{% endif %}
+          </h2>
+
+          {# Every animal on the holding. This select is what posts, and
+             what the vet gets if the autocomplete script does not run.
+             The option text is the bare ear tag because the autocomplete
+             confirms by text - anything else in here would end up in the
+             box after they choose. #}
+          {% set _tagItems = [{ value: "", text: "" }] %}
+          {% for animal in suggestions %}
+            {% set _tagItems = _tagItems.concat([{
+              value: animal.officialId,
+              text: animal.officialId,
+              selected: row.untestedEarTag == animal.officialId
+            }]) %}
+          {% endfor %}
+
+          <div class="app-tag-field">
+            {{ govukSelect({
+              id: "untestedEarTag-" + row.number,
+              name: "untestedEarTag",
+              classes: "js-ear-tag",
+              label: { text: "Enter the last 4 digits of the official ear tag", classes: "govuk-label--s" },
+              items: _tagItems,
+              errorMessage: { text: row.errors.untestedEarTag } if row.errors.untestedEarTag
+            }) }}
+          </div>
+
+          {% set _reasonItems = [{ value: "", text: "Select reason" }] %}
+          {% for reason in reasons %}
+            {% set _reasonItems = _reasonItems.concat([{
+              value: reason.value,
+              text: reason.text,
+              selected: row.untestedReason == reason.value
+            }]) %}
+          {% endfor %}
+
+          {{ govukSelect({
+            id: "untestedReason-" + row.number,
+            name: "untestedReason",
+            classes: "js-reason",
+            label: { text: "Why wasn't it tested?", classes: "govuk-label--s" },
+            items: _reasonItems,
+            errorMessage: { text: row.errors.untestedReason } if row.errors.untestedReason
+          }) }}
+
+          {# "Other reason" is the only one that cannot be recorded from
+             the list alone, so it is the only one that asks for anything
+             more. Rendered open when it is already the answer, or when it
+             has an error to show, so a failed submit never hides the
+             thing the vet has to fix. #}
+          <div class="app-reveal js-reveal{% if row.untestedReason != 'other' and not row.errors.untestedReasonOther %} app-reveal--hidden{% endif %}">
+            {{ govukInput({
+              id: "untestedReasonOther-" + row.number,
+              name: "untestedReasonOther",
+              classes: "govuk-input--width-20",
+              label: { text: "Provide a reason" },
+              value: row.untestedReasonOther,
+              errorMessage: { text: row.errors.untestedReasonOther } if row.errors.untestedReasonOther
+            }) }}
+          </div>
+
+          {# Only offered once there is more than one animal - removing the
+             only block would leave the vet with nothing on screen. #}
+          {% if total > 1 %}
+            <div class="app-entry__remove">
+              {{ govukButton({
+                text: "Remove animal " + row.number,
+                classes: "govuk-button--secondary govuk-!-margin-bottom-0",
+                name: "action",
+                value: "remove:" + (row.number - 1)
+              }) }}
+            </div>
+          {% endif %}
+
+        </div>
+      {% endfor %}
+
+      {{ govukButton({
+        text: "Add another animal",
+        classes: "govuk-button--secondary",
+        name: "action",
+        value: "add"
+      }) }}
+
+      {# A rule between adding to the list and leaving the page. Without it
+         the two buttons sat side by side and read as a pair of equal
+         choices, when one builds the list and the other ends it. #}
+      <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--m">
+
+      {{ govukButton({ text: "Continue", name: "action", value: "continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block pageScripts %}
+<script src="/public/javascripts/vendor/accessible-autocomplete.min.js"></script>
+<script>
+  ;(function () {
+    'use strict'
+
+    // Show the "Provide a reason" box only for Other reason. The select
+    // and the box it controls are linked with aria-controls /
+    // aria-expanded so the relationship is announced, not just drawn.
+    function sync(entry, announce) {
+      var select = entry.querySelector('.js-reason')
+      var reveal = entry.querySelector('.js-reveal')
+      if (!select || !reveal) return
+      var open = select.value === 'other'
+      reveal.classList.toggle('app-reveal--hidden', !open)
+      // aria-controls points at what the select reveals. aria-expanded is
+      // deliberately NOT set: a native select already has an implicit
+      // combobox role whose expanded state the browser owns and uses for
+      // its own dropdown. Overriding it would make the select announce
+      // that the DROPDOWN is open when it is not.
+      select.setAttribute('aria-controls', reveal.id || '')
+      // The box is NEVER disabled, even when hidden. Every block on this
+      // page posts one value per field, and the server pairs them up by
+      // position - so a field that drops out of the submission shifts
+      // every later row's answer up by one. Animal 1 would arrive
+      // carrying animal 2's reason. display:none already takes it out of
+      // the tab order, so hiding alone does the job; clearing the value
+      // means a reason typed and then abandoned still posts as empty.
+      var field = reveal.querySelector('input')
+      if (field && !open) field.value = ''
+
+      // Say what appeared. Nothing else would: the box is revealed below
+      // a select the user is still focused on, and a screen reader is not
+      // told that the page grew.
+      if (announce) {
+        var region = document.getElementById('reason-status')
+        if (region) {
+          region.textContent = open
+            ? 'Provide a reason box shown. Press Tab to reach it.'
+            : ''
+        }
+      }
+    }
+
+
+    // --- Ear tag autocomplete ------------------------------------------
+    // Each ear-tag field is a real <select> holding every animal on the
+    // holding. That is what posts, and what works when this script does
+    // not run. Here it is enhanced into the GOV.UK accessible
+    // autocomplete, which takes over the original id so the label and the
+    // error summary links keep pointing at the right control.
+    function normTag(value) {
+      return String(value || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase()
+    }
+
+    // The vet reads the last 4 digits off the paper sheet, so an ear tag
+    // ENDING in what they typed is what they are looking for. Those come
+    // first; anything merely containing the digits follows, in case they
+    // are reading from the middle of a number.
+    function makeSource(tags) {
+      return function (query, populateResults) {
+        var q = normTag(query)
+        if (!q) return populateResults([])
+        var ends = []
+        var contains = []
+        tags.forEach(function (tag) {
+          var n = normTag(tag)
+          if (n === q) ends.unshift(tag)
+          else if (n.slice(-q.length) === q) ends.push(tag)
+          else if (n.indexOf(q) !== -1) contains.push(tag)
+        })
+        populateResults(ends.concat(contains))
+      }
+    }
+
+    function enhanceTagField(select, onPicked) {
+      if (!window.accessibleAutocomplete || !select) return
+      var inputId = select.id
+      var tags = []
+      Array.prototype.forEach.call(select.options, function (option) {
+        if (option.value) tags.push(option.value)
+      })
+
+      // Matched on the option's value, not its text. Text is not a stable
+      // key here - the site-wide ear-tag enhancement rewrites text nodes
+      // after this script has run - whereas the value attribute is never
+      // touched.
+      function optionFor(text) {
+        var wanted = normTag(text)
+        if (!wanted) return null
+        var found = null
+        Array.prototype.forEach.call(select.options, function (option) {
+          if (option.value && normTag(option.value) === wanted) found = option
+        })
+        return found
+      }
+
+      window.accessibleAutocomplete.enhanceSelectElement({
+        selectElement: select,
+        source: makeSource(tags),
+        minLength: 2,
+        // The vet is transcribing a number, not browsing. Nothing is
+        // pre-highlighted, so a mis-typed digit can never be confirmed
+        // for them without their having chosen it.
+        autoselect: false,
+        showNoOptionsFound: true,
+        defaultValue: (select.options[select.selectedIndex] || {}).value || '',
+        // Only ever sets. The library calls onConfirm on blur too, with
+        // nothing highlighted and no argument - clearing here would wipe
+        // the animal the vet had just chosen the moment focus moved on.
+        onConfirm: function (confirmed) {
+          var picked = optionFor(confirmed)
+          if (!picked) return
+          select.value = picked.value
+          // Deferred by a tick. The autocomplete puts focus back in its
+          // own input as part of the state update that follows onConfirm,
+          // so moving focus synchronously here would just be undone.
+          if (onPicked) window.setTimeout(onPicked, 0)
+        }
+      })
+
+      // The reconciliation. Whatever the library did internally, on
+      // leaving the field the select holds exactly what the box shows -
+      // including nothing, if the vet cleared it.
+      var input = document.getElementById(inputId)
+      if (input) {
+        input.addEventListener('blur', function () {
+          var match = optionFor(input.value)
+          select.value = match ? match.value : ''
+        })
+      }
+    }
+
+    document.querySelectorAll('.js-entry').forEach(function (entry, i) {
+      var reveal = entry.querySelector('.js-reveal')
+      if (reveal && !reveal.id) reveal.id = 'reveal-' + (i + 1)
+      sync(entry)
+      // Choosing an animal moves the vet on to the reason, which is the
+      // only other thing this block asks for.
+      enhanceTagField(entry.querySelector('.js-ear-tag'), function () {
+        var reason = entry.querySelector('.js-reason')
+        if (reason) reason.focus()
+      })
+    })
+
+    document.addEventListener('change', function (event) {
+      if (!event.target.classList || !event.target.classList.contains('js-reason')) return
+      var entry = event.target.closest('.js-entry')
+      // Announce only on a real change - the initial pass over every block
+      // must stay silent.
+      if (entry) sync(entry, true)
+    })
+
+    // --- Focus after Add or Remove --------------------------------------
+    // Both are submits, so the browser reloads and drops focus at the top
+    // of the document. The server has told us which block it just made,
+    // so put the vet in that block's ear-tag field - the field they came
+    // here to fill in, and the one the rest of the block hangs off.
+    //
+    // Runs last, after the autocomplete has been built: enhancement moves
+    // the id from the select onto its input, so before that this would
+    // focus a hidden select.
+    var entryForm = document.querySelector('.js-entry-form')
+    if (entryForm) {
+      var focusRow = entryForm.getAttribute('data-focus-row')
+      if (focusRow) {
+        var target = document.getElementById('untestedEarTag-' + focusRow)
+        if (target) target.focus()
+      } else if (entryForm.getAttribute('data-focus-add')) {
+        // Nothing was added, something was taken away. Add another is
+        // where the removed block used to sit, and is the most likely
+        // next action.
+        var addButton = entryForm.querySelector('button[value="add"]')
+        if (addButton) addButton.focus()
+      }
+    }
+  })()
+</script>
+{% endblock %}

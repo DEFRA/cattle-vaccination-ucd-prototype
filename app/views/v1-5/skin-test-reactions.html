@@ -1,0 +1,703 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  {% if errorSummary %}Error: {% endif %}Record skin test measurements – GOV.UK
+{% endblock %}
+
+{% block stylesheets %}
+  {{ super() }}
+  {# GOV.UK accessible autocomplete (alphagov), vendored into
+     app/assets so the prototype has no runtime dependency on a CDN. #}
+  <link rel="stylesheet" href="/public/stylesheets/vendor/accessible-autocomplete.min.css">
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({ text: "Back", href: backHref }) }}
+{% endblock %}
+
+{% block content %}
+{#
+  V5, variant 2 - the "add another" journey.
+
+  The table variant asks the vet to account for all 38 cattle and change
+  the few that are not Clear. This one asks the opposite: name only the
+  animals that reacted. Everything the vet does not name is reported as
+  tested with no reaction, so the two variants end up writing identical
+  data - the only thing being tested here is which way round is quicker
+  and safer for a vet transcribing a paper sheet.
+
+  The Design System's "add another" pattern, driven by the server: Add,
+  Remove and Continue are all submit buttons on one form. There is no
+  JavaScript behind the pattern itself, so it works with script off; the
+  only scripted extras are the live result readouts, which have a
+  server-rendered fallback.
+#}
+<style>
+  /* One block per reaction. Grey-5 rather than a drawn box, matching the
+     detail panels on the table variant so the two feel like one service. */
+  .app-entry {
+    background-color: #f3f2f1;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .app-entry__heading { margin-bottom: 15px; }
+
+  /* Day 1 / Day 2 / reaction description on one line per site, so a
+     site's numbers read across the way they do on the paper sheet. */
+  .app-measure {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0 15px;
+  }
+  .app-measure .govuk-form-group { margin-bottom: 0; }
+  .app-measure__readout {
+    font-variant-numeric: tabular-nums;
+    color: #505a5f;
+    white-space: nowrap;
+    padding-bottom: 8px;
+  }
+  .app-site-heading { margin-bottom: 5px; }
+  .app-site + .app-site { margin-top: 15px; }
+
+  /* Wide enough for "Circumscribed (C)" without govuk-select's default
+     full width, which would put the two sites on separate lines. */
+  .app-oedema-select { width: auto; min-width: 0; }
+  .app-reaction-type { margin-top: 20px; }
+
+  /* The library renders the autocomplete at full width. Held to the same
+     width the input had, so the field does not stretch across the panel. */
+  .app-tag-field { max-width: 20em; }
+  .app-tag-field .autocomplete__wrapper { margin-bottom: 0; }
+
+  /* --- Accessible autocomplete, matched to the Design System ---------
+     The vendored stylesheet is framework-agnostic: it hardcodes Arial on
+     the input, leaves the menu to the browser default (which renders as
+     serif), and makes the input transparent - so on these grey panels the
+     box looked grey while every other field on the page is white. */
+  .autocomplete__input,
+  .autocomplete__hint,
+  .autocomplete__menu,
+  .autocomplete__option {
+    font-family: "GDS Transport", arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-weight: 400;
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+  @media (min-width: 40.0625em) {
+    .autocomplete__input,
+    .autocomplete__hint,
+    .autocomplete__menu,
+    .autocomplete__option {
+      font-size: 1.1875rem;
+      line-height: 1.31579;
+    }
+  }
+  /* White like every other input, whatever it is sitting on. */
+  .autocomplete__input { background-color: #ffffff; }
+
+
+  .app-result { margin: 20px 0 0; }
+  .app-result .govuk-tag { white-space: nowrap; }
+  .app-result__value { margin-left: 10px; }
+  .app-result__pending { color: #505a5f; }
+
+  .app-entry__ref { margin-top: 20px; }
+  .app-entry__ref .govuk-form-group { margin-bottom: 0; }
+
+  .app-entry__remove { margin: 20px 0 0; }
+
+  /* One message per line, so several errors on the same animal stay
+     scannable instead of running together as a paragraph. */
+  .app-entry__errors { margin-bottom: 15px; }
+  .app-entry__errors span { display: block; }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ currentTestLabel }}</span>
+    <h1 class="govuk-heading-l">Record skin test measurements</h1>
+
+    <p class="govuk-body">
+      Add every animal that showed a detectable reaction. There is nothing to
+      record for the rest of the herd &ndash; any of the {{ totalCattle }}
+      cattle you do not add here is reported as tested with no reaction.
+    </p>
+
+    <p class="govuk-body">
+      Choose either circumscribed (C) or some oedema (SO) for each reaction
+      description. The result is calculated for you.
+    </p>
+
+    {# The calculated result, announced separately from the visible
+       readout so it can wait until the vet stops typing. #}
+    <p class="govuk-visually-hidden" id="result-status" role="status" aria-live="polite"></p>
+
+    {# What the vet has just typed, read back to them. VoiceOver's own
+       character echo is a screen reader feature a page cannot switch on;
+       where it does not fire, this is the only way the vet hears what
+       went into the box. Waits for a gap in typing and only speaks while
+       the field still has focus, so it confirms rather than interrupts.
+       Same mechanism as the table journey, so the two behave alike. #}
+    <p class="govuk-visually-hidden" id="typed-status" role="status" aria-live="polite"></p>
+
+    <form action="/v1-5/skin-test-reactions" method="post" novalidate
+            class="js-entry-form"{% if focusRow %} data-focus-row="{{ focusRow }}"{% endif %}{% if focusAdd %} data-focus-add="true"{% endif %}>
+
+      {# Enter in any ear-tag field submits the FIRST submit button in the
+         form. Without this it would fire whichever Remove button happens
+         to come first and silently delete a reaction. #}
+      <button type="submit" name="action" value="continue" class="govuk-visually-hidden" tabindex="-1">
+        Continue
+      </button>
+
+      {% for row in rows %}
+        <div class="app-entry" id="reaction-{{ row.number }}">
+
+          <h2 class="govuk-heading-m app-entry__heading">
+            {% if total > 1 %}Reaction {{ row.number }} of {{ total }}{% else %}Reaction {{ row.number }}{% endif %}
+          </h2>
+
+          {# Field errors are collected here rather than shown against each
+             input. The measurement inputs sit three to a line, so a full
+             message under one of them pushes the line apart and the
+             readings stop lining up - exactly when the vet needs to
+             compare them. Each errored input points here with
+             aria-describedby, so the association survives. #}
+          {% set _messages = [] %}
+          {% if row.errors.reactionEarTag %}{% set _ = _messages.push(row.errors.reactionEarTag) %}{% endif %}
+          {% for _key in ['avianBeforeInjection', 'avianAfter72Hours', 'bovineBeforeInjection', 'bovineAfter72Hours'] %}
+            {% if row.errors[_key] %}{% set _ = _messages.push(row.errors[_key]) %}{% endif %}
+          {% endfor %}
+          {% if row.errors.missing %}{% set _ = _messages.push('Enter all four readings, or acknowledge below that some are missing') %}{% endif %}
+          {% if row.errors.reactorReference %}{% set _ = _messages.push(row.errors.reactorReference) %}{% endif %}
+          {% if _messages.length %}
+            <p class="govuk-error-message app-entry__errors" id="errors-{{ row.number }}">
+              <span class="govuk-visually-hidden">Error:</span>
+              {% for _message in _messages %}<span>{{ _message }}</span>{% endfor %}
+            </p>
+          {% endif %}
+
+          {# Every animal on the holding. This select is what posts, and
+             what the vet gets if the autocomplete script does not run.
+             The option text is the bare ear tag because the autocomplete
+             confirms by text - anything else in here would end up in the
+             box after they choose. #}
+          {% set _tagItems = [{ value: "", text: "" }] %}
+          {% for animal in suggestions %}
+            {% set _tagItems = _tagItems.concat([{
+              value: animal.officialId,
+              text: animal.officialId,
+              selected: row.reactionEarTag == animal.officialId
+            }]) %}
+          {% endfor %}
+
+          <div class="app-tag-field">
+            {{ govukSelect({
+              id: "reactionEarTag-" + row.number,
+              name: "reactionEarTag",
+              classes: "js-ear-tag",
+              label: { text: "Enter the last 4 digits of the official ear tag", classes: "govuk-label--s" },
+              items: _tagItems,
+              attributes: { "aria-describedby": "errors-" + row.number } if row.errors.reactionEarTag else {}
+            }) }}
+          </div>
+
+          <div class="app-site govuk-!-margin-top-4">
+            <h3 class="govuk-heading-s app-site-heading">Avian measurements</h3>
+            <div class="app-measure">
+              {{ govukInput({
+                id: "avianBeforeInjection-" + row.number,
+                name: "avianBeforeInjection",
+                classes: "govuk-input--width-3 js-measure" + (" govuk-input--error" if row.errors.avianBeforeInjection else ""),
+                label: { text: "Day 1 (mm)" },
+                value: row.avianBeforeInjection,
+                attributes: { inputmode: "decimal", "aria-describedby": "errors-" + row.number } if row.errors.avianBeforeInjection else { inputmode: "decimal" }
+              }) }}
+              {{ govukInput({
+                id: "avianAfter72Hours-" + row.number,
+                name: "avianAfter72Hours",
+                classes: "govuk-input--width-3 js-measure" + (" govuk-input--error" if row.errors.avianAfter72Hours else ""),
+                label: { text: "Day 2 (mm)" },
+                value: row.avianAfter72Hours,
+                attributes: { inputmode: "decimal", "aria-describedby": "errors-" + row.number } if row.errors.avianAfter72Hours else { inputmode: "decimal" }
+              }) }}
+              <span class="app-measure__readout js-increase-avian">&mdash;</span>
+            </div>
+          </div>
+
+          <div class="app-site">
+            <h3 class="govuk-heading-s app-site-heading">Bovine measurements</h3>
+            <div class="app-measure">
+              {{ govukInput({
+                id: "bovineBeforeInjection-" + row.number,
+                name: "bovineBeforeInjection",
+                classes: "govuk-input--width-3 js-measure" + (" govuk-input--error" if row.errors.bovineBeforeInjection else ""),
+                label: { text: "Day 1 (mm)" },
+                value: row.bovineBeforeInjection,
+                attributes: { inputmode: "decimal", "aria-describedby": "errors-" + row.number } if row.errors.bovineBeforeInjection else { inputmode: "decimal" }
+              }) }}
+              {{ govukInput({
+                id: "bovineAfter72Hours-" + row.number,
+                name: "bovineAfter72Hours",
+                classes: "govuk-input--width-3 js-measure" + (" govuk-input--error" if row.errors.bovineAfter72Hours else ""),
+                label: { text: "Day 2 (mm)" },
+                value: row.bovineAfter72Hours,
+                attributes: { inputmode: "decimal", "aria-describedby": "errors-" + row.number } if row.errors.bovineAfter72Hours else { inputmode: "decimal" }
+              }) }}
+              <span class="app-measure__readout js-increase-bovine">&mdash;</span>
+            </div>
+          </div>
+
+          {# The C / SO description for each site, below the readings
+             rather than inside them. The flow has the vet tab straight
+             through the four numbers - Avian Day 1, Day 2, Bovine Day 1,
+             Day 2 - and a select sitting in the middle of each line broke
+             that run. Both sites are asked because the TB64 rules test
+             each one for a positive reaction; the bovine answer is the
+             one that usually differs. #}
+          <div class="app-site app-reaction-type">
+            <h3 class="govuk-heading-s app-site-heading">Type of reaction</h3>
+            <div class="app-measure">
+              {{ govukSelect({
+                id: "avianOedema-" + row.number,
+                name: "avianOedema",
+                classes: "js-measure app-oedema-select",
+                label: { text: "Avian" },
+                items: [
+                  { value: "C", text: "Circumscribed (C)", selected: row.avianOedema != 'SO' },
+                  { value: "SO", text: "Some oedema (SO)", selected: row.avianOedema == 'SO' }
+                ]
+              }) }}
+              {{ govukSelect({
+                id: "bovineOedema-" + row.number,
+                name: "bovineOedema",
+                classes: "js-measure app-oedema-select",
+                label: { text: "Bovine" },
+                items: [
+                  { value: "C", text: "Circumscribed (C)", selected: row.bovineOedema != 'SO' },
+                  { value: "SO", text: "Some oedema (SO)", selected: row.bovineOedema == 'SO' }
+                ]
+              }) }}
+            </div>
+          </div>
+
+          {# Calculated, never asked. The server-rendered value is the
+             fallback with script off; with script on it updates as the
+             vet types, announced politely so it does not interrupt them. #}
+          {# Not a live region - see announceResult below, which announces
+             after a pause and only when the result has changed. A region
+             that fires per keystroke talks over the character just typed. #}
+          <p class="govuk-body app-result">
+            <span class="govuk-!-font-weight-bold">Test result</span>
+            <span class="app-result__value js-result">
+              {% if row.resultLabel %}
+                <strong class="govuk-tag govuk-tag--{{ row.resultTag }}">{{ row.resultLabel }}</strong>
+              {% else %}
+                <span class="app-result__pending">Enter both readings</span>
+              {% endif %}
+            </span>
+          </p>
+
+          {# Reactor tag number. Only a reactor is tagged, so the box only
+             appears once the readings say the animal is one. Matches the
+             table variant, so the two stay comparable in research. #}
+          <div class="app-entry__ref js-ref-wrap"{% if not row.needsReactorRef %} hidden{% endif %}>
+            {{ govukInput({
+              id: "reactorReference-" + row.number,
+              name: "reactorReference",
+              classes: "govuk-input--width-5 js-reactor-ref" + (" govuk-input--error" if row.errors.reactorReference else ""),
+              label: { text: "Reactor tag number" },
+              value: row.reactorReference,
+              attributes: { "aria-describedby": "errors-" + row.number } if row.errors.reactorReference else {}
+            }) }}
+          </div>
+
+          {# Only offered once there is more than one reaction - removing
+             the only block would leave the vet with nothing on screen. #}
+          {% if total > 1 %}
+            <div class="app-entry__remove">
+              {{ govukButton({
+                text: "Remove reaction " + row.number,
+                classes: "govuk-button--secondary govuk-!-margin-bottom-0",
+                name: "action",
+                value: "remove:" + (row.number - 1)
+              }) }}
+            </div>
+          {% endif %}
+
+        </div>
+      {% endfor %}
+
+      {{ govukButton({
+        text: "Add another reaction",
+        classes: "govuk-button--secondary",
+        name: "action",
+        value: "add"
+      }) }}
+
+      {# A rule between adding to the list and leaving the page. Without it
+         the two buttons sat side by side and read as a pair of equal
+         choices, when one builds the list and the other ends it. #}
+      <hr class="govuk-section-break govuk-section-break--visible govuk-section-break--m">
+
+      {# Offered only once everything else is valid, so the vet cannot tick
+         past a typo. A reading can be illegible or impossible to take, so
+         a missing one is waved through on acknowledgement - the same rule
+         the table variant uses. #}
+      {% if showOverride %}
+        {{ govukCheckboxes({
+          idPrefix: "overrideMissingReadings",
+          name: "overrideMissingReadings",
+          items: [{
+            value: "yes",
+            text: "Submit the report with readings missing",
+            hint: { text: "Only do this if a reading could not be taken or cannot be read." }
+          }]
+        }) }}
+      {% endif %}
+
+      {{ govukButton({ text: "Continue", name: "action", value: "continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block pageScripts %}
+<script src="/public/javascripts/vendor/accessible-autocomplete.min.js"></script>
+<script>
+  ;(function () {
+    'use strict'
+
+    // Mirror of the TB64 rules in app/helpers/sicctInterpretation.js. This
+    // is a preview only - the server recalculates on submit through the
+    // rules engine itself, so what the vet sees and what is stored cannot
+    // drift apart.
+    //   avian increase A, bovine increase B, difference D = B - A
+    //   a site is positive if its increase is over 2mm, or SO is chosen
+    //     bovine not positive                -> Pass
+    //     avian positive and D <= 0          -> Pass
+    //     positive bovine and D > 4          -> Reactor
+    //     otherwise (positive bovine)        -> Inconclusive reactor
+    function num(entry, id) {
+      var el = entry.querySelector('[id^="' + id + '-"]')
+      if (!el) return NaN
+      var v = parseFloat(el.value)
+      return isNaN(v) ? NaN : v
+    }
+
+    function oedema(entry, id) {
+      var el = entry.querySelector('[id^="' + id + '-"]')
+      return el ? String(el.value || '').trim().toUpperCase() : ''
+    }
+
+    function mm(n) {
+      return (n >= 0 ? '+' : '') + String(n.toFixed(1)).replace(/\.0$/, '') + ' mm'
+    }
+
+    function isPositive(increaseMm, so) {
+      return increaseMm > 2 || so === 'SO'
+    }
+
+
+    // Reads back the value in the box the vet is typing into.
+    var typedTimer = null
+    var lastTyped = null
+    function announceTyped(el) {
+      window.clearTimeout(typedTimer)
+      typedTimer = window.setTimeout(function () {
+        if (document.activeElement !== el) return
+        var value = (el.value || '').trim()
+        if (!value || value === lastTyped) return
+        lastTyped = value
+        var region = document.getElementById('typed-status')
+        if (region) region.textContent = value
+      }, 400)
+    }
+
+    function isTypedTarget (el) {
+      return el && el.classList
+        && (el.classList.contains('js-measure') || el.classList.contains('js-reactor-ref'))
+        && el.tagName === 'INPUT'
+    }
+
+    document.addEventListener('input', function (event) {
+      if (isTypedTarget(event.target)) announceTyped(event.target)
+    })
+
+    document.addEventListener('focusout', function (event) {
+      if (!isTypedTarget(event.target)) return
+      window.clearTimeout(typedTimer)
+      lastTyped = null
+      var region = document.getElementById('typed-status')
+      if (region) region.textContent = ''
+    })
+
+    // Announces the calculated result, but only once the vet has stopped
+    // typing and only when it has actually changed. See the note on the
+    // result cell: a live region that fires per keystroke talks over the
+    // character just typed.
+    var resultTimer = null
+    var lastAnnounced = {}
+    function announceResult(key, label) {
+      var region = document.getElementById('result-status')
+      if (!region) return
+      if (lastAnnounced[key] === label) return
+      lastAnnounced[key] = label
+      // An incomplete reading has no result worth saying out loud - the
+      // vet is mid-way through entering it and knows that.
+      if (!label) return
+      window.clearTimeout(resultTimer)
+      resultTimer = window.setTimeout(function () {
+        region.textContent = 'Result: ' + label
+      }, 900)
+    }
+
+
+    // Write only when the text is actually different. Every avoided write
+    // is an accessibility-tree mutation that does not interrupt a screen
+    // reader mid-word.
+    function setText(el, text) {
+      if (!el || el.textContent === text) return
+      el.textContent = text
+    }
+    function setHtml(el, html) {
+      if (!el || el.innerHTML === html) return
+      el.innerHTML = html
+    }
+
+    // Typing is a run of events; the readouts only need to settle at the
+    // end of it. The delay is longer after a blur so the write lands
+    // after the newly focused field has been announced, never on top of
+    // it - see the note on the focusout listener.
+    var recalcTimers = new WeakMap()
+    function scheduleRecalc(target, fn, delay) {
+      window.clearTimeout(recalcTimers.get(target))
+      recalcTimers.set(target, window.setTimeout(function () { fn(target) }, delay || 250))
+    }
+    // A measurement box, as opposed to the C / SO select. Only these are
+    // typed into, so only these can have a write collide with the vet
+    // moving on.
+    function isTypedField(el) {
+      return el && el.tagName === 'INPUT' && el.type !== 'radio' && el.type !== 'checkbox'
+    }
+
+    function recalc(entry) {
+      var incA = entry.querySelector('.js-increase-avian')
+      var incB = entry.querySelector('.js-increase-bovine')
+      var out = entry.querySelector('.js-result')
+      if (!out) return
+
+      var aPre = num(entry, 'avianBeforeInjection')
+      var aPost = num(entry, 'avianAfter72Hours')
+      var bPre = num(entry, 'bovineBeforeInjection')
+      var bPost = num(entry, 'bovineAfter72Hours')
+
+      setText(incA, (isNaN(aPre) || isNaN(aPost)) ? '—' : mm(aPost - aPre))
+      setText(incB, (isNaN(bPre) || isNaN(bPost)) ? '—' : mm(bPost - bPre))
+
+      var key = entry.id || ''
+
+      if (isNaN(aPre) || isNaN(aPost) || isNaN(bPre) || isNaN(bPost)) {
+        setHtml(out, '<span class="app-result__pending">Enter both readings</span>')
+        syncReactorRef(entry, false)
+        announceResult(key, '')
+        return
+      }
+
+      var aInc = aPost - aPre
+      var bInc = bPost - bPre
+      var d = bInc - aInc
+      var bovinePos = isPositive(bInc, oedema(entry, 'bovineOedema'))
+      var avianPos = isPositive(aInc, oedema(entry, 'avianOedema'))
+
+      var label = 'Inconclusive reactor'
+      var tag = 'yellow'
+      if (!bovinePos || (avianPos && d <= 0)) { label = 'Pass'; tag = 'green' }
+      else if (d > 4) { label = 'Reactor'; tag = 'red' }
+      setHtml(out, '<strong class="govuk-tag govuk-tag--' + tag + '">' + label + '</strong>')
+      syncReactorRef(entry, label === 'Reactor')
+      announceResult(key, label)
+    }
+
+    // See the note in the v1-4 review table: the box only belongs to an
+    // animal actually being taken as a reactor, and is never taken away
+    // while it holds a value, shows an error, or has focus in it.
+    function syncReactorRef(scope, needed) {
+      var wrap = scope.querySelector('.js-ref-wrap')
+      if (!wrap) return
+      var input = wrap.querySelector('.js-reactor-ref')
+      var keep = needed
+        || !!(input && input.value.trim())
+        || !!wrap.querySelector('.govuk-error-message')
+        || wrap.contains(document.activeElement)
+      if (wrap.hidden !== keep) return
+      wrap.hidden = !keep
+    }
+
+    function entryOf(el) {
+      return el && el.closest ? el.closest('.app-entry') : null
+    }
+
+
+    // --- Ear tag autocomplete ------------------------------------------
+    // Each ear-tag field is a real <select> holding every animal on the
+    // holding. That is what posts, and what works when this script does
+    // not run. Here it is enhanced into the GOV.UK accessible
+    // autocomplete, which takes over the original id so the label and the
+    // error summary links keep pointing at the right control.
+    function normTag(value) {
+      return String(value || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase()
+    }
+
+    // The vet reads the last 4 digits off the paper sheet, so an ear tag
+    // ENDING in what they typed is what they are looking for. Those come
+    // first; anything merely containing the digits follows, in case they
+    // are reading from the middle of a number.
+    function makeSource(tags) {
+      return function (query, populateResults) {
+        var q = normTag(query)
+        if (!q) return populateResults([])
+        var ends = []
+        var contains = []
+        tags.forEach(function (tag) {
+          var n = normTag(tag)
+          if (n === q) ends.unshift(tag)
+          else if (n.slice(-q.length) === q) ends.push(tag)
+          else if (n.indexOf(q) !== -1) contains.push(tag)
+        })
+        populateResults(ends.concat(contains))
+      }
+    }
+
+    function enhanceTagField(select, onPicked) {
+      if (!window.accessibleAutocomplete || !select) return
+      var inputId = select.id
+      var tags = []
+      Array.prototype.forEach.call(select.options, function (option) {
+        if (option.value) tags.push(option.value)
+      })
+
+      // Matched on the option's value, not its text. Text is not a stable
+      // key here - the site-wide ear-tag enhancement rewrites text nodes
+      // after this script has run - whereas the value attribute is never
+      // touched.
+      function optionFor(text) {
+        var wanted = normTag(text)
+        if (!wanted) return null
+        var found = null
+        Array.prototype.forEach.call(select.options, function (option) {
+          if (option.value && normTag(option.value) === wanted) found = option
+        })
+        return found
+      }
+
+      window.accessibleAutocomplete.enhanceSelectElement({
+        selectElement: select,
+        source: makeSource(tags),
+        minLength: 2,
+        // The vet is transcribing a number, not browsing. Nothing is
+        // pre-highlighted, so a mis-typed digit can never be confirmed
+        // for them without their having chosen it.
+        autoselect: false,
+        showNoOptionsFound: true,
+        defaultValue: (select.options[select.selectedIndex] || {}).value || '',
+        // Only ever sets. The library calls onConfirm on blur too, with
+        // nothing highlighted and no argument - clearing here would wipe
+        // the animal the vet had just chosen the moment focus moved on.
+        onConfirm: function (confirmed) {
+          var picked = optionFor(confirmed)
+          if (!picked) return
+          select.value = picked.value
+          // Deferred by a tick. The autocomplete puts focus back in its
+          // own input as part of the state update that follows onConfirm,
+          // so moving focus synchronously here would just be undone.
+          if (onPicked) window.setTimeout(onPicked, 0)
+        }
+      })
+
+      // The reconciliation. Whatever the library did internally, on
+      // leaving the field the select holds exactly what the box shows -
+      // including nothing, if the vet cleared it.
+      var input = document.getElementById(inputId)
+      if (input) {
+        input.addEventListener('blur', function () {
+          var match = optionFor(input.value)
+          select.value = match ? match.value : ''
+        })
+      }
+    }
+
+
+    document.addEventListener('input', function (event) {
+      var entry = entryOf(event.target)
+      // Debounced: mid-run keystrokes leave the DOM alone entirely.
+      if (entry) scheduleRecalc(entry, recalc)
+    })
+
+    document.addEventListener('change', function (event) {
+      var entry = entryOf(event.target)
+      if (!entry) return
+      // A text input's change fires as part of the blur sequence, so
+      // updating here writes to the DOM at the exact moment focus is
+      // moving. Leave it to the scheduler. A select is different: the vet
+      // is still on it, nothing is in flight.
+      if (isTypedField(event.target)) scheduleRecalc(entry, recalc)
+      else recalc(entry)
+    })
+
+    // Leaving a box pushes the pending write out, so it lands after the
+    // next field has been announced instead of interrupting it.
+    document.addEventListener('focusout', function (event) {
+      if (!isTypedField(event.target)) return
+      var entry = entryOf(event.target)
+      if (entry) scheduleRecalc(entry, recalc, 600)
+    })
+
+    document.querySelectorAll('.app-entry').forEach(function (entry) {
+      recalc(entry)
+      // Choosing an animal drops the vet straight into the first reading,
+      // so the run from the ear tag through the four numbers is one
+      // uninterrupted pass.
+      enhanceTagField(entry.querySelector('.js-ear-tag'), function () {
+        var first = entry.querySelector('[id^="avianBeforeInjection-"]')
+        if (first) first.focus()
+      })
+    })
+
+    // --- Focus after Add or Remove --------------------------------------
+    // Both are submits, so the browser reloads and drops focus at the top
+    // of the document. The server has told us which block it just made,
+    // so put the vet in that block's ear-tag field - the field they came
+    // here to fill in, and the one the rest of the block hangs off.
+    //
+    // Runs last, after the autocomplete has been built: enhancement moves
+    // the id from the select onto its input, so before that this would
+    // focus a hidden select.
+    var entryForm = document.querySelector('.js-entry-form')
+    if (entryForm) {
+      var focusRow = entryForm.getAttribute('data-focus-row')
+      if (focusRow) {
+        var target = document.getElementById('reactionEarTag-' + focusRow)
+        if (target) target.focus()
+      } else if (entryForm.getAttribute('data-focus-add')) {
+        // Nothing was added, something was taken away. Add another is
+        // where the removed block used to sit, and is the most likely
+        // next action.
+        var addButton = entryForm.querySelector('button[value="add"]')
+        if (addButton) addButton.focus()
+      }
+    }
+  })()
+</script>
+{% endblock %}

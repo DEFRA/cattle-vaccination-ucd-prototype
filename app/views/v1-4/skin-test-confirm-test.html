@@ -1,0 +1,75 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check your {{ testLabel }} answers – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref
+}) }}
+{% endblock %}
+
+{% block content %}
+{# Per-test confirmation page. Shows what the vet entered for the
+   active test (SICCT or DIVA) and gives them a single Continue
+   action. On submit the route handler decides where to go next: if
+   the other test still needs running it sends the vet back through
+   batch-details for that test; otherwise it continues to the
+   all-tested gate. #}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ testLabel }}</span>
+    <h1 class="govuk-heading-l">Check your answers for {{ testLabel }}</h1>
+
+    {# Reactors row just shows the summary count – the per-animal
+       list of ear tags is reached via the Change link, matching the
+       cleaner pattern now used on /v1-4/skin-test-confirmation. #}
+    {% set reactorsHtml %}
+      {{ reactorCount }} {{ "animal" if reactorCount == 1 else "animals" }}
+    {% endset %}
+
+    {# Dummy fallbacks so the prototype can be demoed without forcing
+       data entry on the batch page. If the vet leaves a field blank
+       we show a plausible value here (different batch references for
+       SICCT vs DIVA, since they use different reagents). Mirrors the
+       same fallback pattern used on /v1-4/skin-test-confirmation.
+       Diluent details were removed from the v1-3 reporting flow. #}
+    {% set dummyBatch = '138009G' if test == 'sicct' else '447112F' %}
+    {% set dummyVaccineExpiry = '05/2029' %}
+
+    <dl class="govuk-summary-list">
+      <div class="govuk-summary-list__row">
+        <dt class="govuk-summary-list__key">{{ testLabel }} batch number</dt>
+        <dd class="govuk-summary-list__value">{{ batchDetails.batch or dummyBatch }}</dd>
+        <dd class="govuk-summary-list__actions">
+          <a class="govuk-link" href="/v1-4/skin-test-batch-details/{{ test }}">Change<span class="govuk-visually-hidden"> batch number</span></a>
+        </dd>
+      </div>
+      <div class="govuk-summary-list__row">
+        <dt class="govuk-summary-list__key">Vaccine expiry date</dt>
+        <dd class="govuk-summary-list__value">{{ vaccineExpiryDisplay or dummyVaccineExpiry }}</dd>
+        <dd class="govuk-summary-list__actions">
+          <a class="govuk-link" href="/v1-4/skin-test-batch-details/{{ test }}">Change<span class="govuk-visually-hidden"> vaccine expiry date</span></a>
+        </dd>
+      </div>
+      <div class="govuk-summary-list__row">
+        <dt class="govuk-summary-list__key">Reacted to {{ testLabel }}</dt>
+        <dd class="govuk-summary-list__value">{{ reactorsHtml | safe }}</dd>
+        <dd class="govuk-summary-list__actions">
+          <a class="govuk-link" href="/v1-4/skin-test-reactors-any">Change<span class="govuk-visually-hidden"> which cattle reacted to {{ testLabel }}</span></a>
+        </dd>
+      </div>
+    </dl>
+
+    <form action="/v1-4/skin-test-confirm-test/{{ test }}" method="post" novalidate>
+      {{ govukButton({
+        text: continueButtonLabel
+      }) }}
+    </form>
+
+  </div>
+</div>
+{% endblock %}

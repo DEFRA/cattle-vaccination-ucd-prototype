@@ -1,0 +1,1993 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  {% if errorSummary %}Error: {% endif %}Record the result for every animal – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref
+}) }}
+{% endblock %}
+
+{% block content %}
+{# Mark the document as scripted before the page paints, so the detail
+   panels below start hidden rather than flashing open and collapsing. #}
+<script>document.documentElement.className += ' js-enabled'</script>
+<style>
+  /* --------------------------------------------------------------------
+     v1-4 single-pass review table.
+
+     The layout is the standard `govuk-table` used by every other
+     skin-test table in the prototype, cut down to two columns: the
+     animal, and what happened to it. Everything below is either content
+     presentation carried over from the other skin-test tables (ear-tag
+     emphasis, page dividers) or the small amount of styling the Animal
+     and Result columns need. No GOV.UK component is restyled – the
+     radios, table, warning text and buttons are all stock.
+     -------------------------------------------------------------------- */
+
+  /* Ear tag rendering – identical to the other skin-test tables so the
+     same tag reads the same way on every screen. The wrapper prints at
+     the regular weight; only the last 4 digits are bold so the vet's eye
+     lands on the individual number. */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 {
+    padding: 0;
+    font-weight: 700;
+  }
+  /* Duplicate last-4 segment – heavy band above and below just the four
+     bold digits. Matches the duplicate treatment on the printed list. */
+  .app-ear-tag__part--last4--duplicate {
+    border: 0;
+    border-top: 4px solid #000;
+    border-bottom: 4px solid #000;
+  }
+  /* The ear tag is the primary anchor for the row – it is the only
+     thing the vet matches against the animal in front of them – so it
+     prints a step larger than the supporting details beneath it. */
+  .app-ear-tag--lead {
+    font-size: 1.25rem;
+    line-height: 1.25;
+  }
+
+  /* Supporting details: smaller, quieter text under the tag. */
+  .app-animal-meta {
+    margin: 4px 0 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: #505a5f;
+  }
+  .app-animal-meta__item { white-space: nowrap; }
+  .app-animal-meta__sep { margin: 0 0.5rem; }
+
+  /* Exception lines – an animal near or under the 42-day testing age, or
+     a BCG booster coming due. Still secondary text, but each leads with
+     the fact in bold so it reads differently from the sex, breed and DOB
+     line above it. */
+  .app-animal-meta--flag { margin-top: 2px; }
+
+  /* The "#" column – the row's number on the printed sheet. Narrow,
+     tabular so the digits line up down the page, and quieter than the ear
+     tag: it is a cross-reference, not the thing being identified. */
+  .app-number-cell {
+    width: 3rem;
+    font-variant-numeric: tabular-nums;
+    color: #505a5f;
+    vertical-align: top;
+  }
+
+  /* Held to a comfortable reading width so the eye travels a short
+     distance from the tag to the radios rather than across the full
+     page. */
+  /* One width for everything that belongs to the list: the tables, and
+     the bar that navigates them. The cap is set by the table - much past
+     58rem and the three radios drift so far from the ear tag that the row
+     stops reading as one thing - and a bar wider than the thing it moves
+     you through leaves the right-hand edges stepping in and out down the
+     page. */
+  .app-review-table,
+  .app-review-bar { max-width: 58rem; }
+  .app-animal-cell { vertical-align: top; }
+  .govuk-table .govuk-table__cell { vertical-align: top; }
+  .govuk-table .govuk-table__header { vertical-align: bottom; }
+
+  /* Result column. The three radios sit inline on a wide screen and
+     stack on a narrow one (the stock govuk-radios--inline breakpoint
+     does this for us). Zeroing the vertical margin keeps each row to a
+     single line at desktop width. */
+  .app-result-cell {
+    /* Wide enough to hold all three options on one line – if they wrap,
+       every row grows by 45px and the list gets long again. */
+    width: 27rem;
+    /* Centred against the taller animal cell so the radios sit level
+       with the ear tag they belong to. */
+    vertical-align: middle;
+  }
+  .app-result-cell .govuk-radios__item { margin-bottom: 0; }
+  .app-result-cell .govuk-fieldset { margin: 0; }
+  /* Keep each option on one line – "Not tested" wrapping doubles the
+     height of every row, which is what makes a 250-animal list feel
+     long to scroll. */
+  .app-result-cell .govuk-radios__label { white-space: nowrap; }
+
+  /* Rows the vet has moved off "Clear" get a coloured left edge so the
+     exceptions are findable at a glance when scrolling back through a
+     long herd. Colour is never the only signal – the selected radio and
+     the row's own label carry the meaning.
+
+     The marker lives in a gutter that every row reserves whether it is
+     marked or not: a transparent 4px border plus 16px of padding. Doing
+     it this way means the ear tag never sits against the marker, and –
+     more importantly – the text does not jump sideways the moment the
+     vet changes an animal from Clear to Reaction. The header cell
+     reserves the same gutter so the "Animal" heading stays lined up
+     with the tags below it. */
+  .app-review-table thead .govuk-table__header:first-child,
+  .app-review-table .js-review-row > .govuk-table__cell:first-child {
+    border-left: 4px solid transparent;
+    padding-left: 16px;
+  }
+  /* The number column is narrow, so it needs a little room before the ear
+     tag rather than the table's default 20px gap. */
+  .app-review-table .app-number-cell { padding-right: 12px; }
+  /* Selectors match the reserving rule above so they win on specificity
+     – a shorter `.app-row--reaction td` would lose to it and the marker
+     would stay transparent. */
+  .app-review-table .js-review-row.app-row--reaction > .govuk-table__cell:first-child {
+    border-left-color: #d4351c;
+  }
+  .app-review-table .js-review-row.app-row--not-tested > .govuk-table__cell:first-child {
+    border-left-color: #f47738;
+  }
+
+  /* Inline detail panel. Choosing Reaction or Not tested opens a panel
+     directly beneath that animal's row, spanning both columns so there is
+     room for the four measurements side by side. The vet records what
+     happened while the animal is still in front of them, instead of
+     coming back to it on a later screen.
+
+     Hidden only when scripting is available (the .js-enabled class is set
+     by the inline script at the top of this page). Without JavaScript
+     every panel renders open, so the page still works – it is just
+     longer. */
+  .js-enabled .app-detail-row--hidden,
+  .js-enabled .app-detail--hidden { display: none; }
+
+  .app-detail-row > td {
+    padding-top: 0;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #b1b4b6;
+    /* Mirrors the transparent status gutter on the row above, so the
+       panel's padding lines its contents up with the ear tag exactly
+       rather than three pixels out. */
+    border-left: 4px solid transparent;
+    padding-left: 0;
+  }
+  /* The panel sits on grey-5 rather than being marked with a rule, and its
+     20px of padding lines its contents up with the ear tag in the row
+     above – so the reading reads as belonging to that animal rather than
+     as an indented aside. */
+  .app-detail {
+    background-color: #f3f2f1;
+    padding: 15px 20px 15px 16px;
+    margin: 0;
+  }
+  .app-detail__heading { margin-bottom: 12px; }
+
+  /* The SICCT reading grid inside the panel. Two rows (avian, bovine)
+     against Day 1 / Day 2 / Reaction / Increase, so a site's numbers and
+     its C / SO description sit on one line and the calculated result
+     follows underneath. */
+  /* One clear break between the reading grid (which now carries the
+     result) and the reference field below it, rather than three near-equal
+     gaps that grouped nothing. */
+  /* A fieldset establishes a formatting context that stops a table
+     child from shrinking below its content, so it needs telling
+     otherwise. The legend carries no styling of its own - the heading
+     inside it is doing that job. */
+  .app-detail__group { min-width: 0; border: 0; padding: 0; margin: 0; }
+  .app-detail__legend { padding: 0; width: 100%; }
+  .app-detail__legend .app-detail__heading { margin-bottom: 10px; }
+
+  .app-sicct-table { max-width: 34rem; margin-bottom: 20px; }
+  .app-sicct-table .govuk-table__cell,
+  .app-sicct-table .govuk-table__header { padding: 6px 15px 6px 0; vertical-align: middle; }
+  .app-sicct-table .govuk-form-group { margin-bottom: 0; }
+  /* One message per line, so several errors on the same animal stay
+     scannable instead of running together as a paragraph. */
+  .app-sicct-errors { margin-bottom: 10px; }
+  .app-sicct-errors__line { display: block; }
+  .app-sicct-readout {
+    font-variant-numeric: tabular-nums;
+    color: #505a5f;
+    white-space: nowrap;
+  }
+  /* The footer row reads as a band closing the table: a little more air
+     than the reading rows, and the row header no longer competes with the
+     value beside it. */
+  .app-sicct-result-row .govuk-table__header,
+  .app-sicct-result-row .govuk-table__cell { padding-top: 10px; padding-bottom: 10px; }
+  /* Shown only when scripting is available. Without JavaScript the reasons
+     are already open, so a button that reveals them would do nothing. */
+  /* Quick apply. A block above the list, not part of the sticky bar.
+
+     Styled as MOJ's "inset text (highlighted)": a thick blue left border
+     on a pale blue ground. They built that component because, in their
+     words, the warning component felt too urgent and plain inset text
+     "could be easily missed or ignored" by internal users working
+     through a lot of information - which is this screen exactly.
+
+     The colour is not doing the work on its own (WCAG 1.4.1): the block
+     has a heading, a border, and sits in its own bordered box, so it
+     still reads as a distinct thing in greyscale or high contrast. */
+  .app-quick-apply {
+    border-left: 10px solid #1d70b8;
+    background-color: #eaf4f9;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    max-width: 58rem;
+    /* The border and padding count towards the width, so this block ends
+       where the record bar and the table end. Left as content-box it was
+       32px wider than everything below it. */
+    box-sizing: border-box;
+  }
+  .app-quick-apply__heading { margin-bottom: 5px; }
+  .app-quick-apply__hint { margin-bottom: 15px; }
+  .app-quick-apply__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 15px 30px;
+  }
+  /* A secondary button is #f3f2f1, which is 1:1 against this panel -
+     invisible. The same #505a5f edge the Go button carries, which clears
+     1.4.11's 3:1 at 6.33:1 here. */
+  .app-quick-apply__button {
+    margin: 0;
+    width: auto;
+    min-height: 40px;
+  }
+  .app-quick-apply__button.govuk-button--secondary {
+    border: 1px solid #505a5f;
+  }
+  /* "Not tested" wrapping to two lines makes the row uneven and the
+     radios stop reading as a set. */
+  .app-quick-apply .govuk-radios__label { white-space: nowrap; }
+  .app-quick-apply .govuk-radios__item { margin-bottom: 0; }
+  .app-quick-apply__status { margin: 15px 0 0; font-weight: 700; }
+  .app-quick-apply__status:empty { display: none; }
+  /* A button, because it acts on the page rather than going anywhere -
+     styled as a link because that is what an undo reads as. */
+  .app-quick-apply__undo {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-weight: 400;
+    color: #1d70b8;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .app-quick-apply__undo:hover { color: #003078; }
+  .app-quick-apply__undo:focus {
+    outline: 3px solid transparent;
+    background-color: #ffdd00;
+    box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
+    color: #0b0c0c;
+    text-decoration: none;
+  }
+  /* Block-level twin of .app-js-only, for things that are not inline. */
+  .app-js-block { display: none; }
+  .js-enabled .app-js-block { display: block; }
+
+  .app-js-only { display: none; }
+  .js-enabled .app-js-only { display: inline-block; }
+  /* The rule above is a class selector, so it beats the browser's own
+     [hidden] rule - without this the button stays on screen after the
+     script hides it. */
+  .js-enabled .app-js-only[hidden] { display: none; }
+  .app-reason-group { margin-top: 15px; }
+  .app-reason-group .govuk-form-group { margin-bottom: 0; }
+
+  /* Spacing comes from the table above, so the field is not pushed a
+     second time. */
+  .app-reactor-ref { margin-top: 0; }
+  .app-reactor-ref .govuk-form-group { margin-bottom: 0; }
+  /* The C / SO select never holds more than two characters. govuk-select
+     sets a generous min-width, so both have to be overridden. */
+  .app-sicct-table .app-oedema-select {
+    width: 5.5rem;
+    min-width: 0;
+  }
+  /* Keep the result tag on one line - "Inconclusive reactor" wrapping
+     inside the tag makes it look like an error. */
+  .app-sicct-result .govuk-tag { white-space: nowrap; }
+  .app-sicct-pending { color: #505a5f; }
+
+  /* Keyboard position. Tabbing into any radio in a row lifts the whole
+     row onto grey-5, so a keyboard user can see which animal they are
+     working on – the focused radio can otherwise be the only thing on a
+     70px row that has moved.
+
+     :focus-within does this with no JavaScript, and the highlight
+     follows focus from row to row on its own. Grey-5 is deliberately
+     neutral: it is the same whatever the animal's result, so it can
+     never be mistaken for a clinical status. The stock GOV.UK yellow
+     focus indicator on the radio itself is untouched and still carries
+     the precise position. */
+  .js-review-row:focus-within { background-color: #f3f2f1; }
+
+  /* Running totals. Sit just above the Continue button so the vet gets a
+     last look at the shape of the report before they submit. */
+  .app-tally {
+    border-left: 10px solid #1d70b8;
+    padding: 12px 20px;
+    margin-bottom: 25px;
+    background: #f3f2f1;
+  }
+  .app-tally__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .app-tally__list li {
+    display: inline-block;
+    margin: 0 25px 0 0;
+  }
+
+  /* Page-boundary spacing. Each page of the printed list is its own
+     table, so the break is the gap plus the caption heading rather than
+     a drawn box. Generous space above every table after the first makes
+     the boundary read without needing a rule at all. */
+
+  .app-review-table .govuk-table__caption { margin-bottom: 10px; }
+
+  /* The sticky record bar covers the top of the viewport, so an anchor
+     jump would otherwise land a caption underneath it. Two rows deep, so
+     the offset is larger than the old single-row bar needed. */
+  .app-review-table { scroll-margin-top: 8rem; }
+  .app-page-heading { scroll-margin-top: 8rem; }
+  /* The bar wraps onto more rows on a narrow screen, so the offset has to
+     grow with it or a jump lands the heading underneath. */
+  @media (max-width: 40.0625em) {
+    .app-review-table { scroll-margin-top: 13rem; }
+    .app-page-heading { scroll-margin-top: 13rem; }
+  }
+  /* The heading is only ever focused programmatically, never tabbed to,
+     so the focus ring would appear for a sighted user who pressed Go and
+     read as something being wrong. Screen reader users are unaffected -
+     the announcement is what matters to them, not the outline. */
+  .app-page-heading:focus { outline: none; }
+  /* The heading now provides the space above each page, so the first
+     table no longer needs its own top margin and the later ones do not
+     need the page-break gap. */
+  .app-page-heading { margin-top: 40px; }
+  .app-page-heading:first-of-type { margin-top: 0; }
+  #review-continue { scroll-margin-top: 9rem; }
+  @media (max-width: 40.0625em) {
+    #review-continue { scroll-margin-top: 14rem; }
+  }
+
+  /* The record bar. One sticky block, two rows: a single Go to control
+     that takes either an animal number or an ear tag, and the pages of
+     the printed list beneath it.
+
+     It sticks to the top of the viewport so the vet can move from
+     anywhere in the table without scrolling back up. */
+  .app-review-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #fff;
+    border-bottom: 2px solid #b1b4b6;
+    margin-bottom: 20px;
+  }
+  /* The Go to row is a filled panel, the way MOJ fills its filter and
+     identity bars: it marks the controls off from the list below without
+     needing a heading, and gives the sticky bar a solid edge to sit on.
+     The negative margin lets the fill run out to the container gutter
+     while the label still lines up with the page heading above it. */
+  .app-page-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 20px;
+    background: #f3f2f1;
+    border-top: 1px solid #b1b4b6;
+    /* No negative margin. The fill stops exactly where the table stops,
+       and the 15px is what insets the controls from that edge. */
+    padding: 15px;
+  }
+  /* The pages sit on white below the panel, so the fill reads as
+     belonging to the control rather than to the whole bar. */
+  .app-sub-nav { padding-top: 5px; }
+  .app-page-nav__control {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  .app-page-nav__label { margin: 0; white-space: nowrap; }
+  .app-page-nav__input { margin: 0; }
+  /* govuk-frontend stretches buttons to full width on a phone. In a
+     sticky bar that costs a whole row of the list, so this one keeps its
+     natural width and sits beside the box at every size.
+
+     The height is pinned to the input's 40px. Left alone the button
+     comes out 38px, and the 2px difference shows as a step between two
+     controls that are meant to read as one. */
+  .app-page-nav__button {
+    margin: 0;
+    width: auto;
+    min-height: 40px;
+  }
+  /* A secondary button on the panel is the same grey as the panel, so
+     without a border there is nothing to say it is a button. #505a5f is
+     the Design System's secondary text colour and clears 1.4.11's 3:1
+     against #f3f2f1 at 6.33:1; the shadow underneath is left as
+     govuk-frontend draws it. */
+  .app-page-nav__button.govuk-button--secondary {
+    border: 1px solid #505a5f;
+  }
+  /* The hint sits beside the control rather than under it: the bar is
+     sticky, so every line it grows is a line of the list the vet cannot
+     see. */
+  .app-page-nav__hint { margin: 0; }
+  /* The end of the list is a destination rather than a control, so it
+     sits behind a divider at the end of the row. */
+  /* WCAG 2.2 Target Size (Minimum) wants 24x24. A bare link is the
+     height of its text - 19px - and the "inline with other text"
+     exception does not apply, because this link stands on its own in a
+     bar rather than inside a sentence. The padding is what makes it a
+     target; it also gives the divider something to run alongside. */
+  /* The end of the list sits after the last page, separated from it so
+     it does not read as another page. */
+  .app-sub-nav__link--end {
+    margin-left: 5px;
+    border-left: 1px solid #b1b4b6;
+    padding-left: 20px;
+  }
+  /* Sticky is a luxury that needs room for the list underneath it. Zoomed
+     to 200%, or on a short landscape screen, the bar would otherwise take
+     nearly a third of the viewport and leave a slot barely one row deep -
+     so below that height it scrolls away with everything else. */
+  @media (max-height: 30em) {
+    .app-review-bar { position: static; }
+  }
+  /* Page zoom shrinks the viewport, which the media query above catches.
+     Text-only resizing does not - the viewport stays put while the bar
+     grows - so the same judgement is made by measurement in script. */
+  .app-review-bar.app-review-bar--unstuck { position: static; }
+
+  /* The pages of the printed list. Everything is on one page here - the
+     "pages" are the pages of the paper the vet is copying from, rendered
+     one after another - so these are in-page anchors, not pagination.
+     That is why the current one carries aria-current="true" rather than
+     "page": the page has not changed, the vet's position in it has.
+
+     Styled as the MOJ Design System's sub navigation, which is the
+     nearest thing government documents for moving between sections of a
+     caseworking screen. */
+  .app-sub-nav__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 15px;
+  }
+  .app-sub-nav__item { margin: 0; }
+  .app-sub-nav .app-sub-nav__link {
+    display: block;
+    padding: 10px 5px 6px;
+    border-bottom: 4px solid transparent;
+    text-decoration: none;
+  }
+  .app-sub-nav .app-sub-nav__link:hover { text-decoration: underline; }
+  .app-sub-nav .app-sub-nav__link[aria-current] {
+    color: #0b0c0c;
+    font-weight: 700;
+    border-bottom-color: #1d70b8;
+  }
+  .app-nav-status { margin: -12px 0 15px; }
+  .app-nav-status:empty { display: none; }
+
+  /* Back to the sticky bar from the end of a page of the list. Hidden
+     until focused, in the GOV.UK focus colours - the same treatment the
+     skip link at the top of every page uses. */
+  .app-back-to-nav {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .app-back-to-nav:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: inherit;
+    display: inline-block;
+    margin: 15px 0 0;
+    padding: 5px;
+    background-color: #ffdd00;
+    color: #0b0c0c;
+    outline: 3px solid transparent;
+    box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
+    text-decoration: none;
+  }
+
+  /* Where Find lands. Stays put until the next search, so the vet can
+     look away and back without losing the row. */
+  .js-review-row.app-row--found > .govuk-table__cell { background-color: #fff7bf; }
+  /* Rows with no answer yet carry the app-row--todo class - the script
+     keeps it in step - but no marking of their own. The gutter is for
+     the exceptions the vet has decided about; an unanswered row is not
+     an exception, it is just not done, and 38 dotted edges on first load
+     marked the whole page as a problem. The count in the tally and the
+     error summary on submit are what track it. */
+  .app-tally__todo strong { color: #0b0c0c; }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ currentTestLabel }}</span>
+    <h1 class="govuk-heading-l">
+      Record the result for each of the {{ totalCattle }} cattle
+    </h1>
+
+    {# No warning here any more. It existed to tell the vet that rows they
+       never touched would be filed as "tested, no reaction" - which was
+       only true because the screen pre-selected Clear for them. Nothing
+       is pre-selected now, so there is nothing to warn about: an animal
+       with no answer is simply not recorded, and cannot be submitted. #}
+
+  </div>
+</div>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-full">
+
+    {# Page sizing - shared by the "Go to a page" links and the in-table
+       dividers.
+
+       18 to a page because that is what the printed SICCT sheet holds:
+       the two-row layout fits 18 animals on A4 once the header and
+       footer are accounted for (see _pageSize in skin-test-list.html).
+       The whole reason this table is paginated is so a page on screen is
+       the same page of animals as the sheet in the vet's hand - at 20
+       they diverged at the first break. #}
+    {% set _pageSize = 18 %}
+    {% set _totalPages = ((animals.length + _pageSize - 1) / _pageSize) | int %}
+    {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+
+    {# The record bar. Sticks to the top of the viewport so it is reachable
+       from anywhere in the table. Two rows:
+
+         Go to        - one box that takes either the animal's number in
+                        the # column or the last digits of its ear tag.
+         Pages        - the pages of the printed list, as anchors.
+
+       One box rather than two. Both readings come off the same sheet, so
+       asking the vet which kind of thing they are holding is a question
+       the screen can answer for itself: up to 3 characters is read as a
+       number first, because that is what the # column holds, and 4 or
+       more as an ear tag. Whichever fails, the other is tried - so a vet
+       who types 4 digits meaning a number still gets there.
+
+       Nothing here filters the list. Going to an animal takes the vet to
+       it and highlights it, leaving every other row exactly where it was
+       - the whole point of this screen is that the herd is accounted for
+       in one pass, so hiding rows would work against it.
+
+       Go is a plain button driven by script: it scrolls the page, which
+       is not something a link or a form could do. The page links are
+       links, because moving to another part of the same page is
+       navigation rather than an action - the same reasoning as the GOV.UK
+       skip link - and they still work with the script switched off.
+
+       The bar sits outside the review form, so nothing here can submit
+       it. #}
+    {# ------------------------------------------------------------------
+       Quick apply.
+
+       The list defaults every animal to Clear, which is right when most
+       of the herd was tested and clear - and wrong, expensively, when it
+       was not. A visit where only two animals were presented costs 36
+       separate radio clicks to record honestly, and a vet who is not
+       going to do that will do something else instead.
+
+       So: set the whole herd in one go, then correct the exceptions. The
+       same control does both directions.
+
+       Not in the sticky bar above. That bar is for moving around the
+       list and gets used all visit; this gets used once, and every row
+       it added to a sticky bar would be a row of cattle the vet could
+       not see for the rest of the visit.
+
+       Script only. Without it there is nothing to apply with, and the
+       list already works - it is just longer. #}
+    <div class="app-quick-apply app-js-block" id="quick-apply">
+      <h2 class="govuk-heading-s app-quick-apply__heading" id="quick-apply-heading">
+        Set a result for every animal
+      </h2>
+      <p class="govuk-hint app-quick-apply__hint" id="quick-apply-hint">
+        Use this when most of the herd had the same outcome, then change the ones that differ.
+      </p>
+      <div class="app-quick-apply__row">
+        <div class="govuk-form-group govuk-!-margin-bottom-0">
+          <fieldset class="govuk-fieldset" aria-describedby="quick-apply-hint">
+            <legend class="govuk-visually-hidden">Result to apply to all {{ totalCattle }} cattle</legend>
+            <div class="govuk-radios govuk-radios--small govuk-radios--inline" data-module="govuk-radios">
+              <div class="govuk-radios__item">
+                <input class="govuk-radios__input" id="quick-clear" name="quickApply" type="radio" value="clear">
+                <label class="govuk-label govuk-radios__label" for="quick-clear">Clear</label>
+              </div>
+              <div class="govuk-radios__item">
+                <input class="govuk-radios__input" id="quick-reaction" name="quickApply" type="radio" value="reaction">
+                <label class="govuk-label govuk-radios__label" for="quick-reaction">Reaction</label>
+              </div>
+              <div class="govuk-radios__item">
+                <input class="govuk-radios__input" id="quick-not-tested" name="quickApply" type="radio" value="not-tested">
+                <label class="govuk-label govuk-radios__label" for="quick-not-tested">Not tested</label>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+        <button type="button" class="govuk-button govuk-button--secondary app-quick-apply__button" id="quick-apply-button">
+          Apply to all {{ totalCattle }}<span class="govuk-visually-hidden"> cattle</span>
+        </button>
+      </div>
+      {# Says what happened and offers the way back. An undo link is what
+         makes a destructive action safe without stopping the vet with a
+         confirmation step every time. #}
+      <p class="govuk-body app-quick-apply__status" id="quick-status" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="app-review-bar" id="review-page-nav">
+      <nav class="app-page-nav" aria-label="Find an animal">
+        <div class="app-page-nav__control">
+          <label class="govuk-label app-page-nav__label" for="go-to">Go to</label>
+          <input class="govuk-input govuk-input--width-5 app-page-nav__input"
+                 id="go-to" type="text" autocomplete="off" maxlength="14"
+                 aria-describedby="go-to-hint nav-status">
+          {# Secondary. The page has one primary action - Continue, at the
+             bottom - and GDS is clear that a page gets one: a second
+             green button competes with it and tells the vet the wrong
+             thing about which one finishes the job.
+
+             A secondary button is #f3f2f1, the same colour as the panel,
+             so it needs an edge to be identifiable as a control at all
+             (WCAG 1.4.11). That edge is the deviation, not the colour. #}
+          <button type="button" class="govuk-button govuk-button--secondary app-page-nav__button" id="go-to-button">
+            Go<span class="govuk-visually-hidden"> to animal</span>
+          </button>
+          <span class="govuk-hint app-page-nav__hint" id="go-to-hint">Animal number, or the last 4 digits of the ear tag</span>
+        </div>
+      </nav>
+
+      {% if _totalPages > 1 %}
+        <nav class="app-sub-nav" aria-label="Move through the cattle list">
+          <ul class="app-sub-nav__list">
+            {% for _p in range(1, _totalPages + 1) %}
+              <li class="app-sub-nav__item">
+                <a class="govuk-link app-sub-nav__link" href="#page-{{ _p }}" data-page="{{ _p }}"{% if _p == 1 %} aria-current="true"{% endif %}>Page {{ _p }}</a>
+              </li>
+            {% endfor %}
+            {# The end of the list, after the last page, because that is
+               where it is. Short on screen, where the row it sits in
+               supplies the context; spelled out for a screen reader
+               listing links, where it does not - the same visually
+               hidden qualifier the Design System puts on "Change" links
+               in a summary list. It is not a page, so it never takes
+               aria-current. #}
+            <li class="app-sub-nav__item">
+              <a class="govuk-link app-sub-nav__link app-sub-nav__link--end" href="#review-continue">End<span class="govuk-visually-hidden"> of the list</span></a>
+            </li>
+          </ul>
+        </nav>
+      {% endif %}
+    </div>
+    <p class="govuk-body govuk-!-font-weight-bold app-nav-status" id="nav-status" role="status" aria-live="polite"></p>
+
+    {# Announces the panel that opens when a row's result changes.
+       Visually hidden because a sighted user can see it appear; a screen
+       reader user cannot, and focus stays on the radio by design, so
+       nothing else would tell them. #}
+    <p class="govuk-visually-hidden" id="row-status" role="status" aria-live="polite"></p>
+
+    {# The calculated SICCT result, announced separately from the visible
+       readout so it can wait until the vet stops typing. #}
+    <p class="govuk-visually-hidden" id="result-status" role="status" aria-live="polite"></p>
+
+    {# What the vet has just typed, read back to them.
+
+       VoiceOver's own character-by-character echo is a screen reader
+       feature; a page cannot switch it on. Where it does not fire, this
+       is the only way the vet hears what went into the box. It waits for
+       a gap in typing and only speaks while the field still has focus,
+       so it confirms rather than interrupts. #}
+    <p class="govuk-visually-hidden" id="typed-status" role="status" aria-live="polite"></p>
+
+    {# Accessible descriptions for the two results that open a panel. One
+       copy each, shared by every row - aria-describedby can point at any
+       element in the document. Attached by script only: with JavaScript
+       off nothing is hidden, so there is nothing to "open". #}
+    <span class="govuk-visually-hidden" id="desc-reaction">Opens skin test readings for this animal</span>
+    <span class="govuk-visually-hidden" id="desc-not-tested">Opens not tested options for this animal</span>
+
+    <form action="/v1-4/skin-test-reactors" method="post" novalidate>
+
+      {# The form now contains an "Add reason now" button per Not tested
+         row, and a browser submits the FIRST submit button when someone
+         presses Enter in a field. Without this, Enter in a measurement box
+         would jump the vet out to the reasons page. This button is never
+         seen or tabbed to - it only claims that default. #}
+      <button type="submit" class="govuk-visually-hidden" tabindex="-1" aria-hidden="true">Continue</button>
+
+      {# Standard GOV.UK design system table, reduced to two columns so
+         each row reads as "identify this animal, then record what
+         happened to it" rather than as a spreadsheet.
+
+         The Animal cell leads with the ear tag at a larger size — it is
+         the only thing the vet matches against the animal in front of
+         them — and demotes DOB, sex, breed and TB vaccination to one
+         line of smaller secondary text beneath it. Those details are
+         still needed (to confirm you have the right animal, and to spot
+         a calf under testing age) but they are lookup information, not
+         something to read on every row.
+
+         Each result group is its own fieldset with a visually hidden
+         legend naming the animal, so a screen-reader user always knows
+         which animal a set of radios belongs to. #}
+      {# One table per page of the printed list, rather than one long table
+         with divider rows. This is what the Design System recommends for
+         a lot of data – "try to organise it into multiple tables or
+         multiple pages" – and it lets each page carry a real
+         govuk-table__caption heading instead of a bespoke bordered row.
+
+         It also brings the column headings back: "Animal" and "Result"
+         repeat at every page break, so they are never more than 20 rows
+         away however far the vet has scrolled.
+
+         Every table sits inside the one form and the radio names are
+         unchanged, so all pages still submit together on one Continue. #}
+      {% for _page in range(0, _totalPages) %}
+        {% set _start = _page * _pageSize %}
+        {% set _pageAnimals = animals.slice(_start, _start + _pageSize) %}
+
+      {# A real heading, not a caption. A caption is the table's
+         accessible NAME - it never reaches a screen reader's heading
+         list, so without this there was no way to move between the three
+         pages of the herd except by tabbing through every row. It also
+         restores the level order: h1 > h2 (page) > h3 (an open reaction
+         panel), which previously skipped h2 entirely.
+
+         The heading carries the id, so "Go to page 2" lands on the page's
+         name rather than just above its first row. #}
+      {# tabindex="-1" does NOT put the heading in the tab order - it makes
+         it focusable programmatically, which is the only way anything can
+         hand focus to it. Needed twice over: so "Go to page" can move
+         focus here rather than only scrolling, and so VoiceOver can bring
+         keyboard focus along when its cursor lands here from the rotor. #}
+      <h2 class="govuk-heading-m app-page-heading" id="page-{{ _page + 1 }}" tabindex="-1">
+        Page {{ _page + 1 }} of {{ _totalPages }}
+      </h2>
+
+      <table class="govuk-table app-review-table" role="presentation">
+        {# The table still needs an accessible name. Hidden, because the
+           heading above already says this visually, and carrying the
+           count so the name tells a screen reader more than the heading
+           repeats. #}
+        <caption class="govuk-table__caption govuk-visually-hidden">
+          Page {{ _page + 1 }} of {{ _totalPages }}, {{ _pageAnimals.length }} cattle with their {{ currentTestLabel }} result
+        </caption>
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header app-number-cell">
+              <span aria-hidden="true">#</span>
+              <span class="govuk-visually-hidden">Number on the printed list</span>
+            </th>
+            <th scope="col" class="govuk-table__header">Animal</th>
+            <th scope="col" class="govuk-table__header">Result</th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for animal in _pageAnimals %}
+            {% set _n = _start + loop.index %}
+            <tr class="govuk-table__row js-review-row{% if animal.status == 'reaction' %} app-row--reaction{% elif animal.status == 'not-tested' %} app-row--not-tested{% endif %}"
+                id="animal-{{ _n }}"
+                data-ear-tag="{{ animal.officialId }}"
+                data-status="{{ animal.status }}"
+                data-n="{{ _n }}">
+              {# The row's number on the printed TB64 sheet the vet is
+                 working from. It counts through the whole herd rather than
+                 restarting each page, so page 2 starts at 21 exactly as the
+                 paper does – the number is only useful if it matches. #}
+              <td class="govuk-table__cell app-number-cell">{{ _n }}</td>
+              <td class="govuk-table__cell app-animal-cell">
+                <div class="app-ear-tag app-ear-tag--lead">
+                  <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--check">{{ animal.earTagParts.check }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ animal.earTagParts.individualStart }}</span>
+                  <span class="app-ear-tag__part app-ear-tag__part--last4{% if animal.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                        {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
+                </div>
+                {# Supporting details. Sex, breed and date of birth are on
+                   every row – between them they confirm the animal in the
+                   crush is the one on the list.
+
+                   TB vaccination and the age flags follow the same
+                   principle as defaulting to Clear: they only appear when
+                   they change something. On a normal row there is no
+                   second line at all, so the rows that carry one are the
+                   rows worth a second look.
+
+                   Breed stays as the code used on the printed list. It is
+                   given a hidden "Breed" label so a screen reader doesn't
+                   read a code like HER as the word "her". #}
+                <p class="app-animal-meta">
+                  <span class="app-animal-meta__item">
+                    {%- if animal.sex == 'F' -%}Female
+                    {%- elif animal.sex == 'M' -%}Male
+                    {%- else -%}{{ animal.sex }}{%- endif -%}
+                  </span>
+                  <span class="app-animal-meta__sep" aria-hidden="true">·</span>
+                  <span class="app-animal-meta__item"><span class="govuk-visually-hidden">Breed </span>{{ animal.breed }}</span>
+                  <span class="app-animal-meta__sep" aria-hidden="true">·</span>
+                  <span class="app-animal-meta__item">DOB {{ animal.dob }}</span>
+                </p>
+                {# Age flags. The date itself is already on the line above,
+                   so these say only what is wrong with it. #}
+                {% if animal.isTooYoung %}
+                  <p class="app-animal-meta app-animal-meta--flag">
+                    <strong>Too young to test</strong> – under the minimum testing age of 42 days
+                  </p>
+                {% elif animal.isUnderTestAge %}
+                  <p class="app-animal-meta app-animal-meta--flag">
+                    <strong>Close to the 42-day testing age</strong> – check the date of birth
+                  </p>
+                {% endif %}
+                {# The other reason an animal cannot be tested today: it
+                   was tested somewhere else inside the 60-day minimum
+                   interval. Same shape as the age flag - the date, then
+                   the rule it falls foul of. #}
+                {% if animal.testedElsewhereRecently %}
+                  <p class="app-animal-meta app-animal-meta--flag">
+                    <strong>{{ animal.recentTestType or 'SICCT' }} tested {{ animal.recentTestDate }}</strong> – inside the 60-day minimum interval
+                  </p>
+                {% endif %}
+                {% if animal.isVaxCheckDue %}
+                  <p class="app-animal-meta app-animal-meta--flag">
+                    <strong>TB vaccinated {{ animal.vaccinationDate }}</strong> – booster due
+                  </p>
+                {% endif %}
+              </td>
+              <td class="govuk-table__cell app-result-cell">
+                <fieldset class="govuk-fieldset">
+                  {# Read on entering each row's radio group, so it has to
+                     carry everything needed to place the row: which
+                     animal, and where in the list. The number is what the
+                     vet is reading off the paper sheet, and "of {{ totalCattle }}"
+                     is the only sense of progress this page offers
+                     someone who cannot see the scrollbar. #}
+                  <legend class="govuk-visually-hidden">
+                    Animal {{ _n }} of {{ totalCattle }}, {{ animal.officialId }}. Result{% if animal.isTooYoung %}. Under the minimum testing age of 42 days{% elif animal.testedElsewhereRecently %}. Tested {{ animal.recentTestDate }}, inside the 60-day minimum interval{% endif %}
+                  </legend>
+                  <div class="govuk-radios govuk-radios--small govuk-radios--inline" data-module="govuk-radios">
+                    <div class="govuk-radios__item">
+                      <input class="govuk-radios__input js-status-input" id="status-{{ _n }}-clear" name="status-{{ animal.officialId }}" type="radio" value="clear" {% if animal.status == 'clear' %}checked{% endif %}>
+                      <label class="govuk-label govuk-radios__label" for="status-{{ _n }}-clear">Clear</label>
+                    </div>
+                    <div class="govuk-radios__item">
+                      <input class="govuk-radios__input js-status-input" id="status-{{ _n }}-reaction" name="status-{{ animal.officialId }}" type="radio" value="reaction" {% if animal.status == 'reaction' %}checked{% endif %}>
+                      <label class="govuk-label govuk-radios__label" for="status-{{ _n }}-reaction">Reaction</label>
+                    </div>
+                    <div class="govuk-radios__item">
+                      <input class="govuk-radios__input js-status-input" id="status-{{ _n }}-not-tested" name="status-{{ animal.officialId }}" type="radio" value="not-tested" {% if animal.status == 'not-tested' %}checked{% endif %}>
+                      <label class="govuk-label govuk-radios__label" for="status-{{ _n }}-not-tested">Not tested</label>
+                    </div>
+                  </div>
+                </fieldset>
+              </td>
+            </tr>
+
+            {# Detail panel for this animal. One row, two panels: the
+               measurements for a reaction, the reason for an animal that
+               was not tested. Only the panel matching the chosen status is
+               shown, and the whole row stays closed while the animal is
+               Clear – which is most of them. #}
+            <tr class="app-detail-row js-detail-row{% if animal.status != 'reaction' and animal.status != 'not-tested' %} app-detail-row--hidden{% endif %}"
+                id="detail-{{ _n }}" data-row="{{ _n }}">
+              <td colspan="3">
+
+                {# The whole SICCT reading for this animal on one row of the
+                   herd list: both sites' Day 1 and Day 2 measurements, the
+                   C / SO reaction description at each site, the resulting
+                   millimetre increase, and the calculated result.
+
+                   The result is derived, never typed. It recalculates as
+                   the vet types, and is recalculated again server-side on
+                   submit through the same TB64 rules engine the rest of the
+                   service uses, so what the vet sees and what gets stored
+                   cannot drift apart. #}
+                <div class="app-detail js-detail-panel js-detail-reaction{% if animal.status != 'reaction' %} app-detail--hidden{% endif %}"
+                     data-animal="{{ animal.officialId }}">
+                  {# The number leads, because it is what the vet is
+                     reading off the paper sheet. No "of 38" here - the
+                     row's own legend has just said it, and repeating it
+                     inside the panel only lengthens every announcement. #}
+                  <fieldset class="govuk-fieldset app-detail__group">
+                  <legend class="govuk-fieldset__legend app-detail__legend">
+                    <h3 class="govuk-heading-s app-detail__heading">
+                      {{ currentTestLabel }} reading for animal {{ _n }}, {{ animal.officialId }}
+                    </h3>
+                  </legend>
+                  {# Errors for this animal's readings, collected into one
+                     block above the grid.
+
+                     They cannot go in the cells: a full message wrapping
+                     inside a 3-character column stretches the row to several
+                     hundred pixels and forces the column headers to wrap, so
+                     the grid stops being readable exactly when the vet needs
+                     to compare numbers. Above the table is the nearest
+                     equivalent to the Design System's "message immediately
+                     before the field", and each errored input points here
+                     with aria-describedby so the association survives. #}
+                  {% set _sicctErrors = [] %}
+                  {% for _key in ['avianBeforeInjection', 'avianAfter72Hours', 'bovineBeforeInjection', 'bovineAfter72Hours'] %}
+                    {% if animal.measurementErrors[_key] %}
+                      {% set _ = _sicctErrors.push(animal.measurementErrors[_key]) %}
+                    {% endif %}
+                  {% endfor %}
+                  {% if animal.measurementErrors.missing %}
+                    {% set _ = _sicctErrors.push('Enter all four readings, or acknowledge below that some are missing') %}
+                  {% endif %}
+                  {% if _sicctErrors.length %}
+                    <p class="govuk-error-message app-sicct-errors" id="sicct-errors-{{ animal.officialId }}">
+                      <span class="govuk-visually-hidden">Error:</span>
+                      {% for _message in _sicctErrors %}
+                        <span class="app-sicct-errors__line">{{ _message }}</span>
+                      {% endfor %}
+                    </p>
+                  {% endif %}
+
+                  <table class="govuk-table govuk-table--small-text-until-tablet app-sicct-table" role="presentation">
+                    <caption class="govuk-table__caption govuk-visually-hidden">
+                      Avian and bovine measurements
+                    </caption>
+                    <thead class="govuk-table__head">
+                      <tr class="govuk-table__row">
+                        <th scope="col" class="govuk-table__header">Site</th>
+                        <th scope="col" class="govuk-table__header">Day 1 (mm)</th>
+                        <th scope="col" class="govuk-table__header">Day 2 (mm)</th>
+                        <th scope="col" class="govuk-table__header">Reaction</th>
+                        <th scope="col" class="govuk-table__header">Increase</th>
+                      </tr>
+                    </thead>
+                    <tbody class="govuk-table__body">
+                      <tr class="govuk-table__row">
+                        <th scope="row" class="govuk-table__header">Avian</th>
+                        <td class="govuk-table__cell">
+                          {{ govukInput({
+                            id: "avianBeforeInjection-" + animal.officialId,
+                            name: "avianBeforeInjection-" + animal.officialId,
+                            classes: "govuk-input--width-3 js-sicct-input" + (" govuk-input--error" if animal.measurementErrors['avianBeforeInjection'] else ""),
+                            label: { text: "Avian day 1 in millimetres", classes: "govuk-visually-hidden" },
+                            attributes: { inputmode: "decimal", "aria-describedby": "sicct-errors-" + animal.officialId } if animal.measurementErrors['avianBeforeInjection'] else { inputmode: "decimal" },
+                            value: animal.measurements.avianBeforeInjection
+                          }) }}
+                        </td>
+                        <td class="govuk-table__cell">
+                          {{ govukInput({
+                            id: "avianAfter72Hours-" + animal.officialId,
+                            name: "avianAfter72Hours-" + animal.officialId,
+                            classes: "govuk-input--width-3 js-sicct-input" + (" govuk-input--error" if animal.measurementErrors['avianAfter72Hours'] else ""),
+                            label: { text: "Avian day 2 in millimetres", classes: "govuk-visually-hidden" },
+                            attributes: { inputmode: "decimal", "aria-describedby": "sicct-errors-" + animal.officialId } if animal.measurementErrors['avianAfter72Hours'] else { inputmode: "decimal" },
+                            value: animal.measurements.avianAfter72Hours
+                          }) }}
+                        </td>
+                        <td class="govuk-table__cell">
+                          {{ govukSelect({
+                            id: "avianOedema-" + animal.officialId,
+                            name: "avianOedema-" + animal.officialId,
+                            classes: "js-sicct-input app-oedema-select",
+                            label: { text: "Avian reaction", classes: "govuk-visually-hidden" },
+                            items: [
+                              { value: "C", text: "C", selected: animal.measurements.avianOedema != 'SO' },
+                              { value: "SO", text: "SO", selected: animal.measurements.avianOedema == 'SO' }
+                            ]
+                          }) }}
+                        </td>
+                        <td class="govuk-table__cell app-sicct-readout js-increase-avian">—</td>
+                      </tr>
+                      <tr class="govuk-table__row">
+                        <th scope="row" class="govuk-table__header">Bovine</th>
+                        <td class="govuk-table__cell">
+                          {{ govukInput({
+                            id: "bovineBeforeInjection-" + animal.officialId,
+                            name: "bovineBeforeInjection-" + animal.officialId,
+                            classes: "govuk-input--width-3 js-sicct-input" + (" govuk-input--error" if animal.measurementErrors['bovineBeforeInjection'] else ""),
+                            label: { text: "Bovine day 1 in millimetres", classes: "govuk-visually-hidden" },
+                            attributes: { inputmode: "decimal", "aria-describedby": "sicct-errors-" + animal.officialId } if animal.measurementErrors['bovineBeforeInjection'] else { inputmode: "decimal" },
+                            value: animal.measurements.bovineBeforeInjection
+                          }) }}
+                        </td>
+                        <td class="govuk-table__cell">
+                          {{ govukInput({
+                            id: "bovineAfter72Hours-" + animal.officialId,
+                            name: "bovineAfter72Hours-" + animal.officialId,
+                            classes: "govuk-input--width-3 js-sicct-input" + (" govuk-input--error" if animal.measurementErrors['bovineAfter72Hours'] else ""),
+                            label: { text: "Bovine day 2 in millimetres", classes: "govuk-visually-hidden" },
+                            attributes: { inputmode: "decimal", "aria-describedby": "sicct-errors-" + animal.officialId } if animal.measurementErrors['bovineAfter72Hours'] else { inputmode: "decimal" },
+                            value: animal.measurements.bovineAfter72Hours
+                          }) }}
+                        </td>
+                        <td class="govuk-table__cell">
+                          {{ govukSelect({
+                            id: "bovineOedema-" + animal.officialId,
+                            name: "bovineOedema-" + animal.officialId,
+                            classes: "js-sicct-input app-oedema-select",
+                            label: { text: "Bovine reaction", classes: "govuk-visually-hidden" },
+                            items: [
+                              { value: "C", text: "C", selected: animal.measurements.bovineOedema != 'SO' },
+                              { value: "SO", text: "SO", selected: animal.measurements.bovineOedema == 'SO' }
+                            ]
+                          }) }}
+                        </td>
+                        <td class="govuk-table__cell app-sicct-readout js-increase-bovine">—</td>
+                      </tr>
+                    </tbody>
+                    {# Calculated, never asked. Sitting in the table's own
+                       footer puts "Result" in the same column as Site,
+                       Avian and Bovine, so the derived answer reads as the
+                       last line of the grid it comes from rather than as
+                       loose text underneath it.
+
+                       Announced politely so a screen reader hears the
+                       result change once the readings are complete,
+                       without interrupting typing. #}
+                    <tfoot>
+                      <tr class="govuk-table__row app-sicct-result-row">
+                        <th scope="row" class="govuk-table__header">Result</th>
+                        <td class="govuk-table__cell app-sicct-result" colspan="4">
+                          {# Not a live region. It used to be, and it fired
+                             on every keystroke - see announceResult below,
+                             which does the announcing now, after a pause
+                             and only on a real change. #}
+                          <span class="js-sicct-result">
+                            <span class="app-sicct-pending">Enter both readings</span>
+                          </span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+
+                  {# Reactor tag number. Only a reactor is tagged, so the
+                     box only appears once the readings say the animal is
+                     one. Rendered and hidden rather than built on demand,
+                     so anything already typed stays in the form and
+                     submits whatever the readings later become. #}
+                  <div class="app-reactor-ref js-ref-wrap"{% if not animal.needsReactorRef %} hidden{% endif %}>
+                    {{ govukInput({
+                      id: "reactorReference-" + animal.officialId,
+                      name: "reactorReference-" + animal.officialId,
+                      classes: "govuk-input--width-5 js-reactor-ref",
+                      label: { text: "Reactor tag number" },
+                      value: animal.measurements.reactorReference,
+                      errorMessage: { text: animal.measurementErrors.reactorReference } if animal.measurementErrors.reactorReference
+                    }) }}
+                  </div>
+                  </fieldset>
+                </div>
+
+                {# Not tested cattle do not give a reason here. One reason
+                   usually covers several animals - "couldn't be managed", a
+                   whole group missing - so reasons are collected on the bulk
+                   page afterwards, where the vet ticks a group and picks the
+                   reason once.
+
+                   The button is for the exception: a vet who wants to record
+                   this animal's reason there and then. It submits the page
+                   first, so nothing typed anywhere else is lost, and opens
+                   the bulk page with this animal already ticked. #}
+                <div class="app-detail js-detail-panel js-detail-not-tested{% if animal.status != 'not-tested' %} app-detail--hidden{% endif %}">
+                  <p class="govuk-body govuk-!-margin-bottom-2 js-reason-intro">
+                    Animal {{ _n }}, <strong>{{ animal.officialId }}</strong>, will be added to the
+                    list of cattle that need a reason. You'll give the reasons after you continue.
+                  </p>
+
+                  {# Opens the reasons in place - it never leaves the page, so
+                     it is a plain button rather than a submit. Only shown
+                     when scripting is available; without it the radios below
+                     are simply visible from the start. #}
+                  <button type="button"
+                          class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0 app-js-only js-reason-toggle"
+                          data-module="govuk-button"
+                          aria-expanded="false"
+                          aria-controls="reason-group-{{ _n }}">
+                    Add reason now
+                  </button>
+
+                  {% set otherHtml %}
+                    {{ govukInput({
+                      id: "reasonOther-" + animal.officialId,
+                      name: "reasonOther-" + animal.officialId,
+                      label: { text: "Other reason" },
+                      classes: "govuk-!-width-two-thirds",
+                      value: animal.reasonOther
+                    }) }}
+                  {% endset %}
+                  <div class="app-reason-group js-reason-group app-detail--hidden" id="reason-group-{{ _n }}">
+                    {{ govukRadios({
+                      idPrefix: "reason-" + animal.officialId,
+                      name: "reason-" + animal.officialId,
+                      classes: "govuk-radios--small",
+                      fieldset: {
+                        legend: {
+                          text: "Why was animal " + _n + ", " + animal.officialId + ", not tested?",
+                          classes: "govuk-fieldset__legend--s"
+                        }
+                      },
+                      value: animal.reason,
+                      items: [
+                        { value: "not-presented", text: "Not presented",
+                          hint: { text: "Missing, not brought in, or withdrawn by the keeper" } },
+                        { value: "not-possible", text: "Not possible to test",
+                          hint: { text: "Came to the crush but could not be handled or restrained safely" } },
+                        { value: "not-eligible", text: "Not eligible",
+                          hint: { text: "Too young, or tested elsewhere in the last 60 days" } },
+                        { value: "dead", text: "Dead" },
+                        { value: "other", text: "Other reason", conditional: { html: otherHtml } }
+                      ]
+                    }) }}
+
+                    {# Undoes "Add reason now": clears the choice and puts
+                       the reasons away, so the animal goes back to
+                       collecting its reason on the bulk page. #}
+                    <button type="button"
+                            class="govuk-button govuk-button--secondary govuk-!-margin-top-2 govuk-!-margin-bottom-0 js-reason-remove">
+                      Remove reason
+                    </button>
+                  </div>
+                </div>
+
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {# Two links closing each page, both hidden until focused.
+
+         Back to page navigation - WCAG 2.4.1 Bypass Blocks. The bar is a
+         labelled landmark, which serves screen readers, but a
+         keyboard-only user would otherwise have to shift-tab back through
+         every radio on the page.
+
+         Go to page N - the only reliable way to move focus between pages.
+         A screen reader's rotor moves its own cursor, not the browser's
+         keyboard focus, so jumping to a heading leaves Tab where it was;
+         activating a link moves focus for real. It also puts the page
+         boundaries in the rotor's Links list. #}
+      <a class="app-back-to-nav" href="#review-page-nav">Back to page navigation</a>
+      {% if _page + 2 <= _totalPages %}
+        <a class="app-back-to-nav" href="#page-{{ _page + 2 }}"
+           data-focus="page-{{ _page + 2 }}">Go to page {{ _page + 2 }} of {{ _totalPages }}</a>
+      {% endif %}
+      {% endfor %}
+
+      <div class="app-tally" role="status" aria-live="polite">
+        <ul class="app-tally__list govuk-body govuk-!-margin-bottom-0">
+          <li><strong class="js-count-clear">{{ counts.clear }}</strong> clear</li>
+          <li><strong class="js-count-reaction">{{ counts.reaction }}</strong> reaction</li>
+          <li><strong class="js-count-not-tested">{{ counts.notTested }}</strong> not tested</li>
+          {# The count that matters while the vet is working: with nothing
+             pre-selected this is the only sense of progress the screen
+             gives, and it is what the Continue button checks. #}
+          <li class="app-tally__todo"><strong class="js-count-todo">{{ counts.todo }}</strong> still to record</li>
+        </ul>
+      </div>
+
+
+      {# Shown only after a submit that left readings blank. A reading can
+         be illegible or impossible to take, so the vet is allowed through
+         once they have said so deliberately. Matches the same escape hatch
+         on /v1-4/skin-test-table. #}
+      {% if showOverride %}
+        {{ govukCheckboxes({
+          idPrefix: "overrideMissingReadings",
+          name: "overrideMissingReadings",
+          classes: "govuk-checkboxes--small",
+          fieldset: {
+            legend: {
+              text: "Some readings are missing",
+              classes: "govuk-fieldset__legend--s"
+            }
+          },
+          hint: { text: "Only do this if a reading could not be taken or could not be read." },
+          items: [
+            { value: "yes", text: "Submit the report with these readings missing" }
+          ]
+        }) }}
+      {% endif %}
+
+      {# Anchor target for the "Go to Continue" link in the sticky page
+         nav. Given room below the sticky bar so the button isn't hidden
+         under it on a short page. #}
+      {# Two ways out of this page. Continue takes the report on to check
+         your answers; Save and continue later parks it and returns the
+         vet to their dashboard, where it waits as "In progress".
+
+         The second one is what makes a long page survivable: the whole
+         herd is in this one form, so without a pause an interruption
+         costs the vet either the work or the accuracy. It carries a name
+         and value because the handler has to tell the two apart - only
+         the button actually pressed posts its own. #}
+      <div class="govuk-button-group" id="review-continue">
+        {{ govukButton({ text: "Continue" }) }}
+        {{ govukButton({
+          text: "Save and continue later",
+          classes: "govuk-button--secondary",
+          name: "saveAction",
+          value: "save-exit"
+        }) }}
+      </div>
+
+    </form>
+
+  </div>
+</div>
+
+<script>
+  (function () {
+    'use strict'
+
+    // Progressive enhancement only. Without JavaScript the page still
+    // works: the server renders the opening counts, the coloured row
+    // markers and the sticky page links, and the form submits normally.
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.js-review-row'))
+    if (!rows.length) return
+
+    function statusOf(row) {
+      var checked = row.querySelector('.js-status-input:checked')
+      // No answer is now a real state, not a stand-in for clear.
+      return checked ? checked.value : ''
+    }
+
+    function updateCounts() {
+      var counts = { clear: 0, reaction: 0, 'not-tested': 0, '': 0 }
+      rows.forEach(function (row) {
+        var status = statusOf(row)
+        counts[status] = (counts[status] || 0) + 1
+        row.classList.toggle('app-row--todo', !status)
+        // Keep the row's marker in step with the radios so the coloured
+        // left edge tracks what the vet has just changed.
+        row.setAttribute('data-status', status)
+        row.classList.toggle('app-row--reaction', status === 'reaction')
+        row.classList.toggle('app-row--not-tested', status === 'not-tested')
+      })
+      document.querySelectorAll('.js-count-clear').forEach(function (el) { el.textContent = counts.clear })
+      document.querySelectorAll('.js-count-reaction').forEach(function (el) { el.textContent = counts.reaction })
+      document.querySelectorAll('.js-count-not-tested').forEach(function (el) { el.textContent = counts['not-tested'] })
+      document.querySelectorAll('.js-count-todo').forEach(function (el) { el.textContent = counts[''] })
+    }
+
+    // --- Live SICCT interpretation --------------------------------------
+    // A thin client-side mirror of app/helpers/sicctInterpretation.js, the
+    // same one /v1-4/skin-test-table uses. The vet sees the result update
+    // as they type; the authoritative value is recalculated server-side on
+    // submit through the real rules engine, so the two cannot drift.
+    //
+    //   A reaction is POSITIVE if the increase is over 2 mm, or oedema
+    //   (SO) is present. Let D = bovine increase - avian increase.
+    //     negative bovine                 -> Pass
+    //     both positive and D <= 0        -> Pass
+    //     positive bovine and D > 4       -> Reactor
+    //     otherwise (positive bovine)     -> Inconclusive reactor
+    function num(panel, field) {
+      var el = panel.querySelector('[name^="' + field + '-"]')
+      if (!el) return NaN
+      var v = parseFloat(el.value)
+      return isNaN(v) ? NaN : v
+    }
+
+    function oedema(panel, field) {
+      var el = panel.querySelector('[name^="' + field + '-"]')
+      return el ? String(el.value || '').trim().toUpperCase() : ''
+    }
+
+    function isPositive(increaseMm, so) {
+      return increaseMm > 2 || so === 'SO'
+    }
+
+    function mm(n) {
+      return (n >= 0 ? '+' : '') + String(n.toFixed(1)).replace(/\.0$/, '') + ' mm'
+    }
+
+
+    // Reads back the value in the box the vet is typing into. Fires on a
+    // gap in typing, and only while that box still has focus - a readout
+    // arriving after they have moved on would name a value for a field
+    // they are no longer in.
+    var typedTimer = null
+    var lastTyped = null
+    function announceTyped(el) {
+      window.clearTimeout(typedTimer)
+      typedTimer = window.setTimeout(function () {
+        if (document.activeElement !== el) return
+        var value = (el.value || '').trim()
+        if (!value || value === lastTyped) return
+        lastTyped = value
+        var region = document.getElementById('typed-status')
+        if (region) region.textContent = value
+      }, 400)
+    }
+
+    document.addEventListener('input', function (event) {
+      var el = event.target
+      if (!el.classList || !el.classList.contains('js-sicct-input')) {
+        if (!el.classList || !el.classList.contains('js-reactor-ref')) return
+      }
+      announceTyped(el)
+    })
+
+    document.addEventListener('focusout', function (event) {
+      if (!event.target.classList) return
+      if (!event.target.classList.contains('js-sicct-input')
+        && !event.target.classList.contains('js-reactor-ref')) return
+      window.clearTimeout(typedTimer)
+      lastTyped = null
+      var region = document.getElementById('typed-status')
+      if (region) region.textContent = ''
+    })
+
+    // Announces the calculated result, but only once the vet has stopped
+    // typing and only when it has actually changed. See the note on the
+    // result cell: a live region that fires per keystroke talks over the
+    // character just typed.
+    var resultTimer = null
+    var lastAnnounced = {}
+    function announceResult(key, label) {
+      var region = document.getElementById('result-status')
+      if (!region) return
+      if (lastAnnounced[key] === label) return
+      lastAnnounced[key] = label
+      // An incomplete reading has no result worth saying out loud - the
+      // vet is mid-way through entering it and knows that.
+      if (!label) return
+      window.clearTimeout(resultTimer)
+      resultTimer = window.setTimeout(function () {
+        region.textContent = 'Result: ' + label
+      }, 900)
+    }
+
+
+    // Write only when the text is actually different. Every avoided write
+    // is an accessibility-tree mutation that does not interrupt a screen
+    // reader mid-word.
+    function setText(el, text) {
+      if (!el || el.textContent === text) return
+      el.textContent = text
+    }
+    function setHtml(el, html) {
+      if (!el || el.innerHTML === html) return
+      el.innerHTML = html
+    }
+
+    // Typing is a run of events; the readouts only need to settle at the
+    // end of it. The delay is longer after a blur so the write lands
+    // after the newly focused field has been announced, never on top of
+    // it - see the note on the focusout listener.
+    var recalcTimers = new WeakMap()
+    function scheduleRecalc(target, fn, delay) {
+      window.clearTimeout(recalcTimers.get(target))
+      recalcTimers.set(target, window.setTimeout(function () { fn(target) }, delay || 250))
+    }
+    // A measurement box, as opposed to the C / SO select. Only these are
+    // typed into, so only these can have a write collide with the vet
+    // moving on.
+    function isTypedField(el) {
+      return el && el.tagName === 'INPUT' && el.type !== 'radio' && el.type !== 'checkbox'
+    }
+
+    function recalcPanel(panel) {
+      var incA = panel.querySelector('.js-increase-avian')
+      var incB = panel.querySelector('.js-increase-bovine')
+      var out = panel.querySelector('.js-sicct-result')
+      if (!out) return
+
+      var aPre = num(panel, 'avianBeforeInjection')
+      var aPost = num(panel, 'avianAfter72Hours')
+      var bPre = num(panel, 'bovineBeforeInjection')
+      var bPost = num(panel, 'bovineAfter72Hours')
+
+      setText(incA, (isNaN(aPre) || isNaN(aPost)) ? '—' : mm(aPost - aPre))
+      setText(incB, (isNaN(bPre) || isNaN(bPost)) ? '—' : mm(bPost - bPre))
+
+      var key = panel.getAttribute('data-animal') || ''
+
+      if (isNaN(aPre) || isNaN(aPost) || isNaN(bPre) || isNaN(bPost)) {
+        setHtml(out, '<span class="app-sicct-pending">Enter both readings</span>')
+        syncReactorRef(panel, false)
+        announceResult(key, '')
+        return
+      }
+
+      var aInc = aPost - aPre
+      var bInc = bPost - bPre
+      var d = bInc - aInc
+      var bovinePos = isPositive(bInc, oedema(panel, 'bovineOedema'))
+      var avianPos = isPositive(aInc, oedema(panel, 'avianOedema'))
+
+      var label = 'Inconclusive reactor'
+      var tag = 'yellow'
+      if (!bovinePos || (avianPos && d <= 0)) { label = 'Pass'; tag = 'green' }
+      else if (d > 4) { label = 'Reactor'; tag = 'red' }
+      setHtml(out, '<strong class="govuk-tag govuk-tag--' + tag + '">' + label + '</strong>')
+      syncReactorRef(panel, label === 'Reactor')
+      announceResult(key, label)
+    }
+
+    // The reactor tag number is only written on the sheet for an animal
+    // actually being taken as a reactor, so the box is only on the page
+    // for one. Never taken away while it holds something the vet typed,
+    // while an error stands against it, or while the cursor is in it: a
+    // field that vanishes out from under someone is worse than a field
+    // they did not need.
+    function syncReactorRef(scope, needed) {
+      var wrap = scope.querySelector('.js-ref-wrap')
+      if (!wrap) return
+      var input = wrap.querySelector('.js-reactor-ref')
+      var keep = needed
+        || !!(input && input.value.trim())
+        || !!wrap.querySelector('.govuk-error-message')
+        || wrap.contains(document.activeElement)
+      if (wrap.hidden !== keep) return
+      wrap.hidden = !keep
+    }
+
+    document.addEventListener('input', function (event) {
+      var panel = event.target.closest && event.target.closest('.js-detail-reaction')
+      // Debounced: mid-run keystrokes leave the DOM alone entirely.
+      if (panel) scheduleRecalc(panel, recalcPanel)
+    })
+
+    document.addEventListener('change', function (event) {
+      var panel = event.target.closest && event.target.closest('.js-detail-reaction')
+      if (!panel) return
+      // A text input's change fires as part of the blur sequence, so
+      // updating here writes to the DOM at the exact moment focus is
+      // moving. Leave it to the scheduler. A select is different: the vet
+      // is still on it, nothing is in flight.
+      if (isTypedField(event.target)) scheduleRecalc(panel, recalcPanel)
+      else recalcPanel(panel)
+    })
+
+    // Leaving a box pushes the pending write out, so it lands after the
+    // next field has been announced instead of interrupting it.
+    document.addEventListener('focusout', function (event) {
+      if (!isTypedField(event.target)) return
+      var panel = event.target.closest && event.target.closest('.js-detail-reaction')
+      if (panel) scheduleRecalc(panel, recalcPanel, 600)
+    })
+    document.querySelectorAll('.js-detail-reaction').forEach(recalcPanel)
+
+    // --- Inline detail panels ------------------------------------------
+    // Reaction opens the measurement fields, Not tested opens the reason
+    // radios, Clear closes the row again. The panels are rendered in the
+    // page and only shown or hidden here, so nothing is lost when a row is
+    // closed and reopened, and everything submits with the form either way.
+    function syncDetail(row) {
+      var n = row.getAttribute('data-n')
+      var detail = document.getElementById('detail-' + n)
+      if (!detail) return
+      var status = statusOf(row)
+      var reaction = detail.querySelector('.js-detail-reaction')
+      var notTested = detail.querySelector('.js-detail-not-tested')
+
+      detail.classList.toggle('app-detail-row--hidden', status !== 'reaction' && status !== 'not-tested')
+      if (reaction) reaction.classList.toggle('app-detail--hidden', status !== 'reaction')
+      if (notTested) notTested.classList.toggle('app-detail--hidden', status !== 'not-tested')
+
+      // Fields and buttons inside a closed panel are disabled, so they stay
+      // out of the tab order and out of the form's submission.
+      detail.querySelectorAll('.js-detail-panel').forEach(function (panel) {
+        const closed = panel.classList.contains('app-detail--hidden') || status === 'clear'
+        panel.querySelectorAll('input, select, textarea, button').forEach(function (el) {
+          el.disabled = closed
+        })
+      })
+
+      // Each radio points at the panel IT opens, and reports ITS OWN
+      // state - the same model govuk-frontend uses for conditional
+      // reveals. Setting all three from the row's status meant an
+      // unchecked Clear radio announced itself as controlling an expanded
+      // region it had nothing to do with.
+      //
+      // Clear reveals nothing, so it carries neither attribute. A radio
+      // with no aria-controls is simply a radio, which is the truth.
+      if (reaction && !reaction.id) reaction.id = 'detail-' + n + '-reaction'
+      if (notTested && !notTested.id) notTested.id = 'detail-' + n + '-not-tested'
+
+      row.querySelectorAll('.js-status-input').forEach(function (input) {
+        var target = input.value === 'reaction'
+          ? reaction
+          : (input.value === 'not-tested' ? notTested : null)
+        if (!target) {
+          input.removeAttribute('aria-controls')
+          input.removeAttribute('aria-expanded')
+          return
+        }
+        input.setAttribute('aria-controls', target.id)
+        input.setAttribute('aria-expanded', String(!!input.checked))
+        // Announced whenever the radio is read, including while arrowing
+        // through the group - so the vet knows what a result will do
+        // before they choose it, rather than being told afterwards by a
+        // live region that may never fire.
+        input.setAttribute('aria-describedby', 'desc-' + input.value)
+      })
+    }
+
+    // What just opened, for a screen reader. Debounced because arrowing
+    // through the three radios fires a change for each one, and a live
+    // region does not need to narrate the ones passed through.
+    var announceTimer = null
+    function announceDetail(status) {
+      var region = document.getElementById('row-status')
+      if (!region) return
+      window.clearTimeout(announceTimer)
+      announceTimer = window.setTimeout(function () {
+        // Naming Tab is deliberate. Focus stays on the radio so the vet
+        // can keep arrowing through the three results; the trade-off is
+        // that nothing signals the panel is now reachable, so this says so.
+        region.textContent = status === 'reaction'
+          ? 'Skin test readings shown. Press Tab to enter them.'
+          : (status === 'not-tested'
+            ? 'Not tested options shown. Press Tab to reach them.'
+            : 'Details hidden.')
+      }, 150)
+    }
+
+    // "Add reason now" opens that animal's reasons in place. The reasons
+    // are already in the page, so opening them is instant and anything
+    // chosen submits with the rest of the form - the vet never leaves the
+    // table. Once open it stays open; the way to change your mind is to
+    // move the animal off Not tested, which closes the whole panel.
+    document.addEventListener('click', function (event) {
+      var toggle = event.target.closest && event.target.closest('.js-reason-toggle')
+      if (!toggle) return
+      var panel = toggle.closest('.js-detail-not-tested')
+      var group = panel && panel.querySelector('.js-reason-group')
+      if (!group) return
+      group.classList.remove('app-detail--hidden')
+      toggle.setAttribute('aria-expanded', 'true')
+      toggle.hidden = true
+      var intro = panel.querySelector('.js-reason-intro')
+      if (intro) intro.hidden = true
+      var first = group.querySelector('input[type="radio"]')
+      if (first) first.focus()
+    })
+
+    // A reason already chosen (or carried back from a previous submit)
+    // means the reasons were open last time - keep them open.
+    document.querySelectorAll('.js-detail-not-tested').forEach(function (panel) {
+      var group = panel.querySelector('.js-reason-group')
+      if (!group || !group.querySelector('input[type="radio"]:checked')) return
+      group.classList.remove('app-detail--hidden')
+      var toggle = panel.querySelector('.js-reason-toggle')
+      if (toggle) { toggle.hidden = true; toggle.setAttribute('aria-expanded', 'true') }
+      var intro = panel.querySelector('.js-reason-intro')
+      if (intro) intro.hidden = true
+    })
+
+    // "Remove reason" - clear the choice, put the reasons away and bring
+    // the button back. The animal keeps its Not tested status and simply
+    // collects its reason on the bulk page instead.
+    document.addEventListener('click', function (event) {
+      var remove = event.target.closest && event.target.closest('.js-reason-remove')
+      if (!remove) return
+      var panel = remove.closest('.js-detail-not-tested')
+      var group = panel && panel.querySelector('.js-reason-group')
+      if (!group) return
+      group.querySelectorAll('input[type="radio"]').forEach(function (r) { r.checked = false })
+      group.querySelectorAll('input[type="text"], textarea').forEach(function (f) { f.value = '' })
+      group.classList.add('app-detail--hidden')
+      var intro = panel.querySelector('.js-reason-intro')
+      if (intro) intro.hidden = false
+      var toggle = panel.querySelector('.js-reason-toggle')
+      if (toggle) {
+        toggle.hidden = false
+        toggle.setAttribute('aria-expanded', 'false')
+        toggle.focus()
+      }
+    })
+
+    // --- Quick apply -----------------------------------------------------
+    //
+    // Sets every animal at once, then the vet corrects the exceptions.
+    //
+    // It really does mean every animal, including ones already recorded,
+    // because "all except the ones I have done" is a rule the vet would
+    // have to hold in their head to predict what the button does. So it
+    // is honest about overwriting, and undoable: the previous state of
+    // every row is kept, and the status line offers it back. That is
+    // safer than a confirmation step, which a vet applying to 250 cattle
+    // would learn to click through without reading.
+    var quickButton = document.getElementById('quick-apply-button')
+    var quickStatus = document.getElementById('quick-status')
+    var undoSnapshot = null
+
+    function snapshot() {
+      return rows.map(function (row) {
+        var checked = row.querySelector('.js-status-input:checked')
+        return { row: row, value: checked ? checked.value : '' }
+      })
+    }
+
+    function applyStatus(row, value) {
+      var input = row.querySelector('.js-status-input[value="' + value + '"]')
+      if (!input || input.checked) return false
+      input.checked = true
+      syncDetail(row)
+      return true
+    }
+
+    function quickApplyLabel(value) {
+      var label = document.querySelector('label[for="quick-' + value + '"]')
+      return label ? label.textContent.trim() : value
+    }
+
+    function renderUndo(changed, value) {
+      quickStatus.textContent = changed + ' ' + (changed === 1 ? 'animal' : 'cattle')
+        + ' set to ' + quickApplyLabel(value) + '. '
+      var link = document.createElement('button')
+      link.type = 'button'
+      link.className = 'govuk-link app-quick-apply__undo'
+      link.textContent = 'Undo'
+      link.addEventListener('click', function () {
+        if (!undoSnapshot) return
+        undoSnapshot.forEach(function (entry) {
+          if (entry.value) applyStatus(entry.row, entry.value)
+        })
+        undoSnapshot = null
+        updateCounts()
+        quickStatus.textContent = 'Change undone. Every animal is back to what it was.'
+        quickButton.focus()
+      })
+      quickStatus.appendChild(link)
+    }
+
+    if (quickButton) {
+      quickButton.addEventListener('click', function () {
+        var chosen = document.querySelector('input[name="quickApply"]:checked')
+        if (!chosen) {
+          quickStatus.textContent = 'Select a result first'
+          return
+        }
+        var value = chosen.value
+        undoSnapshot = snapshot()
+        var changed = 0
+        rows.forEach(function (row) { if (applyStatus(row, value)) changed++ })
+        updateCounts()
+        if (!changed) {
+          undoSnapshot = null
+          quickStatus.textContent = 'Every animal was already set to ' + quickApplyLabel(value)
+          return
+        }
+        renderUndo(changed, value)
+      })
+    }
+
+    // --- Record bar ------------------------------------------------------
+    var navStatus = document.getElementById('nav-status')
+    var goInput = document.getElementById('go-to')
+    var goButton = document.getElementById('go-to-button')
+    var subLinks = [].slice.call(document.querySelectorAll('.app-sub-nav__link'))
+    var pageTables = [].slice.call(document.querySelectorAll('.app-review-table'))
+    var totalPages = pageTables.length
+
+    function say(message) {
+      if (navStatus) navStatus.textContent = message || ''
+    }
+
+    // Said late, so it lands after the control that has just taken focus
+    // has finished announcing itself. A polite live region firing at the
+    // same moment is dropped by VoiceOver rather than queued.
+    var sayTimer = null
+    function sayLater(message) {
+      window.clearTimeout(sayTimer)
+      sayTimer = window.setTimeout(function () { say(message) }, 900)
+    }
+
+    function normTag(value) {
+      return String(value || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase()
+    }
+
+    // Marks the page the vet is looking at. Driven both by the scroll
+    // observer and by every jump, so the bar never disagrees with the
+    // list underneath it.
+    function markPage(n) {
+      subLinks.forEach(function (link) {
+        if (link.getAttribute('data-page') === String(n)) link.setAttribute('aria-current', 'true')
+        else link.removeAttribute('aria-current')
+      })
+    }
+
+    function pageOfRow(row) {
+      var table = row.closest && row.closest('.app-review-table')
+      var i = pageTables.indexOf(table)
+      return i === -1 ? 1 : i + 1
+    }
+
+    function goToPage(n) {
+      var heading = document.getElementById('page-' + n)
+      if (!heading) return false
+      // Focus, not just scroll. Scrolling moves the viewport and leaves
+      // keyboard focus on the link, so the next Tab jumps back to the top
+      // of the form - which is exactly the thing these exist to avoid.
+      // Focusing the heading means Tab carries on into that page's first
+      // row.
+      heading.focus()
+      heading.scrollIntoView({ block: 'start' })
+      markPage(n)
+      return true
+    }
+
+    subLinks.forEach(function (link) {
+      // The last item in this row is the end of the list, not a page. It
+      // has no data-page and must not be handled as one.
+      if (!link.hasAttribute('data-page')) return
+      link.addEventListener('click', function (event) {
+        var n = parseInt(link.getAttribute('data-page'), 10)
+        event.preventDefault()
+        // Nothing is said here. goToPage focuses the page's heading,
+        // which announces "Page 2 of 3, heading level 2" on its own - a
+        // live region would only repeat it half a second later.
+        goToPage(n)
+        say('')
+      })
+    })
+
+    // End of the list. Moves focus as well as the viewport, for the same
+    // reason the page links do: an href alone would scroll and leave
+    // focus at the top, so the next Tab would go back where it came from.
+    var endLink = document.querySelector('.app-sub-nav__link--end')
+    if (endLink) {
+      endLink.addEventListener('click', function (event) {
+        var target = document.getElementById('review-continue')
+        if (!target) return
+        event.preventDefault()
+        if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1')
+        target.focus()
+        target.scrollIntoView({ block: 'end' })
+        say('')
+      })
+    }
+
+    // Which page the vet is on, kept in step as they scroll.
+    //
+    // Measured from the row nearest the middle of the readable area -
+    // readable meaning below the sticky bar, which covers the top of the
+    // viewport. The middle rather than the top so that this agrees with
+    // what Go does: a jump centres the animal it found, so the centred
+    // row is both the one the vet is looking at and the one that decides
+    // the marked page. One rule, and the bar can never contradict the
+    // highlight underneath it.
+    var rowPages = rows.map(pageOfRow)
+
+    function syncCurrentPage() {
+      if (!subLinks.length || !rows.length) return
+      var bar = document.getElementById('review-page-nav')
+      var top = bar ? bar.getBoundingClientRect().bottom : 0
+      var middle = top + (window.innerHeight - top) / 2
+      var best = 0
+      var bestGap = Infinity
+      for (var i = 0; i < rows.length; i++) {
+        var box = rows[i].getBoundingClientRect()
+        var gap = Math.abs((box.top + box.bottom) / 2 - middle)
+        if (gap < bestGap) { bestGap = gap; best = i }
+      }
+      markPage(rowPages[best])
+    }
+
+    // Throttled to one measurement a frame: scroll fires far faster than
+    // the page can be repainted, and this reads layout.
+    var spyQueued = false
+    function queueSync() {
+      if (spyQueued) return
+      spyQueued = true
+      window.requestAnimationFrame(function () {
+        spyQueued = false
+        syncCurrentPage()
+      })
+    }
+    window.addEventListener('scroll', queueSync, { passive: true })
+    window.addEventListener('resize', queueSync)
+    syncCurrentPage()
+
+    // Arriving from a Change link on Check and send: #animal-24 means
+    // "show me animal 24", which is the same job Go does, so it is done
+    // the same way rather than left to the browser's own anchor jump.
+    // Leading semicolon: the statement above ends without one, and an
+    // IIFE on the next line would otherwise be parsed as a call on it.
+    ;(function openFromHash () {
+      var match = /^#animal-(\d+)$/.exec(window.location.hash || '')
+      if (!match) return
+      var row = rows.filter(function (r) {
+        return r.getAttribute('data-n') === match[1]
+      })[0]
+      if (!row) return
+      row.classList.add('app-row--found')
+      markPage(pageOfRow(row))
+      // Deferred until after load. The browser does its own fragment
+      // handling once the page has finished loading, and it resets focus
+      // to the document - so focusing any earlier is undone a moment
+      // later. Verified: focus set on DOMContentLoaded was back on body
+      // by the time the page settled.
+      function reveal () {
+        row.scrollIntoView({ block: 'center' })
+        var checked = row.querySelector('.js-status-input:checked')
+        if (checked) checked.focus()
+      }
+      if (document.readyState === 'complete') window.setTimeout(reveal, 0)
+      else window.addEventListener('load', function () { window.setTimeout(reveal, 0) })
+    })()
+
+    // A sticky bar is only worth its place while there is a list left to
+    // see underneath it. Text-only resizing grows the bar without
+    // shrinking the viewport, so past a quarter of the screen it stops
+    // sticking and scrolls away with everything else.
+    function checkBarHeight() {
+      var bar = document.getElementById('review-page-nav')
+      if (!bar) return
+      bar.classList.remove('app-review-bar--unstuck')
+      if (bar.getBoundingClientRect().height > window.innerHeight * 0.25) {
+        bar.classList.add('app-review-bar--unstuck')
+      }
+    }
+    window.addEventListener('resize', checkBarHeight)
+    checkBarHeight()
+
+    // One box, two kinds of input, both read off the same sheet: the
+    // number down the left of the printed list, or the ear tag. Up to 3
+    // characters is read as a number first, because that is what the #
+    // column holds; 4 or more as an ear tag. Whichever reading finds
+    // nothing, the other is tried - a number is never wrong for long.
+    //
+    // Several animals in this herd share their last 4 digits, so a tag
+    // match can be ambiguous where a number never is. The vet is told
+    // when that happens rather than being silently taken to one of them.
+    function findMatch(raw) {
+      var q = normTag(raw)
+      if (!q) return { error: 'Enter an animal number or ear tag' }
+
+      var byTag = rows.filter(function (r) {
+        return normTag(r.getAttribute('data-ear-tag')).slice(-q.length) === q
+      })
+      var byNumber = /^[0-9]{1,3}$/.test(q)
+        ? rows.filter(function (r) { return r.getAttribute('data-n') === String(parseInt(q, 10)) })[0]
+        : null
+
+      if (q.length >= 4 && byTag.length) return { row: byTag[0], tags: byTag.length }
+      if (byNumber) return { row: byNumber }
+      if (byTag.length) return { row: byTag[0], tags: byTag.length }
+      return { error: 'No animal on this list matches ' + raw }
+    }
+
+    function goTo() {
+      rows.forEach(function (r) { r.classList.remove('app-row--found') })
+      window.clearTimeout(sayTimer)
+      var found = findMatch(goInput.value)
+      if (found.error) return say(found.error)
+
+      var row = found.row
+      row.classList.add('app-row--found')
+      // Nothing is hidden - the row is brought to the vet, the rest of the
+      // herd stays exactly where it was.
+      row.scrollIntoView({ block: 'center' })
+      var checked = row.querySelector('.js-status-input:checked')
+      if (checked) checked.focus()
+      // The scroll this triggers runs the spy, which lands on the same
+      // page - but scrolling is asynchronous and may not move at all if
+      // the row was already centred, so mark it here too.
+      markPage(pageOfRow(row))
+
+      // A plain hit says nothing. The row is highlighted and scrolled to,
+      // which a sighted vet can see, and focus moves to its radio, whose
+      // legend already reads "Animal 12 of 38, UK987654500092. Result." -
+      // so a status line here is a second copy of what just happened.
+      //
+      // Ambiguity is the exception: several animals in this herd share
+      // their last 4 digits, and nothing about landing on one of them
+      // tells the vet there were others.
+      if (found.tags > 1) {
+        sayLater(found.tags + ' animals end in those digits. Showing the first, animal '
+          + row.getAttribute('data-n') + ', ' + row.getAttribute('data-ear-tag'))
+      } else {
+        say('')
+      }
+    }
+
+    function onEnter(input, handler) {
+      if (!input) return
+      input.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return
+        // The bar sits outside the review form, but stop the key anyway so
+        // it can never be mistaken for a submit.
+        event.preventDefault()
+        handler()
+      })
+    }
+
+    if (goButton) goButton.addEventListener('click', goTo)
+    onEnter(goInput, goTo)
+
+    // Focus is deliberately left alone here. Arrow keys move selection and
+    // focus between the three radios natively, and each move opens or
+    // closes the panel below as a side effect – but focus stays on the
+    // radio, so the vet can keep arrowing through Clear / Reaction / Not
+    // tested without being thrown into a measurement field halfway.
+    //
+    // Tab is what takes them into the panel: the checked radio is the only
+    // one in the tab order, and the panel is the next thing in the
+    // document, so Tab lands on the first measurement field on its own.
+    document.addEventListener('change', function (event) {
+      if (!event.target.classList || !event.target.classList.contains('js-status-input')) return
+      updateCounts()
+      var row = event.target.closest('.js-review-row')
+      if (row) syncDetail(row)
+      // Only on a real change. The initial sync below runs for all 38 rows
+      // on load and must stay silent.
+      announceDetail(statusOf(row))
+    })
+
+    rows.forEach(syncDetail)
+
+    // Both closing links move focus to their target, not just the
+    // viewport. Without this an href alone would scroll the page and leave
+    // focus stranded at the bottom of the list, so the next Tab would go
+    // back to where it already was.
+    //
+    // The nav needs tabindex="-1" adding on the way in because it is a
+    // landmark, not a control; the page headings already carry theirs.
+    document.querySelectorAll('.app-back-to-nav').forEach(function (link) {
+      link.addEventListener('click', function () {
+        var id = link.getAttribute('data-focus') || 'review-page-nav'
+        var target = document.getElementById(id)
+        if (!target) return
+        if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1')
+        target.focus()
+        var page = /^page-(\d+)$/.exec(id)
+        if (page) markPage(parseInt(page[1], 10))
+      })
+    })
+
+    updateCounts()
+  })()
+</script>
+{% endblock %}

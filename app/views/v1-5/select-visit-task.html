@@ -1,0 +1,74 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  What will you do on this visit? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-5/confirm-herd-or-animal"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {% if data['herd'] %}
+      <form action="/v1-5/select-journey" method="post" novalidate>
+        {# Captioned page heading – the farm name sits above the
+           question as a govuk-caption-l, wrapped inside the same
+           h1 the legend produces so the heading hierarchy stays
+           correct. The farm name is removed from the question text
+           to avoid repeating it. #}
+        {{ govukRadios({
+          idPrefix: "journey",
+          name: "journey",
+          fieldset: {
+            legend: {
+              html: '<span class="govuk-caption-l">' + data['herd']['farm'] + '</span>What do you need to do?',
+              isPageHeading: true,
+              classes: "govuk-fieldset__legend--l"
+            }
+          },
+          value: data['journey'],
+          errorMessage: { text: errors['journey'].text } if errors and errors['journey'],
+          items: [
+            {
+              value: "prepare-vaccinate",
+              text: "Prepare a list of cattle to vaccinate",
+              hint: { text: "Download or print a list of cattle to support the vaccination process" }
+            },
+            {
+              value: "report-vaccination",
+              text: "Report BCG vaccinations",
+              hint: { text: "Report complete vaccinations" }
+            },
+            {
+              value: "prepare-skin-test",
+              text: "Prepare a list of cattle for skin tests",
+              hint: { text: "Download or print a list of cattle to support the skin test process" }
+            },
+            {
+              value: "report-skin-test",
+              text: "Report skin test results",
+              hint: { text: "Report completed skin tests" }
+            }
+          ]
+        }) }}
+
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+    {% else %}
+      <h1 class="govuk-heading-l">No farm selected</h1>
+      <p class="govuk-body">
+        <a href="/v1-5/search" class="govuk-link">Go back and select a farm</a>
+      </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

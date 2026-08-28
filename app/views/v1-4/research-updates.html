@@ -1,0 +1,252 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Updates based on research – V4 – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back to what's new in V4",
+  href: "/v1-4/updates"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">V4</span>
+    <h1 class="govuk-heading-l">Updates based on research</h1>
+
+    <p class="govuk-body-l">
+      Round 2 of alpha research (May 2026) tested the V2 skin-test prototype with five vets (4 APHA, 1 OV) in 45–50 minute semi-structured interviews. The mixed-herd anxiety, the desire for automation and the call for a tabular measurement screen drove the redesign that V4 builds on. Quotes are taken verbatim from the report.
+    </p>
+
+    <h2 class="govuk-heading-m">One combined list for mixed herds</h2>
+    <p class="govuk-body">
+      Round 2 key insight:
+      <em>"Mixed herds are the biggest concern: This is a consistent theme in the feedback from vets, that the prospect of testing a mixed herd (vaccinated and unvaccinated) with the prospect of two test types is worrying, not only on a logistical level, but on a paperwork level."</em>
+    </p>
+    <p class="govuk-body">
+      Participant 4: <em>"It actually made me want to cry a little bit"</em> – on the prospect of vaccinating a mixed vax herd.
+    </p>
+    <p class="govuk-body">
+      Participant 3 (after talking through the dilemma):
+      <em>"I think if you've got one list where all the cattle on the farm are there, you can have it in the right numerical order, you can find it easily."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: a single combined list with a Test column showing whether each animal should have SICCT or DIVA. Vaccinated animals where both are valid show as "Either" with two pen-tick boxes so the vet can mark which test was actually used.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/skin-test-list">/v1-4/skin-test-list</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to know what TB test to give a cattle</strong>, so that the cattle receive the correct TB test and show an accurate result. Also: <strong>to know if a cattle has been vaccinated</strong>.
+    </p>
+
+    <h2 class="govuk-heading-m">Day 2 calculated automatically</h2>
+    <p class="govuk-body">
+      Round 2 finding:
+      <em>"Day 2 - expectation that this would be auto generated from the first page."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: Day 2 is calculated as 72 hours after Day 1 by default. A "Test taken over more than one day" checkbox reveals manual Day 2 date and time inputs for multi-day visits.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/skin-test-date">/v1-4/skin-test-date</a>
+    </p>
+
+    <h2 class="govuk-heading-m">Tabular measurement entry</h2>
+    <p class="govuk-body">
+      Round 2 finding:
+      <em>"Page by page not considered practical for large tests. Not a problem for smaller numbers. Concern at the time this would take to complete for hundreds of cattle. Too much information being asked, a lot could be automated i.e. outcome/result. Users preferred the Sam version of a table to be able to input large numbers of results quickly."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: every reactor sits on a single tabular page (the same one for SICCT and DIVA). The vet enters all the Day 1 / Day 2 measurements on one screen instead of stepping through one animal at a time, with a "Save and continue later" button to pause halfway through.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/skin-test-diva-table">/v1-4/skin-test-diva-table</a>
+    </p>
+
+    <h2 class="govuk-heading-m">C / SO dropdown instead of free-text reaction</h2>
+
+    <p class="govuk-body">
+      Round 2 finding:
+      <em>"Freetext needs replacing with selection options for C/OS for reaction type."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: the Reaction Desc column on the tabular measurement page now has a C (Clinical) / SO (Skin Oedema) dropdown for both the Avian and Bovine sites. The selection is fed into the SICCT rules engine and influences the saved result.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/skin-test-diva-table">/v1-4/skin-test-diva-table</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to know what TB test to give a cattle</strong>, so that the cattle receive the correct TB test and show an accurate result.
+    </p>
+
+    <h2 class="govuk-heading-m">Automatic result interpretation</h2>
+    <p class="govuk-body">
+      Participant 2 on automatic result calculation:
+      <em>"I would hope that the system would interpret it for me, because otherwise that leaves it open to human error and if it hits the wrong box, which I am very prone to do."</em>
+    </p>
+    <p class="govuk-body">
+      Round 2 insight:
+      <em>"Certain level of automation expected in the system: Whilst the feedback around the functionality of Sam is generally negative, there is a level of automation for dates and calculations of the results that is present in the current workflow, and users wouldn't want it to be omitted from the new system i.e. result of reactor based on measurements."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: the reaction description and overall result are calculated automatically from the measurements as the vet types. SICCT uses a structured rules engine that lives in a separate helper module (clearly marked as a prototype that must be validated against the official TB64 matrix before production use). DIVA uses the bovine increase between Day 1 and Day 2.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/skin-test-diva-table">/v1-4/skin-test-diva-table</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to know what TB test to give a cattle</strong>, so that the cattle receive the correct TB test and show an accurate result.
+    </p>
+
+    <h2 class="govuk-heading-m">Warn or auto-pick the right test for vaccinated animals</h2>
+    <p class="govuk-body">
+      Participant 5 on in-system automation:
+      <em>"This animal is flagged as vaccinated — it shouldn't even give me the option to put a skin test reading, because that would be potentially an invalid test."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: the per-row Test dropdown on the measurement table pre-selects DIVA for BCG-vaccinated cattle and SICCT for everyone else. The vet still has the option to change it, but the recommended test is the default so the right answer is one fewer click away.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/skin-test-diva-table">/v1-4/skin-test-diva-table</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to know what TB test to give a cattle</strong>, so that the cattle receive the correct TB test and show an accurate result. Also: <strong>to know if a cattle has been vaccinated</strong>.
+    </p>
+
+    <h2 class="govuk-heading-m">Farmer name and contact details on the farm briefing</h2>
+    <p class="govuk-body">
+      Round 2 recommendation:
+      <em>"Add contact details and owners name for the farm."</em>
+      The Round 1 report also captured Participant 5:
+      <em>"For a young colleague or a new colleague who's joined the practice to go to Willow Bank Farm, yes, he or she should be instructed to talk to Fred and not Jim, because Jim deals with the arable side and Fred knows about the cattle. So to me, it would be useful to have on here mobile number and email address."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: the confirm-herd / farm briefing page now shows the Contact and Phone number for the farm alongside the herd composition.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/confirm-herd-or-animal">/v1-4/confirm-herd-or-animal</a>
+    </p>
+
+    <h2 class="govuk-heading-m">Test type, frequency and risk on the farm briefing</h2>
+    <p class="govuk-body">
+      Round 2 recommendation:
+      <em>"Add additional info on the farm page about frequency/ test type of tb testing i.e. radial/standard."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: the farm briefing shows TB Status, Risk area, Test interval, Last TB test day 2 and Next skin test (with an "Overdue" tag when relevant) so the vet sees the disease-control state for the herd at a glance.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/confirm-herd-or-animal">/v1-4/confirm-herd-or-animal</a>
+    </p>
+
+    <h2 class="govuk-heading-m">Vaccination date for vaccinated cattle</h2>
+    <p class="govuk-body">
+      Round 2 recommendation:
+      <em>"Vaccination info also requires the date of vaccination."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: the TB Vax column on every cattle table shows the month/year the animal was BCG vaccinated, and underlines the value when the vaccination is around 9 months old (8–10 months) so the vet sees that a booster is approaching.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/skin-test-list">/v1-4/skin-test-list</a>
+      &middot; <a class="govuk-link" href="/v1-4/skin-test-diva-table">/v1-4/skin-test-diva-table</a>
+      &middot; <a class="govuk-link" href="/v1-4/skin-test-all-tested">/v1-4/skin-test-all-tested</a>
+      &middot; <a class="govuk-link" href="/v1-4/skin-test-reactors">/v1-4/skin-test-reactors</a>
+      &middot; <a class="govuk-link" href="/v1-4/skin-test-untested">/v1-4/skin-test-untested</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to know if a cattle has been vaccinated</strong>.
+    </p>
+
+    <h2 class="govuk-heading-m">Batch number space on the printed page</h2>
+    <p class="govuk-body">
+      Round 2 recommendation:
+      <em>"Add batch information space to the printed page."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: page 1 of the printed list carries a header with empty boxes the vet can write into – Day 1 date, Day 2 date, SICCT batch number, DIVA batch number – plus a sort label and total cattle count.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/skin-test-list">/v1-4/skin-test-list</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to know how many cattle will need the DIVA TB test</strong>, so that I can prepare the correct amount of 'medicine' to take on site for the test.
+    </p>
+
+    <h2 class="govuk-heading-m">Stop removing cattle from the list</h2>
+    <p class="govuk-body">
+      Round 2 recommendation:
+      <em>"Remove functionality to remove cattle - not required."</em>
+      Round 2 Prepare-list finding:
+      <em>"Wouldn't remove cattle from the list before visit - prefer to have the record of them even if ineligible."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: under-test-age cattle are no longer removed from the printed list. They stay on it with a "Check age" note in the Notes column and an underlined DOB to flag the calf as borderline.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/skin-test-list">/v1-4/skin-test-list</a>
+      &middot; <a class="govuk-link" href="/v1-4/prepare-skin-test-untested">/v1-4/prepare-skin-test-untested</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to know if a cattle is eligible for test</strong>, so that I can adhere to policy about giving the TB test. Also: <strong>to quickly identify cattle that are NOT eligible</strong>, so that I can discount them.
+    </p>
+
+    <h2 class="govuk-heading-m">Bold last 4 digits and a duplicate marker</h2>
+    <p class="govuk-body">
+      Round 2 finding:
+      <em>"Last four digits in bold/box is received positively to help scan numbers."</em>
+      And:
+      <em>"DUP (duplicate) tag received positively to avoid mistakes logging wrong info against wrong number (frequent)."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: only the last 4 digits of the ear tag are bold (the box around them has been dropped because the bolder weight is already enough to scan by). Duplicate ear tags are now flagged by underlining the last 4 digits instead of inverting a black box around them, so the marker is quieter on the page but still scannable.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/skin-test-list">/v1-4/skin-test-list</a>
+      &middot; <a class="govuk-link" href="/v1-4/skin-test-diva-table">/v1-4/skin-test-diva-table</a>
+      &middot; <a class="govuk-link" href="/v1-4/skin-test-reactors">/v1-4/skin-test-reactors</a>
+      &middot; <a class="govuk-link" href="/v1-4/skin-test-all-tested">/v1-4/skin-test-all-tested</a>
+      &middot; <a class="govuk-link" href="/v1-4/skin-test-untested">/v1-4/skin-test-untested</a>
+      &middot; <a class="govuk-link" href="/v1-4/select-vaccinated-animals">/v1-4/select-vaccinated-animals</a>
+    </p>
+    <p class="govuk-body govuk-hint">
+      User need: as a vet, I need <strong>to quickly find an ear tag number</strong>, so that I can see relevant information and allow me to carry out work quickly for the correct cattle.
+    </p>
+
+    <h2 class="govuk-heading-m">Clearer wording around split tests</h2>
+    <p class="govuk-body">
+      Round 2 finding:
+      <em>"Wording for selecting a part test or split test isn't correct. Users were confused, had to re-read to understand what this meant. ... The split test selection shouldn't be present on day 2. This should follow the choice that is made on day 1 information. It's not possible to do a day 2 split test if day 1 wasn't done as one."</em>
+    </p>
+    <p class="govuk-body">
+      What changed: the multi-day option is now a single "Test taken over more than one day" checkbox on the Day 1 page that reveals Day 2 date and time inputs when ticked. The separate Day 2 page is gone, so the split-test wording no longer appears twice.
+    </p>
+    <p class="govuk-body govuk-hint">
+      Affects: <a class="govuk-link" href="/v1-4/skin-test-date">/v1-4/skin-test-date</a>
+    </p>
+
+    {# ------------------------------------------------------------ #}
+    <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible">
+
+    <h2 class="govuk-heading-s">Source</h2>
+    <p class="govuk-body">
+      <strong>bTB Cattle Vaccination Alpha Research Report Round 2</strong>
+      &middot; Erin Gray, Lead User Research
+    </p>
+
+    <div class="govuk-button-group govuk-!-margin-top-8">
+      {{ govukButton({
+        text: "Start V4",
+        href: "/v1-4/start"
+      }) }}
+      <a class="govuk-link" href="/v1-4/updates">Back to what's new in V4</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

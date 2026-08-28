@@ -1,0 +1,285 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check and send – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{# Back goes to the step the vet actually came from. /skin-test-measurements
+   is not in this journey at all - it belongs to the older one-animal-at-a-time
+   flow and only 302s away - so it was sending them somewhere they had never
+   been. The last step before this page is the add-cattle question, or the
+   added-cattle list when they added any. #}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-5/skin-test-added-cattle" if (addedEntries and addedEntries.length > 0) else "/v1-5/skin-test-add-cattle-question"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Ear-tag rendering – matches /v1-5/skin-test-reactors and the other
+     skin-test tables: an inline-flex wrapper (which drops the whitespace
+     between the digit-group spans, so the tag reads with no gaps) and a
+     bold last-4 segment. Without these styles the spans render as plain
+     inline elements and the HTML whitespace shows as spaces. */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 { padding: 0; font-weight: 700; }
+</style>
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if data['addedAnotherEarTag'] %}
+      {{ govukNotificationBanner({
+        titleText: "Success",
+        type: "success",
+        html: "<h3 class='govuk-notification-banner__heading'>Added " + data['addedAnotherEarTag'] + " to this report</h3>"
+      }) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    <h1 class="govuk-heading-l">Check and send</h1>
+
+    <p class="govuk-body">
+      Review your work before you send it.
+    </p>
+
+    {% if isPartTest %}
+      {{ govukWarningText({
+        text: "You're reporting a part test",
+        iconFallbackText: "Warning"
+      }) }}
+    {% endif %}
+
+
+    {# Batch numbers entered on /skin-test-type are rendered as
+       bullet lists when there's more than one, or a plain line when
+       there's just one – matches how the vet entered them. When the
+       vet hasn't recorded anything earlier in the journey the page
+       falls back to a sensible dummy value so the prototype can be
+       demoed without forcing data entry. #}
+    {% set sicctBatchesHtml %}
+      {% if sicctBatches and sicctBatches.length > 1 %}
+        <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
+          {% for batch in sicctBatches %}<li>{{ batch }}</li>{% endfor %}
+        </ul>
+      {% elif sicctBatches and sicctBatches.length == 1 and sicctBatches[0] %}
+        {{ sicctBatches[0] }}
+      {% else %}
+        138009G
+      {% endif %}
+    {% endset %}
+
+    {% set divaBatchesHtml %}
+      {% if divaBatches and divaBatches.length > 1 %}
+        <ul class="govuk-list govuk-list--bullet govuk-!-margin-bottom-0">
+          {% for batch in divaBatches %}<li>{{ batch }}</li>{% endfor %}
+        </ul>
+      {% elif divaBatches and divaBatches.length == 1 and divaBatches[0] %}
+        {{ divaBatches[0] }}
+      {% else %}
+        447112F
+      {% endif %}
+    {% endset %}
+
+    {% set summaryRows = [
+      {
+        key: { text: "Farm" },
+        value: { text: data['herd']['farm'] }
+      },
+      {
+        key: { text: "CPH" },
+        value: { text: data['herd']['cph'] }
+      },
+      {
+        key: { text: "Day 1 (injection)" },
+        value: { text: day1Formatted or "Not recorded" },
+        actions: { items: [{ href: "/v1-5/skin-test-date", text: "Change", visuallyHiddenText: "day 1 date and start time" }] }
+      },
+      {
+        key: { text: "Day 2 (reading)" },
+        value: {
+          html: (day2Formatted or "Not recorded") + ('<br><span class="govuk-hint govuk-!-margin-bottom-0">Calculated as 72 hours after Day 1</span>' if day2Calculated and day2Formatted else '')
+        },
+        actions: { items: [{ href: "/v1-5/skin-test-date", text: "Change", visuallyHiddenText: "day 2 date and start time" }] }
+      },
+      {
+        key: { text: "Test type" },
+        value: { text: (skinTestType or data['skinTestType'] or "Not recorded") | replace('Both', 'DIVA and SICCT') },
+        actions: { items: [{ href: "/v1-5/skin-test-type", text: "Change", visuallyHiddenText: "test type" }] }
+      }
+    ] %}
+
+    {% if showSicct %}
+      {% set summaryRows = summaryRows.concat([{
+        key: { text: "SICCT batch" + ("es" if sicctBatches.length > 1 else "") },
+        value: { html: sicctBatchesHtml },
+        actions: { items: [{ href: "/v1-5/skin-test-batch-details/sicct", text: "Change", visuallyHiddenText: "SICCT batch numbers" }] }
+      }]) %}
+    {% endif %}
+
+    {% if showDiva %}
+      {% set summaryRows = summaryRows.concat([{
+        key: { text: "DIVA batch" + ("es" if divaBatches.length > 1 else "") },
+        value: { html: divaBatchesHtml },
+        actions: { items: [{ href: "/v1-5/skin-test-batch-details/diva", text: "Change", visuallyHiddenText: "DIVA batch numbers" }] }
+      }]) %}
+    {% endif %}
+
+    {{ govukSummaryList({ rows: summaryRows }) }}
+
+    {# ------------------------------------------------------------------
+       Reactor / untested / clear breakdown – this is the headline for
+       the vet: most cattle are clear, a few reacted (and need full
+       measurements), a few were not tested (with reasons).
+       The not-tested row carries an inline list of ear tags + reasons
+       so the vet doesn't have to scroll to a separate section.
+    ------------------------------------------------------------------ #}
+    <h2 class="govuk-heading-m">Results</h2>
+
+    {# Helper: render just the summary count for a reactor row. The
+       per-animal list of ear tags is intentionally omitted – the
+       vet uses the Change link to drill into which animals were
+       picked. Used below for the SICCT and DIVA reactor rows. #}
+    {% macro reactorListHtml(entries, count) %}
+      {{ count }} {{ "animal" if count == 1 else "animals" }}
+    {% endmacro %}
+
+    {# Single "Reacted" cell content for non-Both journeys. The Both
+       journey uses two separate rows below (one for SICCT, one for
+       DIVA), so this fallback is only used for SICCT-only and
+       DIVA-only reports. #}
+    {% set reactedHtml %}
+      {{ reactorListHtml(reactorEntries, reactorCount) }}
+    {% endset %}
+
+    {# "Not tested" cell. Part-test animals (still to test on a return
+       visit / missing on day 2) are now included in this count and
+       flagged with a "Part test" tag, rather than sitting in a separate
+       "Still to test" row. The per-animal list with each reason is
+       reached via the Change link. #}
+    {% set notTestedTotal = (untestedCount or 0) + (stillToTestCount or 0) %}
+    {% set notTestedHtml %}
+      {% if stillToTestCount and stillToTestCount > 0 %}{{ govukTag({ text: "Part test", classes: "govuk-tag--blue" }) }} {% endif %}{{ notTestedTotal }} {{ "animal" if notTestedTotal == 1 else "animals" }}
+    {% endset %}
+
+    {% set sicctReactedHtml %}
+      {{ reactorListHtml(sicctReactorEntries, sicctReactorCount) }}
+    {% endset %}
+    {% set divaReactedHtml %}
+      {{ reactorListHtml(divaReactorEntries, divaReactorCount) }}
+    {% endset %}
+
+    {# Declaration row – the vet's "all cattle tested?" answer from
+       /skin-test-all-tested. Sits as the final row of the Results
+       summary list so it reads as the closing confirmation. #}
+    {% set declarationText = "Not confirmed" %}
+    {% if data['allCattleTestedReport'] == 'yes' %}
+      {% set declarationText = "Confirmed all cattle were tested" %}
+    {% elif data['allCattleTestedReport'] == 'no' %}
+      {% set declarationText = "Some cattle were not tested" %}
+    {% endif %}
+    {% set declarationRow = {
+      key: { text: "Declaration" },
+      value: { text: declarationText },
+      actions: { items: [{ href: "/v1-5/skin-test-all-tested", text: "Change", visuallyHiddenText: "the declaration that all cattle were tested" }] }
+    } %}
+
+    {% if isBothJourney %}
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Reacted to SICCT" },
+            value: { html: sicctReactedHtml },
+            actions: { items: [{ href: "/v1-5/skin-test-reactions", text: "Change", visuallyHiddenText: "which cattle reacted to SICCT" }] }
+          },
+          {
+            key: { text: "Reacted to DIVA" },
+            value: { html: divaReactedHtml },
+            actions: { items: [{ href: "/v1-5/skin-test-reactions", text: "Change", visuallyHiddenText: "which cattle reacted to DIVA" }] }
+          },
+          {
+            key: { text: "Not tested" },
+            value: { html: notTestedHtml },
+            actions: { items: [{ href: "/v1-5/skin-test-untested", text: "Change", visuallyHiddenText: "which cattle were not tested" }] }
+          },
+          {
+            key: { text: "Negative" },
+            value: { text: clearCount + (" animal" if clearCount == 1 else " animals") },
+            actions: { items: [{ href: "/v1-5/skin-test-reactions", text: "Change", visuallyHiddenText: "to mark a clear animal as a reactor" }] }
+          },
+          declarationRow
+        ]
+      }) }}
+    {% else %}
+      {% set nonBothRows = [
+        {
+          key: { text: "Reacted" },
+          value: { html: reactedHtml },
+          actions: { items: [{ href: "/v1-5/skin-test-reactions", text: "Change", visuallyHiddenText: "which cattle reacted" }] }
+        }
+      ] %}
+      {# v1-4 records reacted / not tested / clear on a single review
+         table, so all three rows change in the same place and there is
+         no separate "all cattle tested?" declaration to show. #}
+      {% set nonBothRows = nonBothRows.concat([
+        {
+          key: { text: "Not tested" },
+          value: { html: notTestedHtml },
+          actions: { items: [{ href: "/v1-5/skin-test-untested-animals", text: "Change", visuallyHiddenText: "which cattle were not tested" }] }
+        },
+        {
+          key: { text: "Clear" },
+          value: { text: clearCount + (" animal" if clearCount == 1 else " animals") },
+          actions: { items: [{ href: "/v1-5/skin-test-reactions", text: "Change", visuallyHiddenText: "to mark a clear animal as a reaction" }] }
+        }
+      ]) %}
+      {{ govukSummaryList({ rows: nonBothRows }) }}
+    {% endif %}
+
+    {# ------------------------------------------------------------------
+       Animals added in this report (not on the original list). Each
+       row mirrors the Change-link pattern used on the rows above:
+       one summary-list row per animal with a single "Change" action
+       that opens an edit page (where the vet can update the details
+       or remove the animal entirely).
+    ------------------------------------------------------------------ #}
+    {% if addedEntries and addedEntries.length > 0 %}
+      <h2 class="govuk-heading-m govuk-!-margin-top-6">Cattle added</h2>
+      {# Summary row only. The vet changes each added animal individually
+         on /skin-test-added-cattle (reached via the Change link), rather
+         than seeing every added animal listed out here. #}
+      <dl class="govuk-summary-list">
+        <div class="govuk-summary-list__row">
+          <dt class="govuk-summary-list__key">Added to list</dt>
+          <dd class="govuk-summary-list__value">
+            {{ addedEntries.length }} {{ "animal" if addedEntries.length == 1 else "cattle" }}
+          </dd>
+          <dd class="govuk-summary-list__actions">
+            <a class="govuk-link" href="/v1-5/skin-test-added-cattle">
+              Change<span class="govuk-visually-hidden"> the cattle added to this report</span>
+            </a>
+          </dd>
+        </div>
+      </dl>
+    {% endif %}
+
+    <form action="/v1-5/skin-test-confirmation" method="post" novalidate>
+      <div class="govuk-button-group">
+        {{ govukButton({ text: "Submit part test" if isPartTest else "Submit" }) }}
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

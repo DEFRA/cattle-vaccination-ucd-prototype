@@ -1,0 +1,102 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Skin test report submitted – GOV.UK
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if isPartTest %}
+      {{ govukPanel({
+        titleText: "Part test reported",
+        html: stillToTestCount + (" animal" if stillToTestCount == 1 else " animals") + " not tested"
+      }) }}
+
+    {% else %}
+      {{ govukPanel({
+        titleText: "Skin test report submitted"
+      }) }}
+    {% endif %}
+
+    <p class="govuk-body">
+      This information will be updated in Sam, the online system for submitting bovine tuberculosis (TB) test results in the UK.
+    </p>
+
+    {# ------------------------------------------------------------------
+       What happens next depends on what was in the report, so this only
+       says the things that actually apply. A vet who reported a herd of
+       clear animals has one thing to do; a vet who reported a reactor, a
+       part test, a dead animal and three cattle that were not on the list
+       has four, and each is a different person to contact or a different
+       thing to send.
+    ------------------------------------------------------------------ #}
+    <h2 class="govuk-heading-m">What happens next</h2>
+
+    {% if submittedOutcomes and submittedOutcomes.reacted > 0 %}
+      <h3 class="govuk-heading-s">
+        {{ submittedOutcomes.reacted }} {{ "animal" if submittedOutcomes.reacted == 1 else "animals" }} reacted
+      </h3>
+      <p class="govuk-body">
+        Send the samples to the laboratory. A work order will be created for the
+        {{ "reactor" if submittedOutcomes.reacted == 1 else "reactors" }}, and APHA will contact
+        the livestock keeper about movement restrictions.
+      </p>
+    {% endif %}
+
+    {% if isPartTest %}
+      <h3 class="govuk-heading-s">
+        {{ stillToTestCount }} {{ "animal" if stillToTestCount == 1 else "animals" }} still to test
+      </h3>
+      <p class="govuk-body">
+        You'll need to arrange a return visit to finish testing all the animals.
+        The work order will stay open until they have been tested.
+      </p>
+    {% endif %}
+
+    {% if submittedOutcomes and submittedOutcomes.dead > 0 %}
+      <h3 class="govuk-heading-s">
+        {{ submittedOutcomes.dead }} {{ "animal" if submittedOutcomes.dead == 1 else "animals" }} recorded as dead
+      </h3>
+      <p class="govuk-body">
+        Contact the livestock keeper and encourage them to update their herd records, so the
+        {{ "animal is" if submittedOutcomes.dead == 1 else "animals are" }} no longer listed for testing.
+      </p>
+    {% endif %}
+
+    {# Cattle on the farm that were not on the list mean the herd record
+       APHA works from is out of date. The vet cannot fix that - only the
+       keeper can, through CTS - so the job here is to ask them. #}
+    {% if addedEntries and addedEntries.length > 0 %}
+      <h3 class="govuk-heading-s">
+        {{ addedEntries.length }} {{ "animal" if addedEntries.length == 1 else "cattle" }} added to the list
+      </h3>
+      <p class="govuk-body">
+        {{ "This animal was" if addedEntries.length == 1 else "These cattle were" }} on the farm but not on the
+        list you were sent. Ask the livestock keeper to update the Cattle Tracing System (CTS), so the herd
+        record matches what is actually on the farm before the next test.
+      </p>
+    {% endif %}
+
+    {% if not isPartTest
+      and not (submittedOutcomes and (submittedOutcomes.reacted > 0 or submittedOutcomes.dead > 0))
+      and not (addedEntries and addedEntries.length > 0) %}
+      <p class="govuk-body">Defra will review the report. There is nothing else for you to do.</p>
+    {% endif %}
+
+    <p class="govuk-body">
+      <a href="/v1-4/#" class="govuk-link">Send a report to the livestock keeper</a>
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-4/dashboard" class="govuk-link">Report another skin test</a>
+    </p>
+
+    <p class="govuk-body">
+      <a href="/v1-4/dashboard" class="govuk-link">Exit the service</a>
+    </p>
+
+  </div>
+</div>
+{% endblock %}

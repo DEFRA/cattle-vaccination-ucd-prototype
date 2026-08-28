@@ -1,0 +1,352 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Why were these cattle not tested? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-4/skin-test-reactors"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* --------------------------------------------------------------------
+     Formatting matched to /v1-4/skin-test-reactors, so the two screens
+     the vet moves between read as one service rather than two: two
+     columns, the ear tag as the row's anchor with quiet secondary text
+     beneath it, a captioned table per page instead of a drawn box, a
+     sticky page nav, and a grey-5 row highlight that follows keyboard
+     focus.
+     -------------------------------------------------------------------- */
+
+  /* Ear tag – identical treatment to every other skin-test table. */
+  .app-ear-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .app-ear-tag__prefix { margin-right: 0.35ch; }
+  .app-ear-tag__part { display: inline-block; }
+  .app-ear-tag__part--last4 { padding: 0; font-weight: 700; }
+  .app-ear-tag__part--last4--duplicate {
+    border: 0;
+    border-top: 4px solid #000;
+    border-bottom: 4px solid #000;
+  }
+  /* The ear tag is the row's anchor, so it prints a step larger than the
+     supporting details beneath it. */
+  .app-ear-tag--lead {
+    font-size: 1.25rem;
+    line-height: 1.25;
+  }
+
+  /* Sex, breed and date of birth on one quiet line under the tag. */
+  .app-animal-meta {
+    margin: 4px 0 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: #505a5f;
+  }
+  .app-animal-meta__item { white-space: nowrap; }
+  .app-animal-meta__sep { margin: 0 0.5rem; }
+  /* Age flag – relevant here, because "too young" is itself a reason an
+     animal was not tested. Leads with the fact in bold so it reads
+     differently from the details line above it. */
+  .app-animal-meta--flag { margin-top: 2px; }
+
+  /* Two columns, held to a comfortable reading width. */
+  .app-review-table { max-width: 40rem; scroll-margin-top: 5rem; }
+  .app-review-table + .app-review-table { margin-top: 40px; }
+  .app-review-table .govuk-table__caption { margin-bottom: 10px; }
+  .app-select-cell { width: 3.5rem; vertical-align: middle; }
+  .govuk-table .govuk-table__cell { vertical-align: top; }
+  .govuk-table .govuk-table__header { vertical-align: bottom; }
+  .govuk-table .govuk-checkboxes__item { margin-bottom: 0; }
+
+  /* Keyboard position – tabbing to a row's checkbox lifts the whole row
+     onto grey-5, exactly as on the review table. Neutral colour, and the
+     stock yellow focus indicator on the checkbox is untouched. */
+  .js-untested-row:focus-within { background-color: #f3f2f1; }
+
+  /* Sticky page navigation, matched to the review table: one shallow
+     line pinned to the top of the viewport. */
+  .app-page-nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #fff;
+    border-bottom: 2px solid #b1b4b6;
+    padding: 12px 0;
+    margin-bottom: 20px;
+  }
+  .app-page-nav__heading {
+    display: inline-block;
+    margin: 0 15px 0 0;
+    vertical-align: middle;
+  }
+  .app-page-nav__list {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+    vertical-align: middle;
+  }
+  .app-page-nav__list li { display: inline-block; margin: 0 15px 0 0; }
+  .app-page-nav__end { border-left: 1px solid #b1b4b6; padding-left: 15px; }
+  #untested-reason-choice { scroll-margin-top: 6rem; }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }} - Not tested</span>
+    <h1 class="govuk-heading-l govuk-!-margin-bottom-2">Why were these cattle not tested?</h1>
+    <p class="govuk-body govuk-!-margin-bottom-4">
+      Select cattle and choose the reason why they were not tested. Repeat until all cattle have a reason.
+    </p>
+
+    <form action="/v1-4/skin-test-untested-reason" method="post" novalidate>
+
+      {% if errors and errors['selectedAnimals'] %}
+        <p id="selected-animals" class="govuk-error-message">
+          <span class="govuk-visually-hidden">Error:</span> {{ errors['selectedAnimals'].text }}
+        </p>
+      {% endif %}
+
+      {# Page sizing – shared by the "Go to a page" navigation and the
+         in-table dividers. 20 cattle per page mirrors the printed list. #}
+      {% set _pageSize = 20 %}
+      {% set _totalPages = ((remainingAnimals.length + _pageSize - 1) / _pageSize) | int %}
+      {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
+
+      {# Sticky page navigation, matching the review table. Only shown when
+         the remaining cattle run to more than one page – in practice this
+         list is usually short, because it only holds the animals still
+         waiting for a reason. #}
+      {% if _totalPages > 1 %}
+        <nav class="app-page-nav" aria-label="Go to a page">
+          <h2 class="govuk-heading-s app-page-nav__heading">Go to a page</h2>
+          <ul class="govuk-list app-page-nav__list">
+            {% for _p in range(1, _totalPages + 1) %}
+              <li><a class="govuk-link" href="#page-{{ _p }}">Page {{ _p }}</a></li>
+            {% endfor %}
+            <li class="app-page-nav__end">
+              <a class="govuk-link" href="#untested-reason-choice">Go to the reason</a>
+            </li>
+          </ul>
+        </nav>
+      {% endif %}
+
+      {# Select-all sits above the tables rather than in a table header, so
+         it stays a single control when the list runs to several pages. #}
+      <div class="govuk-checkboxes govuk-checkboxes--small govuk-!-margin-bottom-4">
+        <div class="govuk-checkboxes__item">
+          <input class="govuk-checkboxes__input" id="select-all-untested" type="checkbox">
+          <label class="govuk-label govuk-checkboxes__label" for="select-all-untested">
+            Select all {{ remainingCount }} cattle
+          </label>
+        </div>
+      </div>
+
+      <div id="selected-animals" class="govuk-!-margin-bottom-4">
+        {# One table per page, each with a caption heading – the same
+           structure as /v1-4/skin-test-reactors. The caption is only shown
+           when there is more than one page; with a single short list a
+           "Page 1 of 1" heading would be noise, so it drops to a visually
+           hidden description of the table instead. #}
+        {% for _page in range(0, _totalPages) %}
+          {% set _start = _page * _pageSize %}
+          {% set _pageAnimals = remainingAnimals.slice(_start, _start + _pageSize) %}
+
+        <table class="govuk-table app-review-table" id="page-{{ _page + 1 }}">
+          {% if _totalPages > 1 %}
+            <caption class="govuk-table__caption govuk-table__caption--m">
+              Page {{ _page + 1 }} of {{ _totalPages }}
+              <span class="govuk-visually-hidden">, {{ _pageAnimals.length }} cattle still needing a reason</span>
+            </caption>
+          {% else %}
+            <caption class="govuk-table__caption govuk-visually-hidden">
+              Cattle still needing a reason
+            </caption>
+          {% endif %}
+          <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+              <th scope="col" class="govuk-table__header app-select-cell">
+                <span class="govuk-visually-hidden">Select</span>
+              </th>
+              <th scope="col" class="govuk-table__header">Animal</th>
+            </tr>
+          </thead>
+          <tbody class="govuk-table__body">
+            {% for animal in _pageAnimals %}
+              {% set _n = _start + loop.index %}
+              <tr class="govuk-table__row js-untested-row">
+                <td class="govuk-table__cell app-select-cell">
+                  <div class="govuk-checkboxes govuk-checkboxes--small">
+                    <div class="govuk-checkboxes__item">
+                      <input class="govuk-checkboxes__input js-untested-checkbox" id="untested-{{ _n }}" name="selectedAnimals" type="checkbox" value="{{ animal.officialId }}"{% if animal.officialId == preselectAnimal %} checked{% endif %}>
+                      <label class="govuk-label govuk-checkboxes__label" for="untested-{{ _n }}">
+                        <span class="govuk-visually-hidden">Select {{ animal.officialId }}</span>
+                      </label>
+                    </div>
+                  </div>
+                </td>
+                <td class="govuk-table__cell">
+                  <div class="app-ear-tag app-ear-tag--lead">
+                    <span class="app-ear-tag__prefix">{{ animal.earTagParts.prefix }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--herd">{{ animal.earTagParts.herd }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--check">{{ animal.earTagParts.check }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--individual-start">{{ animal.earTagParts.individualStart }}</span>
+                    <span class="app-ear-tag__part app-ear-tag__part--last4{% if animal.isDuplicate %} app-ear-tag__part--last4--duplicate{% endif %}"
+                          {% if animal.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ animal.earTagParts.last4 }}</span>
+                  </div>
+                  <p class="app-animal-meta">
+                    <span class="app-animal-meta__item">
+                      {%- if animal.sex == 'F' -%}Female
+                      {%- elif animal.sex == 'M' -%}Male
+                      {%- else -%}{{ animal.sex }}{%- endif -%}
+                    </span>
+                    <span class="app-animal-meta__sep" aria-hidden="true">·</span>
+                    <span class="app-animal-meta__item"><span class="govuk-visually-hidden">Breed </span>{{ animal.breed }}</span>
+                    <span class="app-animal-meta__sep" aria-hidden="true">·</span>
+                    <span class="app-animal-meta__item">DOB {{ animal.dob }}</span>
+                  </p>
+                  {% if animal.isUnderTestAge %}
+                    <p class="app-animal-meta app-animal-meta--flag">
+                      <strong>Close to the 42-day testing age</strong> – check the date of birth
+                    </p>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endfor %}
+      </div>
+
+      {% set reasonValue = formValues['reason'] %}
+      {% set reasonOtherValue = formValues['reasonOther'] %}
+
+      {% set otherReasonInputHtml %}
+        {{ govukInput({
+          id: "reasonOther",
+          name: "reasonOther",
+          label: { text: "Other reason", classes: "govuk-label--s" },
+          classes: "govuk-!-width-two-thirds",
+          value: reasonOtherValue
+        }) }}
+      {% endset %}
+
+      {# V5 cuts the eight reasons down to five. "Missing" replaces both
+         "Missing on day 2" and "Cattle not found"; it keeps the not-found
+         value, so it does NOT file the report as a part test. "Could not
+         be managed" is still the reason that does. The two withdrawal
+         reasons (export, slaughter) fold into "Withdrawn by livestock
+         keeper", or into Other where the vet needs to say more. #}
+      <div id="untested-reason-choice">
+      {{ govukRadios({
+        idPrefix: "reason",
+        name: "reason",
+        fieldset: {
+          legend: {
+            text: "Reason these cattle were not tested",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        hint: { text: "The reason will apply to all the animals you've selected." },
+        value: reasonValue,
+        errorMessage: { text: errors['reason'].text } if errors and errors['reason'],
+        items: [
+          { value: "not-presented", text: "Not presented",
+            hint: { text: "Missing, not brought in, or withdrawn by the keeper" } },
+          { value: "not-possible", text: "Not possible to test",
+            hint: { text: "Came to the crush but could not be handled or restrained safely" } },
+          { value: "not-eligible", text: "Not eligible",
+            hint: { text: "Too young, or tested elsewhere in the last 60 days" } },
+          { value: "dead", text: "Dead" },
+          {
+            value: "other",
+            text: "Other reason",
+            conditional: { html: otherReasonInputHtml }
+          }
+        ]
+      }) }}
+      </div>
+
+      {# Live "X of Y selected" counter. Moved from the top of the form to
+         here, next to the action button, matching the other selection
+         pages. The .js-selected-count span is updated by the script. #}
+      <p class="govuk-body govuk-!-margin-top-2">
+        You've selected <strong><span class="js-selected-count">0</span> of {{ remainingCount }}</strong> cattle
+      </p>
+
+      <div class="govuk-button-group govuk-!-margin-top-2">
+        {{ govukButton({ text: "Mark selected cattle", name: "markAction", value: "mark" }) }}
+      </div>
+
+      <p class="govuk-body">
+        <button type="submit"
+                name="markAction"
+                value="skip-no-reason"
+                class="govuk-link"
+                style="background: transparent; border: 0; padding: 0; margin: 0; font: inherit; cursor: pointer;">
+          Skip and mark the rest as no reason given
+        </button>
+      </p>
+
+    </form>
+
+  </div>
+</div>
+
+<script>
+  // 1. The header "All" checkbox ticks / clears the row checkboxes, scoped
+  //    to the rows currently VISIBLE so it works with the filter.
+  // 2. The "You've selected X of Y" counter counts every checked box.
+  document.addEventListener('DOMContentLoaded', function () {
+    var selectAll = document.getElementById('select-all-untested')
+    var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-untested-checkbox'))
+    if (!checkboxes.length) { return }
+    var counters = Array.prototype.slice.call(document.querySelectorAll('.js-selected-count'))
+
+    // Every row is always shown now that the ear-tag filter has gone, so
+    // "visible" is simply every checkbox. Kept as a function so the
+    // select-all logic below reads the same as it did.
+    function visibleCheckboxes () { return checkboxes }
+
+    function updateCount () {
+      var checked = checkboxes.filter(function (c) { return c.checked }).length
+      counters.forEach(function (el) { el.textContent = checked })
+    }
+
+    function syncSelectAll () {
+      updateCount()
+      if (!selectAll) { return }
+      var vis = visibleCheckboxes()
+      var checked = vis.filter(function (c) { return c.checked }).length
+      selectAll.checked = vis.length > 0 && checked === vis.length
+      selectAll.indeterminate = checked > 0 && checked < vis.length
+    }
+
+    if (selectAll) {
+      selectAll.addEventListener('change', function () {
+        visibleCheckboxes().forEach(function (c) { c.checked = selectAll.checked })
+        syncSelectAll()
+      })
+    }
+    checkboxes.forEach(function (c) { c.addEventListener('change', syncSelectAll) })
+
+    syncSelectAll()
+  })
+</script>
+{% endblock %}
