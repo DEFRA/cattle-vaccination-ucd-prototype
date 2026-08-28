@@ -1,0 +1,71 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Enter vaccine batch details – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-4/enter-vaccination-date"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <form action="/v1-4/enter-vaccine-batch-details" method="post" novalidate>
+      <h1 class="govuk-heading-l">Enter the vaccine batch details</h1>
+
+      {{ govukInput({
+        label: {
+          text: "Vaccine batch number",
+          classes: "govuk-label--m"
+        },
+        hint: {
+          text: "For example, 125007G"
+        },
+        id: "batchNumber",
+        name: "batchNumber",
+        value: data['batchNumber'],
+        errorMessage: { text: errors['batchNumber'].text } if errors and errors['batchNumber']
+      }) }}
+
+      {{ govukDateInput({
+        id: "batchExpiryDate",
+        namePrefix: "batchExpiryDate",
+        fieldset: {
+          legend: {
+            text: "Vaccine expiry date",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        hint: {
+          text: "For example, 05 2029"
+        },
+        errorMessage: { text: errors['batchExpiryDate'].text } if errors and errors['batchExpiryDate'],
+        items: [
+          {
+            name: "month",
+            classes: "govuk-input--width-2",
+            value: data['batchExpiryDateMonth']
+          },
+          {
+            name: "year",
+            classes: "govuk-input--width-4",
+            value: data['batchExpiryDateYear']
+          }
+        ]
+      }) }}
+
+      {{ govukButton({
+        text: "Continue"
+      }) }}
+    </form>
+  </div>
+</div>
+{% endblock %}

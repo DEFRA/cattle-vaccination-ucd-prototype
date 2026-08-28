@@ -88,7 +88,12 @@
         var p = node.parentNode
         while (p && p !== document.body) {
           var tag = p.nodeName
+          // OPTION and OPTGROUP render their contents as flat text, so
+          // adding a spelled-out span would append it to the option's own
+          // label rather than replacing it for screen readers only. A
+          // select announces its options itself; leave them alone.
           if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'TEXTAREA') return NodeFilter.FILTER_REJECT
+          if (tag === 'OPTION' || tag === 'OPTGROUP') return NodeFilter.FILTER_REJECT
           if (p.classList && p.classList.contains('app-ear-tag')) return NodeFilter.FILTER_REJECT
           if (p.getAttribute && p.getAttribute('data-ear-tag-sr')) return NodeFilter.FILTER_REJECT
           p = p.parentNode

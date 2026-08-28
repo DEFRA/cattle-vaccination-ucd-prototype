@@ -1,0 +1,130 @@
+
+{% extends "layouts/main.html" %}
+
+{# The same page is the first step of two journeys:
+   - Vaccination report → "Who vaccinated the cattle?"
+   - Skin test report   → "Who tested the cattle?"
+   The journey is detected from data['reportType'] (set in the session
+   before the redirect to this page). #}
+{% set isTbTest = data['reportType'] == 'tb-test' %}
+{% set headingText = "Who tested the cattle?" if isTbTest else "Who vaccinated the cattle?" %}
+
+{% block pageTitle %}
+  {{ headingText }} – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-5/select-visit-task"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% set otherRoleHtml %}
+      {{ govukInput({
+        label: {
+          text: "Enter the role"
+        },
+        id: "otherRole",
+        name: "otherRole",
+        errorMessage: { text: errors['otherRole'].text } if errors and errors['otherRole'],
+        value: data['otherRole']
+      }) }}
+    {% endset %}
+
+    {% set someoneElseHtml %}
+      {{ govukInput({
+        label: {
+          text: "Their first name"
+        },
+        id: "firstName",
+        name: "firstName",
+        errorMessage: { text: errors['firstName'].text } if errors and errors['firstName'],
+        value: data['firstName']
+      }) }}
+
+      {{ govukInput({
+        label: {
+          text: "Their last name"
+        },
+        id: "lastName",
+        name: "lastName",
+        errorMessage: { text: errors['lastName'].text } if errors and errors['lastName'],
+        value: data['lastName']
+      }) }}
+
+      {{ govukRadios({
+        name: "theirRole",
+        fieldset: {
+          legend: {
+            text: "Their role",
+            classes: "govuk-fieldset__legend--s"
+          }
+        },
+        value: data['theirRole'],
+        errorMessage: { text: errors['theirRole'].text } if errors and errors['theirRole'],
+        items: [
+          {
+            value: "vet",
+            text: "Vet"
+          },
+          {
+            value: "authorised-tester",
+            text: "Authorised tuberculin tester"
+          },
+          {
+            value: "other",
+            text: "Other",
+            conditional: {
+              html: otherRoleHtml
+            }
+          }
+        ]
+      }) }}
+    {% endset %}
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <form action="/v1-5/who-gave-the-vaccine" method="post" novalidate>
+
+      {{ govukRadios({
+        name: "administeredBy",
+        fieldset: {
+          legend: {
+            text: headingText,
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        value: data['administeredBy'],
+        errorMessage: { text: errors['administeredBy'].text } if errors and errors['administeredBy'],
+        items: [
+          {
+            value: "self",
+            text: "I did"
+          },
+          {
+            value: "someone-else",
+            text: "Someone else",
+            conditional: {
+              html: someoneElseHtml
+            }
+          }
+        ]
+      }) }}
+
+      {{ govukButton({
+        text: "Continue"
+      }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

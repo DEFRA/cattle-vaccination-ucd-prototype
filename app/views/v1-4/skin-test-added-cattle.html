@@ -1,0 +1,74 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Cattle you've added – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-4/skin-test-add-cattle-question"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {% if data['addedAnotherEarTag'] %}
+      {{ govukNotificationBanner({
+        titleText: "Success",
+        type: "success",
+        html: "<h3 class='govuk-notification-banner__heading'>Added " + data['addedAnotherEarTag'] + " to this report</h3>"
+      }) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+    <h1 class="govuk-heading-l">
+      You've added {{ addedCount }} {{ "animal" if addedCount == 1 else "cattle" }}
+    </h1>
+
+    {% if addedCount == 0 %}
+      <p class="govuk-body">You haven't added any cattle yet.</p>
+    {% else %}
+      {% set addedRows = [] %}
+      {% for entry in addedEntries %}
+        {% set addedRows = addedRows.concat([{
+          key: { text: entry.earTagParts.last4 },
+          value: { text: (entry.breed or "Breed not recorded") + " · " + (entry.sex or "Sex not recorded") + " · DOB " + (entry.dob or "not recorded") },
+          actions: { items: [{ href: "/v1-4/skin-test-add-another/edit/" + entry.officialId, text: "Change", visuallyHiddenText: "details for " + entry.earTagParts.last4 }] }
+        }]) %}
+      {% endfor %}
+      {{ govukSummaryList({ rows: addedRows }) }}
+    {% endif %}
+
+    <form action="/v1-4/skin-test-added-cattle" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "addAnotherAnimal",
+        name: "addAnotherAnimal",
+        classes: "govuk-radios--inline",
+        fieldset: {
+          legend: {
+            text: "Do you need to add another animal?",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        errorMessage: { text: errors['addAnotherAnimal'].text } if errors and errors['addAnotherAnimal'],
+        items: [
+          { value: "yes", text: "Yes" },
+          { value: "no",  text: "No" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

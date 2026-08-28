@@ -1,0 +1,61 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Tasks for {{ farmName }} – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-5/dashboard"
+}) }}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {# Farm identity block – matches the format used on the dashboard rows
+       (farm name and CPH, then town, postcode and cattle count). The farm
+       name is in the heading, so only the CPH and location line repeat
+       here. #}
+    <h1 class="govuk-heading-l govuk-!-margin-bottom-2">Tasks for {{ farmName }}</h1>
+    <p class="govuk-body govuk-!-margin-bottom-6">
+      {{ cph }}{% if locationLine %}<br>{{ locationLine }}{% endif %}
+    </p>
+
+    {# One farm only shows its latest job: the report to do, and the list
+       to print for it. Report rows carry a status tag; the print list
+       carries a grey "Ready to print" tag. Each row is fully linked via
+       the task list component. #}
+    {% if taskItems and taskItems.length > 0 %}
+      <h2 class="govuk-heading-m">Tasks</h2>
+      {{ govukTaskList({
+        idPrefix: "farm-tasks",
+        items: taskItems
+      }) }}
+    {% elif not (completedItems and completedItems.length > 0) %}
+      <p class="govuk-body">There are no tasks for this farm yet.</p>
+    {% endif %}
+
+    {# Completed reports for this farm. Each row links to the check-answers
+       summary so the vet can review what was filed and change data. #}
+    {% if completedItems and completedItems.length > 0 %}
+      <h2 class="govuk-heading-m govuk-!-margin-top-6">Completed</h2>
+      {{ govukTaskList({
+        idPrefix: "farm-completed",
+        items: completedItems
+      }) }}
+    {% endif %}
+
+    <p class="govuk-body govuk-!-margin-top-6">
+      <a class="govuk-link" href="{{ newTaskHref }}">Do something else at this farm</a>
+    </p>
+
+    <p class="govuk-body">
+      <a class="govuk-link" href="/v1-5/dashboard">Back to all farms</a>
+    </p>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,173 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Check your answers – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-5/select-vaccinated-animals"
+}) }}
+{% endblock %}
+
+{% block content %}
+{# Format a month-number ("3") + year ("2027") into a long-month
+   string ("March 2027") so the summary list reads naturally. Used
+   for both the vaccine and diluent expiry rows below. #}
+{% set monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] %}
+
+{# Vaccine batch number / expiry. If the vet entered nothing on
+   /v1-5/enter-vaccine-batch-details these fields stay empty in
+   session, so the page falls back to a sensible dummy value the
+   prototype can demo without forcing the vet through the data-
+   entry flow. #}
+{% set vaccineBatchNumber = data['batchNumber'] or "128008G" %}
+{% if data['batchExpiryDateMonth'] and data['batchExpiryDateYear'] %}
+  {% set vaccineExpiryDate = monthNames[(data['batchExpiryDateMonth'] | int) - 1] + " " + data['batchExpiryDateYear'] %}
+{% else %}
+  {% set vaccineExpiryDate = "March 2027" %}
+{% endif %}
+
+{# Diluent batch number / expiry – same pattern as the vaccine
+   block above. Defaults match the example used elsewhere in the
+   prototype so the two batch numbers don't clash. #}
+{% set diluentBatchNumber = data['diluentBatchNumber'] or "37932 B" %}
+{% if data['diluentBatchExpiryDateMonth'] and data['diluentBatchExpiryDateYear'] %}
+  {% set diluentExpiryDate = monthNames[(data['diluentBatchExpiryDateMonth'] | int) - 1] + " " + data['diluentBatchExpiryDateYear'] %}
+{% else %}
+  {% set diluentExpiryDate = "May 2027" %}
+{% endif %}
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <h1 class="govuk-heading-l">Check your answers</h1>
+
+    {# Single summary list. Vaccinated cattle is the first row; each
+       "remaining cattle" status is a row in the same list using the
+       same key / value / Change pattern. Diluent rows close the list
+       and use the --no-actions modifier so they line up cleanly with
+       the rows above. #}
+    <dl class="govuk-summary-list">
+
+      <div class="govuk-summary-list__row">
+        <dt class="govuk-summary-list__key">Vaccinated cattle</dt>
+        <dd class="govuk-summary-list__value">
+          {{ (data['vaccinatedCattle'] | length) }} cattle marked as vaccinated
+        </dd>
+        <dd class="govuk-summary-list__actions">
+          <a class="govuk-link" href="/v1-5/select-vaccinated-animals?group=vaccinated">
+            Change<span class="govuk-visually-hidden"> vaccinated cattle</span>
+          </a>
+        </dd>
+      </div>
+
+      {% if data['remainingCattleUpdates'] %}
+        {% for update in data['remainingCattleUpdates'] %}
+          {% set count = update.cattle | length %}
+          {% if update.status == "not-found" %}
+            {% set categoryLabel = "Cattle not found" %}
+            {% set valueText = count ~ " cattle marked as not found" %}
+            {% set hiddenLabel = "cattle not found" %}
+          {% elseif update.status == "deceased" %}
+            {% set categoryLabel = "Cattle deceased" %}
+            {% set valueText = count ~ " cattle marked as deceased" %}
+            {% set hiddenLabel = "cattle deceased" %}
+          {% elseif update.status == "withdrawn-export" %}
+            {% set categoryLabel = "Cattle withdrawn for export" %}
+            {% set valueText = count ~ " cattle withdrawn for export" %}
+            {% set hiddenLabel = "cattle withdrawn for export" %}
+          {% elseif update.status == "withdrawn-slaughter" %}
+            {% set categoryLabel = "Cattle withdrawn for slaughter" %}
+            {% set valueText = count ~ " cattle withdrawn for slaughter" %}
+            {% set hiddenLabel = "cattle withdrawn for slaughter" %}
+          {% elseif update.status == "withdrawn-owner" %}
+            {% set categoryLabel = "Cattle withdrawn by the livestock owner" %}
+            {% set valueText = count ~ " cattle withdrawn by the livestock owner" %}
+            {% set hiddenLabel = "cattle withdrawn by the livestock owner" %}
+          {% elseif update.status == "other" %}
+            {% set categoryLabel = "Other reason recorded" %}
+            {% set valueText = count ~ " cattle with another reason recorded" %}
+            {% set hiddenLabel = "cattle with another reason" %}
+          {% elseif update.status == "no-reason" %}
+            {% set categoryLabel = "No reason given" %}
+            {% set valueText = count ~ " cattle marked as no reason given" %}
+            {% set hiddenLabel = "cattle marked as no reason given" %}
+          {% else %}
+            {% set categoryLabel = "Status recorded" %}
+            {% set valueText = count ~ " cattle" %}
+            {% set hiddenLabel = "cattle status" %}
+          {% endif %}
+          <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">{{ categoryLabel }}</dt>
+            <dd class="govuk-summary-list__value">{{ valueText }}</dd>
+            <dd class="govuk-summary-list__actions">
+              <a class="govuk-link" href="/v1-5/select-vaccinated-animals?group={{ update.status }}">
+                Change<span class="govuk-visually-hidden"> {{ hiddenLabel }}</span>
+              </a>
+            </dd>
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <div class="govuk-summary-list__row govuk-summary-list__row--no-actions">
+        <dt class="govuk-summary-list__key">Vaccine batch number</dt>
+        <dd class="govuk-summary-list__value">{{ vaccineBatchNumber }}</dd>
+      </div>
+
+      <div class="govuk-summary-list__row govuk-summary-list__row--no-actions">
+        <dt class="govuk-summary-list__key">Vaccine expiry date</dt>
+        <dd class="govuk-summary-list__value">{{ vaccineExpiryDate }}</dd>
+      </div>
+
+      <div class="govuk-summary-list__row govuk-summary-list__row--no-actions">
+        <dt class="govuk-summary-list__key">Diluent batch number</dt>
+        <dd class="govuk-summary-list__value">{{ diluentBatchNumber }}</dd>
+      </div>
+
+      <div class="govuk-summary-list__row govuk-summary-list__row--no-actions">
+        <dt class="govuk-summary-list__key">Diluent expiry date</dt>
+        <dd class="govuk-summary-list__value">{{ diluentExpiryDate }}</dd>
+      </div>
+
+    </dl>
+
+    <form action="/v1-5/submit-vaccination-report" method="post" novalidate>
+
+      {# Declaration – yes/no confirmation. The vet must say yes to
+         the declaration before they can submit; selecting "No" sends
+         them back to the page so they can change a value via the
+         per-row "Change" links above. #}
+      {{ govukRadios({
+        idPrefix: "answersChecked",
+        name: "answersChecked",
+        value: data['answersChecked'],
+        errorMessage: { text: errors['answersChecked'].text } if errors and errors['answersChecked'],
+        fieldset: {
+          legend: {
+            text: "Declaration",
+            classes: "govuk-fieldset__legend--m"
+          }
+        },
+        hint: { text: "I have accurately reported all the vaccinations." },
+        items: [
+          { value: "yes", text: "Yes, I have checked the answers" },
+          { value: "no",  text: "No, I need to make changes" }
+        ]
+      }) }}
+
+      <p class="govuk-body">This will send your vaccination report to Defra.</p>
+
+      {{ govukButton({
+        text: "Continue"
+      }) }}
+    </form>
+
+  </div>
+</div>
+{% endblock %}

@@ -186,6 +186,66 @@
       </ul>
     </div>
 
+    {# ---- V5 ---- #}
+    <div class="app-version-card" id="v5">
+      <div class="app-version-card__header">
+        <h3 class="govuk-heading-m">Streamlined skin test reporting</h3>
+        <strong class="govuk-tag govuk-tag--grey app-version-card__badge">V5</strong>
+      </div>
+      <p class="govuk-!-margin-top-1 govuk-!-margin-bottom-3">
+        <strong class="govuk-tag govuk-tag--purple">Experimental</strong>
+      </p>
+
+      <p class="govuk-body">
+        An experimental fork of V4 that streamlines the end of the skin test
+        journey. Everything up to the reactor step is the same as V4, and the
+        "did any cattle react?" and "were all cattle tested?" questions are
+        gone from both variants.
+      </p>
+
+      {# Two ways of asking the same question, built to be compared. They
+         write identical data, so everything downstream - check your
+         answers, the confirmation, the report - cannot tell them apart.
+         The interaction is the only variable. #}
+      <p class="govuk-body">
+        There are two variants to compare. They record the same thing and end
+        in the same place &ndash; only the way the vet gets there differs.
+      </p>
+
+      <h4 class="govuk-heading-s govuk-!-margin-bottom-1">Table</h4>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>one review table accounts for the whole herd, instead of three separate passes</li>
+        <li>every animal carries a result: clear, reaction or not tested</li>
+        <li>every animal starts as clear, so only the exceptions are changed</li>
+        <li>measurements and not-tested reasons are recorded inline, on the same screen</li>
+      </ul>
+
+      <h4 class="govuk-heading-s govuk-!-margin-bottom-1">Add another</h4>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>the herd is never listed &ndash; the vet names only the exceptions</li>
+        <li>search an ear tag, record the reading, add another</li>
+        <li>untested animals and their reasons are on a screen of their own</li>
+        <li>anything not named is reported as tested with no reaction</li>
+      </ul>
+
+      <p class="govuk-inset-text">
+        V5 is a part journey. Both variants start on the recording screen
+        itself, with Mill House Farm and a SICCT test already loaded, so there
+        is nothing to set up before you begin.
+      </p>
+
+      <div class="govuk-button-group govuk-!-margin-bottom-3">
+        {{ govukButton({ text: "Start V5 - Table", href: "v1-4/skin-test-reactors", classes: "govuk-!-margin-bottom-0" }) }}
+        {{ govukButton({ text: "Start V5 - Add another", href: "v1-5/skin-test-reactions", classes: "govuk-button--secondary govuk-!-margin-bottom-0" }) }}
+      </div>
+
+      <ul class="govuk-list app-version-card__links">
+        <li><a class="govuk-link govuk-link--no-visited-state" href="v1-4/skin-test-list?print=1&amp;populate=1">Print a completed cattle list &ndash; Mill House Farm</a></li>
+        <li><a class="govuk-link govuk-link--no-visited-state" href="v1-4/skin-test-list?print=1">Print a blank cattle list &ndash; Mill House Farm</a></li>
+        <li><a class="govuk-link govuk-link--no-visited-state" href="v1-4/dashboard">V5 dashboard</a></li>
+      </ul>
+    </div>
+
     {# ================= Salesforce admin ================= #}
     <h2 class="govuk-heading-l govuk-!-margin-top-8 govuk-!-margin-bottom-2 app-group-heading" id="salesforce">Salesforce admin</h2>
     <p class="govuk-body">

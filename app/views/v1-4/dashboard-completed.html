@@ -1,0 +1,72 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Recently completed – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-4/dashboard"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Matches the dashboard task-list rows so the full list reads the same
+     as the preview it came from. */
+  .app-task-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-top: 1px solid #b1b4b6;
+  }
+  .app-task-list__item {
+    border-bottom: 1px solid #b1b4b6;
+    padding: 20px 0;
+  }
+  .app-task-list__farm {
+    margin-top: 0;
+    margin-bottom: 4px;
+  }
+  .app-task-list__line {
+    margin: 0 0 4px;
+  }
+  .app-task-list__meta {
+    color: #505a5f;
+    margin: 0 0 8px;
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-xl">Recently completed</h1>
+
+    {% if completedReports and completedReports.length > 0 %}
+      <ul class="app-task-list">
+        {% for report in completedReports %}
+          <li class="app-task-list__item">
+            <h3 class="govuk-heading-s app-task-list__farm">
+              <a class="govuk-link" href="{{ report.href }}">{{ report.titleLine }}</a>
+            </h3>
+            {% if report.locationLine %}
+              <p class="govuk-body-s app-task-list__meta">{{ report.locationLine }}</p>
+            {% endif %}
+            <p class="govuk-body app-task-list__line">
+              {{ report.typeLabel }}{% if report.completedAtLabel %} completed on {{ report.completedAtLabel }}{% endif %}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="govuk-body">You have no recently completed work.</p>
+    {% endif %}
+
+    <p class="govuk-body govuk-!-margin-top-6">
+      <a class="govuk-link" href="/v1-4/dashboard">Back to your work</a>
+    </p>
+
+  </div>
+</div>
+{% endblock %}

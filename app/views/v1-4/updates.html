@@ -1,0 +1,180 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  What's new in this version – V4 – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back to all versions",
+  href: "/"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Contents box at the top of the page – anchor links down to each
+     journey's changes. */
+  .app-contents {
+    border: 1px solid #b1b4b6;
+    background: #f8f8f8;
+    padding: 20px 24px;
+    margin-bottom: 30px;
+  }
+  .app-contents h2 { margin-top: 0; }
+  .app-contents ul { margin-bottom: 0; }
+  /* Anchor targets clear of the top of the viewport. */
+  .app-journey { scroll-margin-top: 1rem; }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">V4</span>
+    <h1 class="govuk-heading-l">Skin tests and vaccinations – prepare, report and amend</h1>
+
+    <p class="govuk-body-l">
+      Building on V3: separate SICCT and DIVA lists for mixed herds, a guided per-test reporting loop, a tabular reactor-measurement screen with automatic interpretation, part tests and return visits, and recovery routes for the unhappy paths. The changes are grouped by journey below.
+    </p>
+
+    {# -------------------------------------------------------- #}
+    <nav class="app-contents" aria-label="Changes by journey">
+      <h2 class="govuk-heading-m">Changes by journey</h2>
+      <ul class="govuk-list">
+        <li><a class="govuk-link" href="#find-a-farm">Find a farm</a></li>
+        <li><a class="govuk-link" href="#prepare-vaccination">Prepare a list of cattle to vaccinate</a></li>
+        <li><a class="govuk-link" href="#report-vaccination">Report BCG vaccinations</a></li>
+        <li><a class="govuk-link" href="#completed-vaccination">Report completed vaccinations</a></li>
+        <li><a class="govuk-link" href="#prepare-skin-test">Prepare a list of cattle for skin tests</a></li>
+        <li><a class="govuk-link" href="#report-skin-test">Report skin test results</a></li>
+        <li><a class="govuk-link" href="#completed-skin-test">Report completed skin tests</a></li>
+        <li><a class="govuk-link" href="#download-share">Download, print and share lists</a></li>
+        <li><a class="govuk-link" href="#work-in-progress">Work in progress and amending reports</a></li>
+        <li><a class="govuk-link" href="#across-service">Across the service</a></li>
+        <li><a class="govuk-link" href="#bug-fixes">Bug fixes and polish</a></li>
+      </ul>
+    </nav>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8 app-journey" id="find-a-farm">Find a farm</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>Richer farm briefing</strong> — contact details, herd composition, last TB test, risk area, test interval and next skin test (with an "Overdue" tag).</li>
+      <li><strong>Vaccination breakdown</strong> — the status row shows how many cattle are vaccinated (overdue in brackets) and how many are unvaccinated.</li>
+    </ul>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8 app-journey" id="prepare-vaccination">Prepare a list of cattle to vaccinate</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>Five-state Eligibility column</strong> — the printed list shows each animal as Eligible, Eligible on a date, Vaccinated, Revaccination due or Revaccination overdue.</li>
+      <li><strong>Reshuffled printed list</strong> — tick column, ear tag, Eligibility and TB Vax, then DOB / Sex / Breed and a writable Notes column; page 1 captures batch, expiry and diluent details.</li>
+    </ul>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8 app-journey" id="report-vaccination">Report BCG vaccinations</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>Tighter selection page</strong> — "Which cattle were vaccinated?" with a live "X of Y" counter, page dividers, and validation removed.</li>
+      <li><strong>Record who was, or wasn't, vaccinated</strong> — record the vaccinated cattle, or just the exceptions with a reason and let the rest default to vaccinated; edit any group against the whole herd.</li>
+      <li><strong>One summary list on Check answers</strong> — vaccinated and remaining cattle together, each row with a "Change" link to the right group.</li>
+      <li><strong>"Check the cattle you've selected" review step</strong> — a summary of what's marked before the final check.</li>
+    </ul>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8 app-journey" id="completed-vaccination">Report completed vaccinations</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>Declaration before submitting</strong> — the vet confirms "I have accurately reported all the vaccinations" before the report is sent to Defra.</li>
+    </ul>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8 app-journey" id="prepare-skin-test">Prepare a list of cattle for skin tests</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>Two lists for mixed herds</strong> — separate SICCT (unvaccinated) and DIVA (vaccinated) lists instead of one combined list; single-test farms get one list.</li>
+      <li><strong>"Which list to format first?" picker</strong> — pick SICCT or DIVA, format and save, then loop through the other.</li>
+      <li><strong>Single download for both lists</strong> — one Download button opens both stacks, and the farm page shows one combined entry.</li>
+      <li><strong>Page-1 entry table per test</strong> — SICCT and DIVA each capture the right dates, batch numbers and expiry details to write in.</li>
+      <li><strong>Ear-tag range box on every sheet</strong> — a boxed range top and bottom right; the cover is labelled, not numbered, so "Page 1" is the first cattle sheet.</li>
+      <li><strong>DIVA is single-visit</strong> — one "Test date and time" column and a single Reading column; SICCT keeps Day 1 / Day 2.</li>
+    </ul>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8 app-journey" id="report-skin-test">Report skin test results</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>The vet decides which test</strong> — the service recommends a test but the vet chooses SICCT, DIVA or both, since policy varies (for example DIVA may not be used in Wales).</li>
+      <li><strong>Dates and times</strong> — Day 1 is the injection date and start time; Day 2 is auto-calculated as 72 hours later, or entered manually for multi-day visits.</li>
+      <li><strong>Per-test batch and diluent details</strong> — confirmed per test from the printed list, then a per-test confirmation before looping to the other test.</li>
+      <li><strong>Clearer "did any react?" gate</strong> — a simple "Did any cattle show a detectable reaction?" Yes / No.</li>
+      <li><strong>Search, jump-to-page, select-all and a live count</strong> — shared on every selection screen: an ear-tag filter, "Go to a page" links, a select-all, and an "X of Y" count, with page size and sort at the top.</li>
+      <li><strong>Reactors in a table, a page at a time</strong> — reactors are entered in a paged table, 10 at a time with "Save and continue" (and "Save and continue later").</li>
+      <li><strong>Avian and Bovine together</strong> — SICCT rows split Day 1 / Day 2 into Avian and Bovine; DIVA shows one Reading; each reactor is tagged with its printed page.</li>
+      <li><strong>Results worked out for you</strong> — reaction description and overall result are calculated as the vet types (SICCT via a prototype rules engine, to be validated against TB64).</li>
+      <li><strong>Blank measurements can be submitted</strong> — leave Day 1 or Day 2 blank and still submit; those animals are captured as not fully tested, with a reason.</li>
+      <li><strong>Not-tested cattle flagged for eligibility</strong> — too young, or tested elsewhere within 60 days, are flagged "Not eligible" so they aren't recorded in error.</li>
+      <li><strong>Submit a part test and return for the rest</strong> — report the animals done; the remaining stay on the work list to reprint and report on a return visit.</li>
+      <li><strong>"Were all the cattle tested?" with reactor flags</strong> — every animal is listed, with reactors tagged red.</li>
+    </ul>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8 app-journey" id="completed-skin-test">Report completed skin tests</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>Confirmation shows the test type</strong> — Day 1 / Day 2 with the start time and a "calculated 72 hours after Day 1" note; the submitted page reports reacted / not tested / negative counts and flags a part test.</li>
+    </ul>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8 app-journey" id="download-share">Download, print and share lists</h2>
+    <p class="govuk-body">These apply to both the skin test and vaccination lists.</p>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>Choose how to view</strong> — a printable PDF, a spreadsheet, or sent to a handheld.</li>
+      <li><strong>Success pages</strong> — a green success banner, a primary Download action and a "save for later" link.</li>
+      <li><strong>Cross-linked formats</strong> — switch between PDF, spreadsheet and handheld without redoing the list.</li>
+      <li><strong>Date created on prepared lists</strong> — matches the date printed on the list itself.</li>
+    </ul>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8 app-journey" id="work-in-progress">Work in progress and amending reports</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>Work in progress and recently completed</strong> — the dashboard splits work into resumable "in progress" and "recently completed", with status tags and "View all" pages.</li>
+      <li><strong>Reopen and amend a completed report</strong> — reopen a skin test or vaccination report exactly as filed and correct it via the "Change" links.</li>
+      <li><strong>Add cattle with breed autocomplete</strong> — add an animal that wasn't listed; the Breed field is a type-ahead autocomplete.</li>
+      <li><strong>Designed for the unhappy paths</strong> — defined next steps for no results, the wrong holding, stale data, animals not found, lost pages, interrupted visits and post-submission corrections. We reviewed what could go wrong through four lenses — Recovery, User mistakes, Data quality and Operational reality — and mapped it out on the <a class="govuk-link" href="https://app.mural.co/t/coredefra2548/m/coredefra2548/1776419561326/7d1cc6890a0dd70dfc49b89de0b5a840a482e3fd?wid=1-1782463683280" target="_blank" rel="noreferrer noopener">unhappy paths Mural</a>.</li>
+    </ul>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8 app-journey" id="across-service">Across the service</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>Standard GOV.UK tables</strong> — consistent design-system tables on the browsing and selecting screens.</li>
+      <li><strong>Same column order everywhere</strong> — ear tag, TB Vax, test columns, then DOB / Sex / Breed and Notes; SICCT lists drop TB Vax.</li>
+      <li><strong>Easier-to-scan ear tags</strong> — only the last 4 digits bold; duplicates flagged with a black top/bottom band.</li>
+      <li><strong>Underlines that highlight what to check</strong> — DOB underlined near the 42-day test age; TB Vax underlined when revaccination is due.</li>
+      <li><strong>Marking page ordered by ear tag</strong> — matches the printed-list order.</li>
+    </ul>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8 app-journey" id="bug-fixes">Bug fixes and polish</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li><strong>Populate a list for testing</strong> — a demo helper fills a printed list with realistic, handwriting-style data (a prototype aid, not part of the journey).</li>
+      <li><strong>Added-cattle count fix</strong> — a leftover added animal no longer inflates the next report's herd count.</li>
+      <li><strong>Reactor "Change" link fixed</strong> — the per-test confirm "Change" link now opens the reactor picker, not the empty measurement table.</li>
+      <li><strong>List-format routing fixed</strong> — the PDF, spreadsheet and handheld options route to the right page.</li>
+      <li><strong>Date examples on entry pages</strong> — "For example, 05 2029" hints on expiry fields.</li>
+      <li><strong>Trimmed the per-animal page</strong> — removed the manual result radios and remarks now the result is automatic.</li>
+    </ul>
+
+    {# ======================================================== #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-8">Updates based on research</h2>
+    <p class="govuk-body">
+      Round 2 of alpha research (May 2026) tested the V2 skin-test prototype with five vets in 45–50 minute semi-structured interviews. The mixed-herd anxiety, the desire for automation and the call for a tabular measurement screen drove the redesign that V4 builds on.
+    </p>
+    <p class="govuk-body">
+      <a class="govuk-link" href="/v1-4/research-updates">Read how research findings shaped V4</a>
+    </p>
+
+    <div class="govuk-button-group govuk-!-margin-top-8">
+      {{ govukButton({
+        text: "Start V4",
+        href: "/v1-4/start"
+      }) }}
+      <a class="govuk-link" href="/">Back to all versions</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

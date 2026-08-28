@@ -1,0 +1,413 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Supply measurements for cattle – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: backHref or "/v1-5/skin-test-type"
+}) }}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Progress summary – plain "Cattle X of N" line, no bar. */
+  .app-progress-summary { margin: 0 0 20px; }
+
+  /* ------------------------------------------------------------------
+     Animal identity – ear tag + VAX / DUP flags, then a compact
+     single-column key/value list for Age / DOB / Sex / Breed.
+  ------------------------------------------------------------------ */
+  .app-animal { margin: 0 0 25px; }
+  .app-animal__ear-tag-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 12px;
+  }
+  .app-animal__ear-tag {
+    font-size: 24px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+  /* No gap between "UK" and the number on the ear tag. */
+  .app-animal__ear-tag-prefix { margin-right: 0; }
+  .app-animal__ear-tag-last {
+    padding: 2px 8px;
+    margin-left: 2px;
+    border: 2px solid #0b0c0c;
+  }
+  /* VAX / DUP flags – muted style from the printed list. */
+  .app-tag-dark {
+    display: inline-block;
+    background-color: #f3f2f1;
+    color: #505a5f;
+    font-family: "GDS Transport", arial, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    text-transform: uppercase;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  /* Compact single-column animal-details list. */
+  .app-animal__meta {
+    margin: 0;
+    line-height: 1.5;
+  }
+  .app-animal__meta-item {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 4px 0;
+  }
+  .app-animal__meta dt {
+    color: #505a5f;
+    margin: 0;
+    flex: 0 0 5rem;
+  }
+  .app-animal__meta dd {
+    color: #0b0c0c;
+    font-weight: 700;
+    margin: 0;
+    flex: 1 1 auto;
+    word-break: break-word;
+  }
+
+  /* ------------------------------------------------------------------
+     Measurement section – treated as a form, not a data table.
+     Typography follows the GOV.UK type scale:
+       - Column/row primary labels: 19px / bold  (govuk-body)
+       - Secondary labels (Day 1, Avian, etc): 16px / regular / #505a5f
+       - Input text + "mm" suffix: 19px (same baseline)
+     Spacing is even on all four sides of every cell; borders are the
+     standard GOV.UK table line colour (#b1b4b6) so they don't dominate.
+  ------------------------------------------------------------------ */
+  .app-measurement-form-table {
+    width: 100%;
+    max-width: 520px;
+    border-collapse: collapse;
+    font-family: "GDS Transport", arial, sans-serif;
+    margin: 0 0 15px;
+  }
+  .app-measurement-form-table th,
+  .app-measurement-form-table td {
+    border: 1px solid #b1b4b6;
+    padding: 16px;
+    vertical-align: middle;
+    text-align: center;
+  }
+
+  /* Column headers – bold 19px to match govuk-body */
+  .app-measurement-form-table thead th {
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.3;
+    background: transparent;
+  }
+  .app-measurement-form-table thead .app-mf-day {
+    display: block;
+    font-size: 16px;
+    font-weight: 400;
+    color: #505a5f;
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  /* Row headers – "A"/"B" in body-weight bold, Avian/Bovine in
+     lighter secondary style. Narrower column so the grid stays
+     balanced. */
+  .app-measurement-form-table tbody th {
+    background: transparent;
+    width: 5.5rem;
+    font-weight: 700;
+  }
+  .app-measurement-form-table tbody th .app-mf-letter {
+    display: block;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .app-measurement-form-table tbody th .app-mf-name {
+    display: block;
+    font-size: 16px;
+    font-weight: 400;
+    color: #505a5f;
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  /* Inputs – consistent size and baseline with the "mm" suffix,
+     centred inside their cell so Pre and Post columns align
+     vertically. */
+  .app-measurement-form-table td .govuk-form-group {
+    margin: 0;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  .app-measurement-form-table .govuk-input {
+    font-size: 19px;
+    line-height: 1.3;
+  }
+  /* Ensure the input + "mm" suffix share a common baseline */
+  .app-measurement-form-table .govuk-input__wrapper {
+    align-items: stretch;
+  }
+
+  /* ------------------------------------------------------------------
+     "Save and exit" is a form submit (so the current entry is saved
+     before leaving), but needs to read as a standard GOV.UK text link.
+     Applying `.govuk-link` + `.app-link-button` strips the browser's
+     default button styling; the link colour, underline, hover and
+     focus states all come from `.govuk-link`.
+  ------------------------------------------------------------------ */
+  .app-link-button {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    cursor: pointer;
+  }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    {# 1. Page title ------------------------------------------------- #}
+    <span class="govuk-caption-l">
+      {{ data['herd']['farm'] }} - SICCT{% if bothStepText %} - {{ bothStepText }}{% endif %}
+    </span>
+    <h1 class="govuk-heading-l govuk-!-margin-bottom-3">Supply SICCT measurements for cattle</h1>
+
+    {% if isBothJourney %}
+      {{ govukInsetText({
+        html: "SICCT is for the unvaccinated cattle on this farm. When you've finished recording SICCT for every animal on this list, you'll move on to the DIVA measurements for the vaccinated cattle."
+      }) }}
+    {% endif %}
+
+    {# 2. Progress --------------------------------------------------- #}
+    <p class="govuk-body app-progress-summary"><strong>Cattle {{ currentPosition }} of {{ totalCattle }}</strong></p>
+
+    <form action="/v1-5/skin-test-measurements/{{ currentIndex }}" method="post" novalidate>
+
+      {# 3. Animal identity ---------------------------------------- #}
+      <div class="app-animal" aria-label="Animal details">
+        <div class="app-animal__ear-tag-row">
+          <p class="app-animal__ear-tag">
+            <span class="app-animal__ear-tag-prefix">{{ currentAnimal.earTagParts.prefix }}</span>
+            <span>{{ currentAnimal.earTagParts.herd }}</span>
+            <span>{{ currentAnimal.earTagParts.check }}</span>
+            <span>{{ currentAnimal.earTagParts.individualStart }}</span>
+            <span class="app-animal__ear-tag-last">{{ currentAnimal.earTagParts.last4 }}</span>
+          </p>
+          {% if currentAnimal.isVaccinated %}
+            <strong class="app-tag-dark" title="BCG vaccinated">VAX</strong>
+          {% endif %}
+          {% if currentAnimal.isDuplicate %}
+            <strong class="app-tag-dark" title="Another animal on this farm shares the last 4 digits of this ear tag">DUP</strong>
+          {% endif %}
+        </div>
+        {# Compact single-column animal details. Order: Age, DOB, Sex, Breed. #}
+        <dl class="app-animal__meta govuk-body">
+          <div class="app-animal__meta-item">
+            <dt>Age</dt>
+            <dd>{{ currentAnimal.age }}</dd>
+          </div>
+          <div class="app-animal__meta-item">
+            <dt>DOB</dt>
+            <dd>{{ currentAnimal.dob }}</dd>
+          </div>
+          <div class="app-animal__meta-item">
+            <dt>Sex</dt>
+            <dd>{{ currentAnimal.sex }}</dd>
+          </div>
+          <div class="app-animal__meta-item">
+            <dt>Breed</dt>
+            <dd>{{ currentAnimal.breed }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      {# 5. Measurement input -------------------------------------
+         This page only captures SICCT. The DIVA measurement page is
+         reached separately – after the last SICCT animal when the
+         vet chose "Both", or directly from skin-test-type when they
+         chose "DIVA". #}
+      <div id="measurements-panel">
+        <div id="sicct-section">
+          <fieldset class="govuk-fieldset" aria-describedby="skin-measurement-hint">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
+              SICCT skin measurement
+            </legend>
+            <p id="skin-measurement-hint" class="govuk-hint">
+              Copy the values from the printed sheet. Row A is the Avian site, row B is the Bovine site.
+            </p>
+
+            <div style="overflow-x: auto;">
+              <table class="app-measurement-form-table">
+                <thead>
+                  <tr>
+                    <th scope="col"><span class="govuk-visually-hidden">Site</span></th>
+                    <th scope="col">
+                      Pre
+                      <span class="app-mf-day">Day 1 (injection)</span>
+                    </th>
+                    <th scope="col">
+                      Post
+                      <span class="app-mf-day">Day 2 (72 hours later)</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">
+                      <span class="app-mf-letter">A</span>
+                      <span class="app-mf-name">Avian</span>
+                    </th>
+                    <td>
+                      {{ govukInput({
+                        id: "avianBeforeInjection",
+                        name: "avianBeforeInjection",
+                        classes: "govuk-input--width-4",
+                        label: { text: "Avian Pre (Day 1) in millimetres", classes: "govuk-visually-hidden" },
+                        suffix: { text: "mm" },
+                        attributes: { inputmode: "decimal" },
+                        value: formValues['avianBeforeInjection'] or savedEntry.avianBeforeInjection,
+                        errorMessage: { text: errors['avianBeforeInjection'].text } if errors and errors['avianBeforeInjection']
+                      }) }}
+                    </td>
+                    <td>
+                      {{ govukInput({
+                        id: "avianAfter72Hours",
+                        name: "avianAfter72Hours",
+                        classes: "govuk-input--width-4",
+                        label: { text: "Avian Post (Day 2) in millimetres", classes: "govuk-visually-hidden" },
+                        suffix: { text: "mm" },
+                        attributes: { inputmode: "decimal" },
+                        value: formValues['avianAfter72Hours'] or savedEntry.avianAfter72Hours,
+                        errorMessage: { text: errors['avianAfter72Hours'].text } if errors and errors['avianAfter72Hours']
+                      }) }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">
+                      <span class="app-mf-letter">B</span>
+                      <span class="app-mf-name">Bovine</span>
+                    </th>
+                    <td>
+                      {{ govukInput({
+                        id: "bovineBeforeInjection",
+                        name: "bovineBeforeInjection",
+                        classes: "govuk-input--width-4",
+                        label: { text: "Bovine Pre (Day 1) in millimetres", classes: "govuk-visually-hidden" },
+                        suffix: { text: "mm" },
+                        attributes: { inputmode: "decimal" },
+                        value: formValues['bovineBeforeInjection'] or savedEntry.bovineBeforeInjection,
+                        errorMessage: { text: errors['bovineBeforeInjection'].text } if errors and errors['bovineBeforeInjection']
+                      }) }}
+                    </td>
+                    <td>
+                      {{ govukInput({
+                        id: "bovineAfter72Hours",
+                        name: "bovineAfter72Hours",
+                        classes: "govuk-input--width-4",
+                        label: { text: "Bovine Post (Day 2) in millimetres", classes: "govuk-visually-hidden" },
+                        suffix: { text: "mm" },
+                        attributes: { inputmode: "decimal" },
+                        value: formValues['bovineAfter72Hours'] or savedEntry.bovineAfter72Hours,
+                        errorMessage: { text: errors['bovineAfter72Hours'].text } if errors and errors['bovineAfter72Hours']
+                      }) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </fieldset>
+
+          {{ govukTextarea({
+            label: { text: "Reaction description", classes: "govuk-label--m" },
+            id: "reactionDescription",
+            name: "reactionDescription",
+            rows: 3,
+            hint: { text: "Describe any visible reaction at the injection sites." },
+            value: formValues['reactionDescription'] or savedEntry.reactionDescription,
+            classes: "govuk-!-margin-top-6"
+          }) }}
+
+          {{ govukRadios({
+            idPrefix: "overallResult",
+            name: "overallResult",
+            classes: "govuk-!-margin-top-4",
+            fieldset: {
+              legend: {
+                text: "Overall skin test result",
+                classes: "govuk-fieldset__legend--m"
+              }
+            },
+            hint: { text: "Select the overall interpretation of the SICCT skin test for this animal." },
+            value: formValues['overallResult'] or savedEntry.overallResult,
+            errorMessage: { text: errors['overallResult'].text } if errors and errors['overallResult'],
+            items: [
+              { value: "negative",     text: "Negative" },
+              { value: "positive",     text: "Positive" },
+              { value: "inconclusive", text: "Inconclusive" }
+            ]
+          }) }}
+        </div>
+
+        {# 6. Notes – SICCT notes for this animal ------------------- #}
+        {{ govukTextarea({
+          label: { text: "Add additional notes (optional)", classes: "govuk-label--m" },
+          id: "additionalNotes",
+          name: "additionalNotes",
+          rows: 3,
+          hint: { text: "Use this to record anything unusual or additional that is not covered above." },
+          value: formValues['additionalNotes'] or savedEntry.additionalNotes,
+          classes: "govuk-!-margin-top-6"
+        }) }}
+
+      </div>
+
+      {# 7. Actions ---------------------------------------------------
+         Primary: one green GOV.UK button ("Save and continue").
+         Secondary: plain GOV.UK text links, left-aligned on the same
+         margin as every other block, each on its own line.
+         "Save and exit" is a <button> element styled as a link so
+         current entries are still saved before the user leaves.
+      ------------------------------------------------------------------ #}
+      <div class="govuk-button-group govuk-!-margin-top-6">
+        {{ govukButton({ text: "Save and continue", name: "loopAction", value: "next" }) }}
+      </div>
+
+      <p class="govuk-body">
+        <button type="submit" name="loopAction" value="save-exit" class="govuk-link app-link-button">
+          Save and exit
+        </button>
+      </p>
+      <p class="govuk-body">
+        <a class="govuk-link" href="/v1-5/skin-test-confirmation">
+          Skip to review progress
+        </a>
+      </p>
+
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}

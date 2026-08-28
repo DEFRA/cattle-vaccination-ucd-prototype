@@ -1,0 +1,63 @@
+{% extends "layouts/main.html" %}
+
+{% block pageTitle %}
+  Give reasons for cattle not vaccinated? – GOV.UK
+{% endblock %}
+
+{% block beforeContent %}
+{{ govukBackLink({
+  text: "Back",
+  href: "/v1-5/vaccination-marked-confirm"
+}) }}
+{% endblock %}
+
+{% block content %}
+{# v1-3: prompt the vet to decide whether they want to enter a per-
+   animal reason for each unvaccinated animal, or bulk-mark them all
+   as "no reason given" and skip the reasons phase. Reached after
+   the vet has finished marking the vaccinated cattle so the system
+   already knows how many animals are left unvaccinated.
+
+   - "Yes, give a reason" → on to /v1-5/select-vaccinated-animals in
+     the reasons phase, where the vet records a specific status for
+     each remaining animal (deceased / withdrawn / other / …).
+   - "No, mark as no reason given" → bulk-mark every remaining
+     animal as "no reason given" and skip back to
+     /v1-5/vaccination-marked-confirm to wrap up.
+#}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorSummary %}
+      {{ govukErrorSummary(errorSummary) }}
+    {% endif %}
+
+    <span class="govuk-caption-l">{{ data['herd']['farm'] }}</span>
+
+    <form action="/v1-5/give-unvaccinated-reasons" method="post" novalidate>
+
+      {{ govukRadios({
+        idPrefix: "giveUnvaccinatedReasons",
+        name: "giveUnvaccinatedReasons",
+        fieldset: {
+          legend: {
+            text: "Would you like to give a reason for the " + unvaccinatedCount + " cattle not vaccinated?",
+            isPageHeading: true,
+            classes: "govuk-fieldset__legend--l"
+          }
+        },
+        hint: { text: "You can record a separate reason for each animal, or mark them all as 'no reason given' in one go." },
+        errorMessage: { text: errors['giveUnvaccinatedReasons'].text } if errors and errors['giveUnvaccinatedReasons'],
+        items: [
+          { value: "yes", text: "Yes, give a reason" },
+          { value: "no",  text: "No, mark as no reason given" }
+        ]
+      }) }}
+
+      {{ govukButton({ text: "Continue" }) }}
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}
