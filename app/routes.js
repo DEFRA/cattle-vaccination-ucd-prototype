@@ -7951,7 +7951,7 @@ function registerSkinTestRoutes(version) {
       const firstNumber = animals.indexOf(unrecorded[0]) + 1
       errorList.unshift({
         text: unrecorded.length === 1
-          ? 'Record a result for animal ' + firstNumber
+          ? 'Record a result for line ' + firstNumber
           : 'Record a result for ' + unrecorded.length + ' cattle you have not been through yet',
         href: '#animal-' + firstNumber
       })
@@ -8096,11 +8096,11 @@ function registerSkinTestRoutes(version) {
   // be changed in one place.
   const V15_REASONS = [
     { value: 'not-presented', text: 'Not presented',
-      hint: 'Missing, not brought in, or withdrawn by the keeper' },
-    { value: 'not-possible', text: 'Not possible to test',
-      hint: 'Came to the crush but could not be handled or restrained safely' },
+      hint: 'The animal was missing, withdrawn by the keeper or similar reason' },
+    { value: 'not-possible', text: 'Impossible to test',
+      hint: 'The animal could not be handled safely' },
     { value: 'not-eligible', text: 'Not eligible',
-      hint: 'Too young, or tested elsewhere in the last 60 days' },
+      hint: 'Too young, postpartum or otherwise ineligible' },
     { value: 'dead', text: 'Dead' },
     { value: 'other', text: 'Other reason' }
   ]
