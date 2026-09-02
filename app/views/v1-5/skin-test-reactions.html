@@ -256,31 +256,31 @@
             </div>
           </div>
 
-          {# The C / SO description for each site, below the readings
-             rather than inside them. The flow has the vet tab straight
-             through the four numbers - Avian Day 1, Day 2, Bovine Day 1,
-             Day 2 - and a select sitting in the middle of each line broke
-             that run. Both sites are asked because the TB64 rules test
-             each one for a positive reaction; the bovine answer is the
-             one that usually differs. #}
+          {# One description, for the bovine site, below the readings
+             rather than inside them - a select in the middle of a line
+             broke the run of four numbers the vet tabs through.
+
+             The avian site is carried, not asked. It is circumscribed on
+             all but a handful of animals, and the bovine answer is the
+             one that decides the result. It travels in a hidden field
+             rather than being dropped, so an avian reading recorded on
+             the table variant survives a round trip through this one -
+             both variants write to the same session entries.
+
+             No heading here: the section is one control, so its label is
+             its title. A heading plus a hidden label would be the same
+             words twice for anyone listening. #}
           <div class="app-site app-reaction-type">
-            <h3 class="govuk-heading-s app-site-heading">Type of reaction</h3>
+            <input type="hidden"
+                   id="avianOedema-{{ row.number }}"
+                   name="avianOedema"
+                   value="{{ 'SO' if row.avianOedema == 'SO' else 'C' }}">
             <div class="app-measure">
-              {{ govukSelect({
-                id: "avianOedema-" + row.number,
-                name: "avianOedema",
-                classes: "js-measure app-oedema-select",
-                label: { text: "Avian" },
-                items: [
-                  { value: "C", text: "Circumscribed (C)", selected: row.avianOedema != 'SO' },
-                  { value: "SO", text: "Some oedema (SO)", selected: row.avianOedema == 'SO' }
-                ]
-              }) }}
               {{ govukSelect({
                 id: "bovineOedema-" + row.number,
                 name: "bovineOedema",
                 classes: "js-measure app-oedema-select",
-                label: { text: "Bovine" },
+                label: { text: "Type of reaction", classes: "govuk-label--s app-site-heading" },
                 items: [
                   { value: "C", text: "Circumscribed (C)", selected: row.bovineOedema != 'SO' },
                   { value: "SO", text: "Some oedema (SO)", selected: row.bovineOedema == 'SO' }

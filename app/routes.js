@@ -1292,9 +1292,13 @@ function monthsSinceVaxDate(mmYY, referenceDate) {
 }
 
 function getAnimalsForSelection(selectedCattle, version) {
-  // v1-4 and v1-5 draw on the 102-animal research herd; everything else
-  // keeps the herd it has always had.
-  if ((version === 'v1-4' || version === 'v1-5') && v14AnimalsByCph[selectedCattle]) {
+  // v1-3, v1-4 and v1-5 draw on the 102-animal research herd - the three
+  // journeys in the comparison, on one set of cattle, because a
+  // difference between them is only readable if the data underneath is
+  // the same. v1-0 to v1-2 keep the herds they have always had, and so
+  // does every farm in v1-3 other than the one overridden here.
+  if ((version === 'v1-3' || version === 'v1-4' || version === 'v1-5')
+    && v14AnimalsByCph[selectedCattle]) {
     return v14AnimalsByCph[selectedCattle]
   }
   if ((version === 'v1-2' || isV13Plus(version)) && v12AnimalsByCph[selectedCattle]) {
@@ -7516,11 +7520,19 @@ function registerSkinTestRoutes(version) {
       ? req.session.data.skinTestUntested
       : []
     if (untested.indexOf(officialId) !== -1) return 'not-tested'
-    // Nothing recorded yet. Deliberately not 'clear': the Design System
-    // asks that radios are not pre-selected, and here the pre-selection
-    // was asserting a clinical finding - "tested, no reaction" - that the
-    // vet had not made. An unset row is now unset, and the vet says so.
-    return ''
+    // Nothing recorded yet: the row opens on Clear.
+    //
+    // The Design System asks that radios are not pre-selected, and the
+    // objection here is real - a pre-set Clear asserts a clinical finding,
+    // "tested, no reaction", that the vet has not made, and makes a row
+    // nobody looked at indistinguishable from one they decided about. The
+    // trade is that the vet only touches the exceptions, which on a herd
+    // of 102 is most of the work.
+    //
+    // The unrecorded-rows check on submit is left in place. It cannot fire
+    // while this returns a status, and it is what makes removing the
+    // default a one-line change if research says to.
+    return 'clear'
   }
 
   // Where the vet goes once the review (and any measurements) are done.
@@ -7951,7 +7963,7 @@ function registerSkinTestRoutes(version) {
       const firstNumber = animals.indexOf(unrecorded[0]) + 1
       errorList.unshift({
         text: unrecorded.length === 1
-          ? 'Record a result for line ' + firstNumber
+          ? 'Record a result for animal ' + firstNumber
           : 'Record a result for ' + unrecorded.length + ' cattle you have not been through yet',
         href: '#animal-' + firstNumber
       })
@@ -8096,11 +8108,11 @@ function registerSkinTestRoutes(version) {
   // be changed in one place.
   const V15_REASONS = [
     { value: 'not-presented', text: 'Not presented',
-      hint: 'The animal was missing, withdrawn by the keeper or similar reason' },
-    { value: 'not-possible', text: 'Impossible to test',
-      hint: 'The animal could not be handled safely' },
+      hint: 'Missing, not brought in, or withdrawn by the keeper' },
+    { value: 'not-possible', text: 'Not possible to test',
+      hint: 'Came to the crush but could not be handled or restrained safely' },
     { value: 'not-eligible', text: 'Not eligible',
-      hint: 'Too young, postpartum or otherwise ineligible' },
+      hint: 'Too young, or tested elsewhere in the last 60 days' },
     { value: 'dead', text: 'Dead' },
     { value: 'other', text: 'Other reason' }
   ]
@@ -8729,6 +8741,34 @@ function registerSkinTestRoutes(version) {
     // the reactor-only multi-select.
     if (isV14Review(req)) {
       return renderV14Review(req, res)
+    }
+    // v1-3 can be entered straight at the tick list, the same way v1-4
+    // can be entered at its review table, so a research session can drop
+    // someone into either journey without walking the pages in front of
+    // it. Seeds the farm, the test and the dates the skipped pages would
+    // have set.
+    //
+    // "Did any cattle react?" is answered yes, because a vet who has
+    // been sent to the list of cattle to tick has already been asked.
+    // Only when it has not been answered - someone who came through the
+    // journey and said no still goes back to that page, which is the
+    // whole point of the gate.
+    if (version === 'v1-3') {
+      v14SeedSession(req, res)
+      const entryPhase = getCurrentReactorPhase(req)
+      const answered = req.session.data.anyReactorsByPhase || {}
+      if (!answered[entryPhase]) {
+        const next = Object.assign({}, answered)
+        next[entryPhase] = 'yes'
+        req.session.data.anyReactorsByPhase = next
+        req.session.data.anyReactors = 'yes'
+        if (res && res.locals) {
+          res.locals.data = Object.assign({}, res.locals.data || {}, {
+            anyReactorsByPhase: next,
+            anyReactors: 'yes'
+          })
+        }
+      }
     }
     const perTest = isPerTestSubFlow(req)
     const phase = perTest ? req.session.data.currentSkinTest : getCurrentReactorPhase(req)
