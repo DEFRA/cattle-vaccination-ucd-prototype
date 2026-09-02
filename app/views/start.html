@@ -1,0 +1,70 @@
+{% extends "layouts/main.html" %}
+
+{% set pageName="Start" %}
+
+{% block content %}
+<style>
+  /* One option per journey. A rule between them rather than a card each:
+     the three are alternatives to be weighed against one another, and
+     boxing them separates what should be compared. */
+  .app-journey + .app-journey {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #b1b4b6;
+  }
+  .app-journey__number {
+    color: #505a5f;
+    font-variant-numeric: tabular-nums;
+    padding-right: 8px;
+  }
+  .app-journey__title { margin-bottom: 5px; }
+  .app-journey p { margin-bottom: 0; }
+  .app-sheet-link { margin-top: 30px; }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">Record a skin test</h1>
+
+    {# Named for what the vet does, not for which version it is. A
+       participant should be choosing between three ways of working, not
+       between three build numbers. #}
+    <div class="app-journey">
+      <h2 class="govuk-heading-m app-journey__title">
+        <span class="app-journey__number" aria-hidden="true">1.</span><a class="govuk-link" href="v1-4/skin-test-reactors">One page radio</a>
+      </h2>
+      <p class="govuk-body">
+        The whole herd on one page. Every animal is a row with Clear, Reaction
+        or Not tested, and the readings open on the row you pick.
+      </p>
+    </div>
+
+    <div class="app-journey">
+      <h2 class="govuk-heading-m app-journey__title">
+        <span class="app-journey__number" aria-hidden="true">2.</span><a class="govuk-link" href="v1-5/skin-test-reactions">Add another</a>
+      </h2>
+      <p class="govuk-body">
+        The herd is never listed. Name each animal that reacted, record its
+        readings, then add another. Anything you do not name is reported as
+        tested with no reaction.
+      </p>
+    </div>
+
+    <div class="app-journey">
+      <h2 class="govuk-heading-m app-journey__title">
+        <span class="app-journey__number" aria-hidden="true">3.</span><a class="govuk-link" href="v1-3/skin-test-reactors">Tick and type</a>
+      </h2>
+      <p class="govuk-body">
+        Tick the cattle that reacted, then type their readings. Then a second
+        pass for the cattle that were not tested, and why.
+      </p>
+    </div>
+
+    <p class="govuk-body app-sheet-link">
+      <a class="govuk-link" href="v1-4/skin-test-list?print=1&amp;populate=1">Print a completed cattle list &ndash; Mill House Farm</a>
+    </p>
+
+  </div>
+</div>
+{% endblock %}

@@ -208,15 +208,17 @@
          answers, the confirmation, the report - cannot tell them apart.
          The interaction is the only variable. #}
       <p class="govuk-body">
-        There are two variants to compare. They record the same thing and end
-        in the same place &ndash; only the way the vet gets there differs.
+        Three journeys to compare. They record the same thing, on the same
+        102 cattle, and end in the same place &ndash; only the way the vet
+        gets there differs. V4 is the baseline the two V5 variants are
+        being measured against.
       </p>
 
       <h4 class="govuk-heading-s govuk-!-margin-bottom-1">Table</h4>
       <ul class="govuk-list govuk-list--bullet">
         <li>one review table accounts for the whole herd, instead of three separate passes</li>
         <li>every animal carries a result: clear, reaction or not tested</li>
-        <li>every animal starts as clear, so only the exceptions are changed</li>
+        <li>a quick-apply block sets a result for the whole herd at once, so only the exceptions are changed after it</li>
         <li>measurements and not-tested reasons are recorded inline, on the same screen</li>
       </ul>
 
@@ -228,8 +230,16 @@
         <li>anything not named is reported as tested with no reaction</li>
       </ul>
 
+      <h4 class="govuk-heading-s govuk-!-margin-bottom-1">Three passes (V4)</h4>
+      <ul class="govuk-list govuk-list--bullet">
+        <li>the existing journey, unchanged, on the same herd as the two above</li>
+        <li>tick the cattle that reacted, then enter their readings</li>
+        <li>then a second pass for the cattle that were not tested, and their reasons</li>
+        <li>anything left untouched is reported as tested with no reaction</li>
+      </ul>
+
       <p class="govuk-inset-text">
-        V5 is a part journey. Both variants start on the recording screen
+        These are part journeys. All three start on the recording screen
         itself, with Mill House Farm and a SICCT test already loaded, so there
         is nothing to set up before you begin.
       </p>
@@ -237,6 +247,7 @@
       <div class="govuk-button-group govuk-!-margin-bottom-3">
         {{ govukButton({ text: "Start V5 - Table", href: "v1-4/skin-test-reactors", classes: "govuk-!-margin-bottom-0" }) }}
         {{ govukButton({ text: "Start V5 - Add another", href: "v1-5/skin-test-reactions", classes: "govuk-button--secondary govuk-!-margin-bottom-0" }) }}
+        {{ govukButton({ text: "Start V4 - Three passes", href: "v1-3/skin-test-reactors", classes: "govuk-button--secondary govuk-!-margin-bottom-0" }) }}
       </div>
 
       <ul class="govuk-list app-version-card__links">

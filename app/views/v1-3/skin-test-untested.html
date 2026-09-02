@@ -117,13 +117,6 @@
      follows the viewport on wider screens so the vet can jump again
      without scrolling back up; on small screens it stays in normal
      flow. */
-  /* Light grey box behind the ear-tag search filter so it reads as a
-     distinct tool above the list. */
-  .app-filter-box {
-    background-color: #f3f2f1;
-    padding: 15px 20px;
-    margin-bottom: 20px;
-  }
   .app-page-nav__list {
     display: flex;
     flex-wrap: wrap;
@@ -177,19 +170,6 @@
       <p class="govuk-body">
         Cattle that were not eligible for testing are flagged. You do not normally need to select these.
       </p>
-
-      {# Filter the list by any part of the ear tag. Sits outside the POST
-         form so pressing Enter can't submit early. Hidden until the script
-         runs (progressive enhancement); the result count is announced in a
-         live region for screen-reader users. #}
-      <div class="app-filter-box" id="untested-filter-box" hidden>
-        <div class="govuk-form-group govuk-!-margin-bottom-0" id="untested-filter-group">
-          <label class="govuk-label govuk-label--s" for="untested-filter">Search by ear tag number</label>
-          <div id="untested-filter-hint" class="govuk-hint">Enter any part of the ear tag to filter the list.</div>
-          <input class="govuk-input govuk-input--width-20" id="untested-filter" type="search" autocomplete="off" spellcheck="false" aria-describedby="untested-filter-hint">
-        </div>
-        <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-top-3 govuk-!-margin-bottom-0" id="untested-filter-status" role="status" aria-live="polite"></p>
-      </div>
 
       {# Page sizing – shared by the "Jump to page" navigation below and
          the in-table dividers. The list is chunked 20 cattle per page
@@ -317,28 +297,21 @@
 </div>
 
 <script>
-  // 1. The header "All" checkbox ticks / clears the row checkboxes,
-  //    scoped to the rows currently VISIBLE so it works with the filter.
-  // 2. The ear-tag filter narrows the visible rows by any part of the ear
-  //    tag, announces the count, and hides the page dividers + jump nav
-  //    while active.
+  // The header "All" checkbox ticks and clears every row checkbox, and
+  // the "You've selected X of Y cattle" counter follows it.
+  //
+  // There was an ear-tag filter here too, removed for the same reason as
+  // the one on the reactor tick list: the vet is working down a printed
+  // list in its printed order, and hiding rows takes away the thing that
+  // makes screen and paper line up. The "Go to a page" links do the
+  // finding instead, without moving anything.
   document.addEventListener('DOMContentLoaded', function () {
     var selectAll = document.getElementById('select-all-untested')
     var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-untested-checkbox'))
     if (!checkboxes.length) { return }
 
-    var filterBox = document.getElementById('untested-filter-box')
-    var filterInput = document.getElementById('untested-filter')
-    var status = document.getElementById('untested-filter-status')
-    var dividers = Array.prototype.slice.call(document.querySelectorAll('.app-page-divider'))
-    var jumpNav = document.querySelector('.app-page-nav')
     var selectedCountEls = Array.prototype.slice.call(document.querySelectorAll('.js-selected-count'))
 
-    function isVisible (c) { var tr = c.closest('tr'); return tr && tr.style.display !== 'none' }
-    function visibleCheckboxes () { return checkboxes.filter(isVisible) }
-
-    // Keep the "You've selected X of Y cattle" counter in sync with every
-    // checked box, including any hidden by the filter.
     function updateCount () {
       var checkedCount = checkboxes.filter(function (c) { return c.checked }).length
       selectedCountEls.forEach(function (el) { el.textContent = checkedCount })
@@ -347,57 +320,18 @@
     function syncSelectAll () {
       updateCount()
       if (!selectAll) { return }
-      var vis = visibleCheckboxes()
-      var checkedCount = vis.filter(function (c) { return c.checked }).length
-      selectAll.checked = vis.length > 0 && checkedCount === vis.length
-      selectAll.indeterminate = checkedCount > 0 && checkedCount < vis.length
+      var checkedCount = checkboxes.filter(function (c) { return c.checked }).length
+      selectAll.checked = checkboxes.length > 0 && checkedCount === checkboxes.length
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length
     }
 
     if (selectAll) {
       selectAll.addEventListener('change', function () {
-        visibleCheckboxes().forEach(function (c) { c.checked = selectAll.checked })
+        checkboxes.forEach(function (c) { c.checked = selectAll.checked })
         syncSelectAll()
       })
     }
     checkboxes.forEach(function (c) { c.addEventListener('change', syncSelectAll) })
-
-    function normalise (s) { return (s || '').toLowerCase().replace(/\s+/g, '') }
-
-    function applyFilter () {
-      var q = normalise(filterInput.value)
-      var filtering = q !== ''
-      var visible = 0
-      checkboxes.forEach(function (c) {
-        var tr = c.closest('tr')
-        var match = !filtering || normalise(c.value).indexOf(q) !== -1
-        tr.style.display = match ? '' : 'none'
-        // Keep any "Not eligible" banner row in step with the animal row it
-        // sits below, so filtering never leaves an orphaned banner.
-        var banner = tr.nextElementSibling
-        if (banner && banner.classList.contains('js-ineligible-row')) {
-          banner.style.display = match ? '' : 'none'
-        }
-        if (match) { visible++ }
-      })
-      dividers.forEach(function (d) { d.style.display = filtering ? 'none' : '' })
-      if (jumpNav) { jumpNav.style.display = filtering ? 'none' : '' }
-      if (status) {
-        status.textContent = !filtering
-          ? ''
-          : (visible === 0
-              ? 'No cattle match “' + filterInput.value + '”'
-              : 'Showing ' + visible + ' of ' + checkboxes.length + ' cattle')
-      }
-      syncSelectAll()
-    }
-
-    if (filterInput && filterBox) {
-      filterBox.hidden = false
-      filterInput.addEventListener('input', applyFilter)
-      filterInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault() }
-      })
-    }
 
     syncSelectAll()
   })

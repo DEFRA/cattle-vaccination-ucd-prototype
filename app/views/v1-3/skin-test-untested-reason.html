@@ -59,12 +59,6 @@
   }
   .app-page-divider h2 { margin: 0; }
   .app-page-divider { scroll-margin-top: 5rem; }
-  /* Light grey box behind the ear-tag search filter. */
-  .app-filter-box {
-    background-color: #f3f2f1;
-    padding: 15px 20px;
-    margin-bottom: 20px;
-  }
   /* "Go to a page" navigation – horizontal list of links, sticky on wider
      screens as a progressive enhancement. */
   .app-page-nav__list {
@@ -112,18 +106,6 @@
       {% set _pageSize = 20 %}
       {% set _totalPages = ((remainingAnimals.length + _pageSize - 1) / _pageSize) | int %}
       {% if _totalPages < 1 %}{% set _totalPages = 1 %}{% endif %}
-
-      {# Filter the list by any part of the ear tag. Hidden until the script
-         runs (progressive enhancement); the result count is announced in a
-         live region for screen-reader users. #}
-      <div class="app-filter-box" id="reason-filter-box" hidden>
-        <div class="govuk-form-group govuk-!-margin-bottom-0" id="reason-filter-group">
-          <label class="govuk-label govuk-label--s" for="reason-filter">Search by ear tag number</label>
-          <div id="reason-filter-hint" class="govuk-hint">Enter any part of the ear tag to filter the list.</div>
-          <input class="govuk-input govuk-input--width-20" id="reason-filter" type="search" autocomplete="off" spellcheck="false" aria-describedby="reason-filter-hint">
-        </div>
-        <p class="govuk-body govuk-!-font-weight-bold govuk-!-margin-top-3 govuk-!-margin-bottom-0" id="reason-filter-status" role="status" aria-live="polite"></p>
-      </div>
 
       {# Jump-to-page links. Only shown when the list runs to more than one
          page. Each link anchors to the matching "Page N" divider. #}
@@ -209,6 +191,22 @@
         }) }}
       {% endset %}
 
+      {# The V5 reason set, so v1-3 and v1-4 ask the same question in the
+         same words - a difference in what the vet picks should come from
+         the journey being tested, not from the options being different.
+
+         Eight reasons became five. "Cattle not found", the three
+         "withdrawn" variants and "Missing on day 2" all collapse into
+         "Not presented": the vet's job here is to record that the animal
+         was not put in front of them, not to explain the keeper's reason
+         for it. "Could not be managed" becomes "Not possible to test".
+         "Not eligible" is new, and covers the too-young and
+         recently-tested animals the list now flags.
+
+         The part-test rule downstream reads these values directly
+         (STILL_TO_TEST_REASONS in routes.js) and already knows both sets,
+         so nothing needed changing there: not-presented, not-possible and
+         other leave the herd test open; not-eligible and dead close it. #}
       {{ govukRadios({
         idPrefix: "reason",
         name: "reason",
@@ -222,13 +220,13 @@
         value: reasonValue,
         errorMessage: { text: errors['reason'].text } if errors and errors['reason'],
         items: [
-          { value: "return-visit",        text: "Could not be managed" },
-          { value: "could-not-read-day-2", text: "Missing on day 2" },
-          { value: "not-found",           text: "Cattle not found" },
-          { value: "deceased",            text: "Cattle deceased" },
-          { value: "withdrawn-export",    text: "Cattle withdrawn for export purposes" },
-          { value: "withdrawn-slaughter", text: "Cattle withdrawn for slaughter" },
-          { value: "withdrawn-owner",     text: "Cattle withdrawn by the livestock owner" },
+          { value: "not-presented", text: "Not presented",
+            hint: { text: "Missing, not brought in, or withdrawn by the keeper" } },
+          { value: "not-possible", text: "Not possible to test",
+            hint: { text: "Came to the crush but could not be handled or restrained safely" } },
+          { value: "not-eligible", text: "Not eligible",
+            hint: { text: "Too young, or tested elsewhere in the last 60 days" } },
+          { value: "dead", text: "Dead" },
           {
             value: "other",
             text: "Other reason",
@@ -264,25 +262,18 @@
 </div>
 
 <script>
-  // 1. The header "All" checkbox ticks / clears the row checkboxes, scoped
-  //    to the rows currently VISIBLE so it works with the filter.
-  // 2. The "You've selected X of Y" counter counts every checked box,
-  //    including any hidden by the filter.
-  // 3. The ear-tag filter narrows the visible rows, announces the count, and
-  //    hides the page dividers + jump nav while active.
+  // The header "All" checkbox ticks and clears every row checkbox, and the
+  // "You've selected X of Y" counter follows it.
+  //
+  // The ear-tag filter that used to sit here is gone, as on the other two
+  // v1-3 pickers: the vet works down a printed list in its printed order,
+  // and hiding rows takes away the thing that makes screen and paper line
+  // up. The "Go to a page" links do the finding instead.
   document.addEventListener('DOMContentLoaded', function () {
     var selectAll = document.getElementById('select-all-untested')
     var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.js-untested-checkbox'))
     if (!checkboxes.length) { return }
     var counters = Array.prototype.slice.call(document.querySelectorAll('.js-selected-count'))
-    var filterBox = document.getElementById('reason-filter-box')
-    var filterInput = document.getElementById('reason-filter')
-    var status = document.getElementById('reason-filter-status')
-    var dividers = Array.prototype.slice.call(document.querySelectorAll('.app-page-divider'))
-    var jumpNav = document.querySelector('.app-page-nav')
-
-    function isVisible (c) { var tr = c.closest('tr'); return tr && tr.style.display !== 'none' }
-    function visibleCheckboxes () { return checkboxes.filter(isVisible) }
 
     function updateCount () {
       var checked = checkboxes.filter(function (c) { return c.checked }).length
@@ -292,51 +283,18 @@
     function syncSelectAll () {
       updateCount()
       if (!selectAll) { return }
-      var vis = visibleCheckboxes()
-      var checked = vis.filter(function (c) { return c.checked }).length
-      selectAll.checked = vis.length > 0 && checked === vis.length
-      selectAll.indeterminate = checked > 0 && checked < vis.length
+      var checked = checkboxes.filter(function (c) { return c.checked }).length
+      selectAll.checked = checkboxes.length > 0 && checked === checkboxes.length
+      selectAll.indeterminate = checked > 0 && checked < checkboxes.length
     }
 
     if (selectAll) {
       selectAll.addEventListener('change', function () {
-        visibleCheckboxes().forEach(function (c) { c.checked = selectAll.checked })
+        checkboxes.forEach(function (c) { c.checked = selectAll.checked })
         syncSelectAll()
       })
     }
     checkboxes.forEach(function (c) { c.addEventListener('change', syncSelectAll) })
-
-    function normalise (s) { return (s || '').toLowerCase().replace(/\s+/g, '') }
-
-    function applyFilter () {
-      var q = normalise(filterInput.value)
-      var filtering = q !== ''
-      var visible = 0
-      checkboxes.forEach(function (c) {
-        var tr = c.closest('tr')
-        var match = !filtering || normalise(c.value).indexOf(q) !== -1
-        tr.style.display = match ? '' : 'none'
-        if (match) { visible++ }
-      })
-      dividers.forEach(function (d) { d.style.display = filtering ? 'none' : '' })
-      if (jumpNav) { jumpNav.style.display = filtering ? 'none' : '' }
-      if (status) {
-        status.textContent = !filtering
-          ? ''
-          : (visible === 0
-              ? 'No cattle match “' + filterInput.value + '”'
-              : 'Showing ' + visible + ' of ' + checkboxes.length + ' cattle')
-      }
-      syncSelectAll()
-    }
-
-    if (filterInput && filterBox) {
-      filterBox.hidden = false
-      filterInput.addEventListener('input', applyFilter)
-      filterInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault() }
-      })
-    }
 
     syncSelectAll()
   })

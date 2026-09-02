@@ -1,7 +1,7 @@
 {% extends "layouts/main.html" %}
 
 {% block pageTitle %}
-  {% if errorSummary %}Error: {% endif %}Record skin test results – GOV.UK
+  {% if errorSummary %}Error: {% endif %}Record the result for every animal – GOV.UK
 {% endblock %}
 
 {% block beforeContent %}
@@ -544,6 +544,10 @@
      marked the whole page as a problem. The count in the tally and the
      error summary on submit are what track it. */
   .app-tally__todo strong { color: #0b0c0c; }
+  /* The list items are inline-block, which beats the browser's own
+     [hidden] { display: none } - so hiding the outstanding count needs
+     saying explicitly or the element stays on screen. */
+  .app-tally__list li[hidden] { display: none; }
 </style>
 
 <div class="govuk-grid-row">
@@ -555,7 +559,7 @@
 
     <span class="govuk-caption-l">{{ data['herd']['farm'] }} - {{ currentTestLabel }}</span>
     <h1 class="govuk-heading-l">
-      Record skin test results
+      Record the result for each of the {{ totalCattle }} cattle
     </h1>
 
     {# No warning here any more. It existed to tell the vet that rows they
@@ -631,10 +635,10 @@
        list already works - it is just longer. #}
     <div class="app-quick-apply app-js-block" id="quick-apply">
       <h2 class="govuk-heading-s app-quick-apply__heading" id="quick-apply-heading">
-        Apply all
+        Set a result for every animal
       </h2>
       <p class="govuk-hint app-quick-apply__hint" id="quick-apply-hint">
-        This will apply the same results to all {{ totalCattle }} animals. You can then make changes to individual animals.
+        Use this when most of the herd had the same outcome, then change the ones that differ.
       </p>
       <div class="app-quick-apply__row">
         <div class="govuk-form-group govuk-!-margin-bottom-0">
@@ -684,7 +688,7 @@
           <button type="button" class="govuk-button govuk-button--secondary app-page-nav__button" id="go-to-button">
             Go<span class="govuk-visually-hidden"> to animal</span>
           </button>
-          <span class="govuk-hint app-page-nav__hint" id="go-to-hint">Line number, or the last 4 digits of the ear tag</span>
+          <span class="govuk-hint app-page-nav__hint" id="go-to-hint">Animal number, or the last 4 digits of the ear tag</span>
         </div>
       </nav>
 
@@ -807,7 +811,8 @@
         <thead class="govuk-table__head">
           <tr class="govuk-table__row">
             <th scope="col" class="govuk-table__header app-number-cell">
-              Line<span class="govuk-visually-hidden"> number on the printed list</span>
+              <span aria-hidden="true">#</span>
+              <span class="govuk-visually-hidden">Number on the printed list</span>
             </th>
             <th scope="col" class="govuk-table__header">Animal</th>
             <th scope="col" class="govuk-table__header">Result</th>
@@ -901,20 +906,20 @@
                      straight past by the vet who only needs to know
                      which row they are on. #}
                   <legend class="govuk-visually-hidden">
-                    Line {{ _n }} of {{ totalCattle }}. Result{% if animal.isTooYoung %}. Under the minimum testing age of 42 days{% elif animal.testedElsewhereRecently %}. Tested {{ animal.recentTestDate }}, inside the 60-day minimum interval{% endif %}. {{ animal.officialId }}
+                    Animal {{ _n }} of {{ totalCattle }}. Result{% if animal.isTooYoung %}. Under the minimum testing age of 42 days{% elif animal.testedElsewhereRecently %}. Tested {{ animal.recentTestDate }}, inside the 60-day minimum interval{% endif %}. {{ animal.officialId }}
                   </legend>
                   <div class="govuk-radios govuk-radios--small govuk-radios--inline" data-module="govuk-radios">
                     <div class="govuk-radios__item">
                       <input class="govuk-radios__input js-status-input" id="status-{{ _n }}-clear" name="status-{{ animal.officialId }}" type="radio" value="clear" {% if animal.status == 'clear' %}checked{% endif %}>
-                      <label class="govuk-label govuk-radios__label" for="status-{{ _n }}-clear"><span class="govuk-visually-hidden">Line {{ _n }}, </span>Clear</label>
+                      <label class="govuk-label govuk-radios__label" for="status-{{ _n }}-clear"><span class="govuk-visually-hidden">Animal {{ _n }}, </span>Clear</label>
                     </div>
                     <div class="govuk-radios__item">
                       <input class="govuk-radios__input js-status-input" id="status-{{ _n }}-reaction" name="status-{{ animal.officialId }}" type="radio" value="reaction" {% if animal.status == 'reaction' %}checked{% endif %}>
-                      <label class="govuk-label govuk-radios__label" for="status-{{ _n }}-reaction"><span class="govuk-visually-hidden">Line {{ _n }}, </span>Reaction</label>
+                      <label class="govuk-label govuk-radios__label" for="status-{{ _n }}-reaction"><span class="govuk-visually-hidden">Animal {{ _n }}, </span>Reaction</label>
                     </div>
                     <div class="govuk-radios__item">
                       <input class="govuk-radios__input js-status-input" id="status-{{ _n }}-not-tested" name="status-{{ animal.officialId }}" type="radio" value="not-tested" {% if animal.status == 'not-tested' %}checked{% endif %}>
-                      <label class="govuk-label govuk-radios__label" for="status-{{ _n }}-not-tested"><span class="govuk-visually-hidden">Line {{ _n }}, </span>Not tested</label>
+                      <label class="govuk-label govuk-radios__label" for="status-{{ _n }}-not-tested"><span class="govuk-visually-hidden">Animal {{ _n }}, </span>Not tested</label>
                     </div>
                   </div>
                 </fieldset>
@@ -1123,7 +1128,7 @@
                    the bulk page with this animal already ticked. #}
                 <div class="app-detail js-detail-panel js-detail-not-tested{% if animal.status != 'not-tested' %} app-detail--hidden{% endif %}">
                   <p class="govuk-body govuk-!-margin-bottom-2 js-reason-intro">
-                    Line {{ _n }}, <strong>{{ animal.officialId }}</strong>, will be added to the
+                    Animal {{ _n }}, <strong>{{ animal.officialId }}</strong>, will be added to the
                     list of cattle that need a reason. You'll give the reasons after you continue.
                   </p>
 
@@ -1155,18 +1160,18 @@
                       classes: "govuk-radios--small",
                       fieldset: {
                         legend: {
-                          text: "Why was line " + _n + ", " + animal.officialId + ", not tested?",
+                          text: "Why was animal " + _n + ", " + animal.officialId + ", not tested?",
                           classes: "govuk-fieldset__legend--s"
                         }
                       },
                       value: animal.reason,
                       items: [
                         { value: "not-presented", text: "Not presented",
-                          hint: { text: "The animal was missing, withdrawn by the keeper or similar reason" } },
-                        { value: "not-possible", text: "Impossible to test",
-                          hint: { text: "The animal could not be handled safely" } },
+                          hint: { text: "Missing, not brought in, or withdrawn by the keeper" } },
+                        { value: "not-possible", text: "Not possible to test",
+                          hint: { text: "Came to the crush but could not be handled or restrained safely" } },
                         { value: "not-eligible", text: "Not eligible",
-                          hint: { text: "Too young, postpartum or otherwise ineligible" } },
+                          hint: { text: "Too young, or tested elsewhere in the last 60 days" } },
                         { value: "dead", text: "Dead" },
                         { value: "other", text: "Other reason", conditional: { html: otherHtml } }
                       ]
@@ -1212,10 +1217,10 @@
           <li><strong class="js-count-clear">{{ counts.clear }}</strong> clear</li>
           <li><strong class="js-count-reaction">{{ counts.reaction }}</strong> reaction</li>
           <li><strong class="js-count-not-tested">{{ counts.notTested }}</strong> not tested</li>
-          {# The count that matters while the vet is working: with nothing
-             pre-selected this is the only sense of progress the screen
-             gives, and it is what the Continue button checks. #}
-          <li class="app-tally__todo"><strong class="js-count-todo">{{ counts.todo }}</strong> still to record</li>
+          {# Only while something is outstanding. Rows open on Clear, so
+             this is normally nothing - a permanent "0 still to record"
+             reads as a broken counter rather than as progress. #}
+          <li class="app-tally__todo"{% if not counts.todo %} hidden{% endif %}><strong class="js-count-todo">{{ counts.todo }}</strong> still to record</li>
         </ul>
       </div>
 
@@ -1281,8 +1286,10 @@
 
     function statusOf(row) {
       var checked = row.querySelector('.js-status-input:checked')
-      // No answer is now a real state, not a stand-in for clear.
-      return checked ? checked.value : ''
+      // Rows open on Clear, so there is normally something checked. The
+      // fallback keeps the client agreeing with the server if that ever
+      // changes back.
+      return checked ? checked.value : 'clear'
     }
 
     function updateCounts() {
@@ -1301,6 +1308,9 @@
       document.querySelectorAll('.js-count-reaction').forEach(function (el) { el.textContent = counts.reaction })
       document.querySelectorAll('.js-count-not-tested').forEach(function (el) { el.textContent = counts['not-tested'] })
       document.querySelectorAll('.js-count-todo').forEach(function (el) { el.textContent = counts[''] })
+      // With a default there is nothing outstanding to report, so the
+      // item goes rather than sitting at a permanent zero.
+      document.querySelectorAll('.app-tally__todo').forEach(function (el) { el.hidden = !counts[''] })
     }
 
     // --- Live SICCT interpretation --------------------------------------
@@ -1889,7 +1899,7 @@
     // when that happens rather than being silently taken to one of them.
     function findMatch(raw) {
       var q = normTag(raw)
-      if (!q) return { error: 'Enter a line number or ear tag' }
+      if (!q) return { error: 'Enter an animal number or ear tag' }
 
       var byTag = rows.filter(function (r) {
         return normTag(r.getAttribute('data-ear-tag')).slice(-q.length) === q
@@ -1940,7 +1950,7 @@
 
       // A plain hit says nothing. The row is highlighted and scrolled to,
       // which a sighted vet can see, and focus moves into its radio
-      // group, whose legend already reads "Line 12 of 102,
+      // group, whose legend already reads "Animal 12 of 102,
       // UK987654500092. Result." - so a status line here would be a
       // second copy of what the vet has just been told.
       //
@@ -1948,7 +1958,7 @@
       // their last 4 digits, and nothing about landing on one of them
       // tells the vet there were others.
       if (found.tags > 1) {
-        sayLater(found.tags + ' animals end in those digits. Showing the first, line '
+        sayLater(found.tags + ' animals end in those digits. Showing the first, animal '
           + row.getAttribute('data-n') + ', ' + row.getAttribute('data-ear-tag'))
       } else {
         say('')
