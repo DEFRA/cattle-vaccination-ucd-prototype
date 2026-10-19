@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ farm }} - vaccination list</title>
+  <title>{{ farm }} - bTB vaccination list</title>
 
   {# Standalone print page: no GOV.UK layout, so nothing but the A4
      sheets reaches the printer. Opened from a link in a new tab, e.g.
@@ -182,7 +182,7 @@
 
       <div class="sheet-header">
         {% if pageNumber == 1 %}
-          <span class="sheet-header__title">{{ farm }} - vaccination list</span>
+          <span class="sheet-header__title">{{ farm }} - bTB vaccination list</span>
         {% else %}
           <span class="sheet-header__cph">{{ farm }} - CPH: {{ cph }}</span>
         {% endif %}
