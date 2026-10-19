@@ -1502,6 +1502,189 @@ function monthsSinceVaxDate(mmYY, referenceDate) {
   return (ref.getFullYear() - fullYear) * 12 + ((ref.getMonth() + 1) - month)
 }
 
+// Rows for the printable vaccination list (v1-2 onwards), in the order
+// and with the flags the printed sheet shows. Shared by the
+// /<version>/download-list preview and the standalone /vax/vaccination-list
+// print page so both always show the same cattle.
+function buildVaccinationListRows (selectedCattleV12, sortByV12, version) {
+  const baseAnimalsV12 = (function () {
+    const animalsList = getAnimalsForSelection(selectedCattleV12, version)
+    // Mirror getSkinTestAnimals's v1-2 sort: last-4 then full last-5
+    // so duplicate boxed-last-4 animals always sit together.
+    if (sortByV12 === 'Ear-tag number (last 5 digits)') {
+      return [...animalsList].sort(function (a, b) {
+        const aId = String(a.earTagNumber || '')
+        const bId = String(b.earTagNumber || '')
+        const aKey = aId.slice(-4) + ':' + aId.slice(-5)
+        const bKey = bId.slice(-4) + ':' + bId.slice(-5)
+        return aKey.localeCompare(bKey)
+      })
+    }
+    return sortAnimals(animalsList, sortByV12, 'asc')
+  })()
+
+  // Enrich each animal with the flags the v1-2 list template uses.
+  // The duplicate ear-tag underline and the "recently vaccinated"
+  // TB Vax underline are scoped to Mill House Farm only for the
+  // demo. Other farms render the list without these flags so the
+  // page stays a clean printable list. The "recently vaccinated"
+  // window is also tightened from 12 months to 11 months for the
+  // demo – animals vaccinated 11 months ago or less get the
+  // highlight.
+  const isMillHouseFarmV12 = selectedCattleV12 === '12/312/6802'
+  const last4Counts = {}
+  baseAnimalsV12.forEach(function (a) {
+    const last4 = String(a.officialId || '').slice(-4)
+    last4Counts[last4] = (last4Counts[last4] || 0) + 1
+  })
+  // Helpers for the Eligibility column on Mill House Farm. The
+  // column rolls five states into a single label so the vet sees
+  // each animal's vaccination position at a glance:
+  //
+  //   "Eligible"                       – unvaccinated AND 42+
+  //                                      days old on the date
+  //                                      the list is printed.
+  //   "Eligible on DD/MM/YYYY"         – under 42 days old on
+  //                                      the date the list is
+  //                                      printed. The shown date
+  //                                      is DOB + 42 days.
+  //   "Vaccinated"                     – vaccinated within the
+  //                                      last 46 weeks (still
+  //                                      has 6+ weeks of cover
+  //                                      before revaccination).
+  //   "Revaccination due DD/MM/YYYY"   – vaccinated more than
+  //                                      46 weeks but less than
+  //                                      1 calendar year ago.
+  //                                      The shown date is the
+  //                                      original vaccination
+  //                                      date + 1 year.
+  //   "Revaccination overdue"          – vaccinated more than
+  //                                      1 calendar year ago.
+  const REVAX_DUE_DAYS = 46 * 7  // 46 weeks = 322 days
+  function parseDobDate (dob) {
+    if (!dob || typeof dob !== 'string') return null
+    const parts = dob.split('/')
+    if (parts.length !== 3) return null
+    const d = parseInt(parts[0], 10)
+    const m = parseInt(parts[1], 10)
+    const y = parseInt(parts[2], 10)
+    if (!d || !m || !y) return null
+    return new Date(y, m - 1, d)
+  }
+  function parseMmYyToDate (mmYY) {
+    if (!mmYY || typeof mmYY !== 'string') return null
+    const parts = mmYY.split('/')
+    if (parts.length !== 2) return null
+    const month = parseInt(parts[0], 10)
+    const year2 = parseInt(parts[1], 10)
+    if (isNaN(month) || isNaN(year2)) return null
+    const fullYear = year2 < 100 ? 2000 + year2 : year2
+    // Anchor to the 1st of the vaccination month – MM/YY is the
+    // finest granularity the prototype captures.
+    return new Date(fullYear, month - 1, 1)
+  }
+  function daysBetween (earlier, later) {
+    return (later.getTime() - earlier.getTime()) / (24 * 60 * 60 * 1000)
+  }
+  function formatDayMonthYear (date) {
+    const dd = String(date.getDate()).padStart(2, '0')
+    const mm = String(date.getMonth() + 1).padStart(2, '0')
+    const yy = date.getFullYear()
+    return `${dd}/${mm}/${yy}`
+  }
+  function computeEligibilityLabel (animal) {
+    if (!isMillHouseFarmV12) return 'Eligible'
+
+    const today = new Date()
+
+    // 1 & 2. Age check first – applies to every animal regardless
+    // of vaccination status.
+    const dob = parseDobDate(animal.dob)
+    if (dob) {
+      const eligibleOn = new Date(dob.getTime() + 42 * 24 * 60 * 60 * 1000)
+      if (eligibleOn > today) {
+        return 'Eligible on ' + formatDayMonthYear(eligibleOn)
+      }
+    }
+
+    // 3. Unvaccinated animals that are 42+ days old → "Eligible".
+    if (animal.vaccinationStatus !== 'Vaccinated' || !animal.vaccinationDate) {
+      return 'Eligible'
+    }
+
+    // 4 & 5. Vaccinated animals – bucket by days since the last
+    // recorded vaccination (anchored to the 1st of the recorded
+    // MM/YY).
+    const vaxDate = parseMmYyToDate(animal.vaccinationDate)
+    if (!vaxDate) return 'Vaccinated'
+
+    const revaxDueDate = new Date(vaxDate)
+    revaxDueDate.setFullYear(revaxDueDate.getFullYear() + 1)
+
+    // "Revaccination overdue" – more than one calendar year ago.
+    if (today > revaxDueDate) {
+      return 'Revaccination overdue'
+    }
+
+    // "Revaccination due [date]" – over 46 weeks but still within
+    // a year. The displayed date is when revaccination is due
+    // (the original vaccination date + 1 calendar year).
+    const daysSince = daysBetween(vaxDate, today)
+    if (daysSince > REVAX_DUE_DAYS) {
+      return 'Revaccination due ' + formatDayMonthYear(revaxDueDate)
+    }
+
+    // Default for a vaccinated animal still inside the 46-week
+    // protection window.
+    return 'Vaccinated'
+  }
+
+  // Helper: true when the vaccinated animal sits in the
+  // "Revaccination due" window (between 46 weeks and 1 year since
+  // vaccination). Used to underline the TB Vax cell so the vet
+  // spots the approaching revaccination deadline at a glance.
+  function isRevaxDueWindow (animal) {
+    if (animal.vaccinationStatus !== 'Vaccinated' || !animal.vaccinationDate) return false
+    const vaxDate = parseMmYyToDate(animal.vaccinationDate)
+    if (!vaxDate) return false
+    const today = new Date()
+    const revaxDueDate = new Date(vaxDate)
+    revaxDueDate.setFullYear(revaxDueDate.getFullYear() + 1)
+    if (today > revaxDueDate) return false
+    return daysBetween(vaxDate, today) > REVAX_DUE_DAYS
+  }
+
+  const enrichedV12 = baseAnimalsV12.map(function (a) {
+    const last4 = String(a.officialId || '').slice(-4)
+    const vaxDate = a.vaccinationDate || ''
+    return Object.assign({}, a, {
+      isDuplicate: isMillHouseFarmV12 && last4Counts[last4] > 1,
+      isVaccinated: a.vaccinationStatus === 'Vaccinated',
+      vaccinationDate: vaxDate,
+      // Underline the TB Vax cell when the animal sits in the
+      // "Revaccination due" window (46 weeks – 1 year since
+      // vaccination). Scoped to Mill House Farm only for the demo.
+      isRecentlyVaccinated: isMillHouseFarmV12 && isRevaxDueWindow(a),
+      // Full eligibility label rendered in the Eligibility
+      // column. On non-Mill-House farms every animal reads as
+      // a plain "Eligible".
+      eligibilityLabel: computeEligibilityLabel(a)
+    })
+  })
+
+  const visibleColumnsV12 = ['DOB', 'Sex', 'Breed']
+  return buildPreviewRows(enrichedV12, visibleColumnsV12)
+    .map(function (row, idx) {
+      return Object.assign({}, row, {
+        isDuplicate: enrichedV12[idx].isDuplicate,
+        isVaccinated: enrichedV12[idx].isVaccinated,
+        vaccinationDate: enrichedV12[idx].vaccinationDate,
+        isRecentlyVaccinated: enrichedV12[idx].isRecentlyVaccinated,
+        eligibilityLabel: enrichedV12[idx].eligibilityLabel
+      })
+    })
+}
+
 function getAnimalsForSelection(selectedCattle, version) {
   // v1-3, v1-4 and v1-5 draw on the 102-animal research herd - the three
   // journeys in the comparison, on one set of cattle, because a
@@ -3816,182 +3999,8 @@ function registerVersionRoutes(version) {
       const selectedCattleV12 = req.session.data.selectedCattle
       const sortByV12 = req.session.data.vaccinationSortBy
         || 'Ear-tag number (last 5 digits)'
-      const baseAnimalsV12 = (function () {
-        const animalsList = getAnimalsForSelection(selectedCattleV12, version)
-        // Mirror getSkinTestAnimals's v1-2 sort: last-4 then full last-5
-        // so duplicate boxed-last-4 animals always sit together.
-        if (sortByV12 === 'Ear-tag number (last 5 digits)') {
-          return [...animalsList].sort(function (a, b) {
-            const aId = String(a.earTagNumber || '')
-            const bId = String(b.earTagNumber || '')
-            const aKey = aId.slice(-4) + ':' + aId.slice(-5)
-            const bKey = bId.slice(-4) + ':' + bId.slice(-5)
-            return aKey.localeCompare(bKey)
-          })
-        }
-        return sortAnimals(animalsList, sortByV12, 'asc')
-      })()
-
-      // Enrich each animal with the flags the v1-2 list template uses.
-      // The duplicate ear-tag underline and the "recently vaccinated"
-      // TB Vax underline are scoped to Mill House Farm only for the
-      // demo. Other farms render the list without these flags so the
-      // page stays a clean printable list. The "recently vaccinated"
-      // window is also tightened from 12 months to 11 months for the
-      // demo – animals vaccinated 11 months ago or less get the
-      // highlight.
-      const isMillHouseFarmV12 = selectedCattleV12 === '12/312/6802'
-      const last4Counts = {}
-      baseAnimalsV12.forEach(function (a) {
-        const last4 = String(a.officialId || '').slice(-4)
-        last4Counts[last4] = (last4Counts[last4] || 0) + 1
-      })
-      // Helpers for the Eligibility column on Mill House Farm. The
-      // column rolls five states into a single label so the vet sees
-      // each animal's vaccination position at a glance:
-      //
-      //   "Eligible"                       – unvaccinated AND 42+
-      //                                      days old on the date
-      //                                      the list is printed.
-      //   "Eligible on DD/MM/YYYY"         – under 42 days old on
-      //                                      the date the list is
-      //                                      printed. The shown date
-      //                                      is DOB + 42 days.
-      //   "Vaccinated"                     – vaccinated within the
-      //                                      last 46 weeks (still
-      //                                      has 6+ weeks of cover
-      //                                      before revaccination).
-      //   "Revaccination due DD/MM/YYYY"   – vaccinated more than
-      //                                      46 weeks but less than
-      //                                      1 calendar year ago.
-      //                                      The shown date is the
-      //                                      original vaccination
-      //                                      date + 1 year.
-      //   "Revaccination overdue"          – vaccinated more than
-      //                                      1 calendar year ago.
-      const REVAX_DUE_DAYS = 46 * 7  // 46 weeks = 322 days
-      function parseDobDate (dob) {
-        if (!dob || typeof dob !== 'string') return null
-        const parts = dob.split('/')
-        if (parts.length !== 3) return null
-        const d = parseInt(parts[0], 10)
-        const m = parseInt(parts[1], 10)
-        const y = parseInt(parts[2], 10)
-        if (!d || !m || !y) return null
-        return new Date(y, m - 1, d)
-      }
-      function parseMmYyToDate (mmYY) {
-        if (!mmYY || typeof mmYY !== 'string') return null
-        const parts = mmYY.split('/')
-        if (parts.length !== 2) return null
-        const month = parseInt(parts[0], 10)
-        const year2 = parseInt(parts[1], 10)
-        if (isNaN(month) || isNaN(year2)) return null
-        const fullYear = year2 < 100 ? 2000 + year2 : year2
-        // Anchor to the 1st of the vaccination month – MM/YY is the
-        // finest granularity the prototype captures.
-        return new Date(fullYear, month - 1, 1)
-      }
-      function daysBetween (earlier, later) {
-        return (later.getTime() - earlier.getTime()) / (24 * 60 * 60 * 1000)
-      }
-      function formatDayMonthYear (date) {
-        const dd = String(date.getDate()).padStart(2, '0')
-        const mm = String(date.getMonth() + 1).padStart(2, '0')
-        const yy = date.getFullYear()
-        return `${dd}/${mm}/${yy}`
-      }
-      function computeEligibilityLabel (animal) {
-        if (!isMillHouseFarmV12) return 'Eligible'
-
-        const today = new Date()
-
-        // 1 & 2. Age check first – applies to every animal regardless
-        // of vaccination status.
-        const dob = parseDobDate(animal.dob)
-        if (dob) {
-          const eligibleOn = new Date(dob.getTime() + 42 * 24 * 60 * 60 * 1000)
-          if (eligibleOn > today) {
-            return 'Eligible on ' + formatDayMonthYear(eligibleOn)
-          }
-        }
-
-        // 3. Unvaccinated animals that are 42+ days old → "Eligible".
-        if (animal.vaccinationStatus !== 'Vaccinated' || !animal.vaccinationDate) {
-          return 'Eligible'
-        }
-
-        // 4 & 5. Vaccinated animals – bucket by days since the last
-        // recorded vaccination (anchored to the 1st of the recorded
-        // MM/YY).
-        const vaxDate = parseMmYyToDate(animal.vaccinationDate)
-        if (!vaxDate) return 'Vaccinated'
-
-        const revaxDueDate = new Date(vaxDate)
-        revaxDueDate.setFullYear(revaxDueDate.getFullYear() + 1)
-
-        // "Revaccination overdue" – more than one calendar year ago.
-        if (today > revaxDueDate) {
-          return 'Revaccination overdue'
-        }
-
-        // "Revaccination due [date]" – over 46 weeks but still within
-        // a year. The displayed date is when revaccination is due
-        // (the original vaccination date + 1 calendar year).
-        const daysSince = daysBetween(vaxDate, today)
-        if (daysSince > REVAX_DUE_DAYS) {
-          return 'Revaccination due ' + formatDayMonthYear(revaxDueDate)
-        }
-
-        // Default for a vaccinated animal still inside the 46-week
-        // protection window.
-        return 'Vaccinated'
-      }
-
-      // Helper: true when the vaccinated animal sits in the
-      // "Revaccination due" window (between 46 weeks and 1 year since
-      // vaccination). Used to underline the TB Vax cell so the vet
-      // spots the approaching revaccination deadline at a glance.
-      function isRevaxDueWindow (animal) {
-        if (animal.vaccinationStatus !== 'Vaccinated' || !animal.vaccinationDate) return false
-        const vaxDate = parseMmYyToDate(animal.vaccinationDate)
-        if (!vaxDate) return false
-        const today = new Date()
-        const revaxDueDate = new Date(vaxDate)
-        revaxDueDate.setFullYear(revaxDueDate.getFullYear() + 1)
-        if (today > revaxDueDate) return false
-        return daysBetween(vaxDate, today) > REVAX_DUE_DAYS
-      }
-
-      const enrichedV12 = baseAnimalsV12.map(function (a) {
-        const last4 = String(a.officialId || '').slice(-4)
-        const vaxDate = a.vaccinationDate || ''
-        return Object.assign({}, a, {
-          isDuplicate: isMillHouseFarmV12 && last4Counts[last4] > 1,
-          isVaccinated: a.vaccinationStatus === 'Vaccinated',
-          vaccinationDate: vaxDate,
-          // Underline the TB Vax cell when the animal sits in the
-          // "Revaccination due" window (46 weeks – 1 year since
-          // vaccination). Scoped to Mill House Farm only for the demo.
-          isRecentlyVaccinated: isMillHouseFarmV12 && isRevaxDueWindow(a),
-          // Full eligibility label rendered in the Eligibility
-          // column. On non-Mill-House farms every animal reads as
-          // a plain "Eligible".
-          eligibilityLabel: computeEligibilityLabel(a)
-        })
-      })
-
+      const previewRowsV12 = buildVaccinationListRows(selectedCattleV12, sortByV12, version)
       const visibleColumnsV12 = ['DOB', 'Sex', 'Breed']
-      const previewRowsV12 = buildPreviewRows(enrichedV12, visibleColumnsV12)
-        .map(function (row, idx) {
-          return Object.assign({}, row, {
-            isDuplicate: enrichedV12[idx].isDuplicate,
-            isVaccinated: enrichedV12[idx].isVaccinated,
-            vaccinationDate: enrichedV12[idx].vaccinationDate,
-            isRecentlyVaccinated: enrichedV12[idx].isRecentlyVaccinated,
-            eligibilityLabel: enrichedV12[idx].eligibilityLabel
-          })
-        })
 
       return res.render(`${version}/download-list`, {
         previewRows: previewRowsV12,
@@ -12318,5 +12327,75 @@ registerSkinTestRoutes('v1-2')
 registerSkinTestRoutes('v1-3')
 registerSkinTestRoutes('v1-4')
 registerSkinTestRoutes('v1-5')
+
+// -----------------------------------------------------------------------------
+// Standalone printable vaccination list – /vax/vaccination-list
+//
+// The whole list on one page, every A4 sheet one after another, with no
+// GOV.UK chrome, settings or pagination. Built to be opened from a link in
+// a new tab and printed (or saved as PDF from the print dialog).
+//
+// Query string, all optional:
+//   cph      farm to list, e.g. ?cph=12/345/6789 (defaults to the farm
+//            picked in the journey, then Hill Farm)
+//   perPage  cattle on each sheet: 25 (default), 20 or 40
+//   version  which herd data to use (defaults to v1-3)
+// -----------------------------------------------------------------------------
+router.get('/vax/vaccination-list', function (req, res) {
+  const query = req.query || {}
+  const cph = [query.cph, req.session.data.selectedCattle, '12/345/6789']
+    .find(function (c) { return c && herdData[c] })
+  const perPage = [20, 25, 40].includes(Number(query.perPage)) ? Number(query.perPage) : 25
+  const version = ['v1-2', 'v1-3', 'v1-4', 'v1-5'].includes(query.version) ? query.version : 'v1-3'
+
+  // The Notes column carries the reason an animal can't be vaccinated:
+  //   "Not eligible: too young"             – under 21 days old today
+  //   "Not eligible: vaccinated MM/YYYY"    – BCG vaccinated in the last
+  //                                           12 months
+  // Vaccination dates are MM/YY, anchored to the 1st of the month. A
+  // vaccinated animal with no recorded date can't be placed, so it gets
+  // no note.
+  const today = new Date()
+  function vaxNote (row) {
+    const dobCell = (row.cells || []).find(function (c) { return c.key === 'DOB' })
+    const dobParts = String((dobCell && dobCell.value) || '').split('/').map(Number)
+    if (dobParts.length === 3 && dobParts.every(Boolean)) {
+      const dob = new Date(dobParts[2], dobParts[1] - 1, dobParts[0])
+      if ((today - dob) / (24 * 60 * 60 * 1000) < 21) return 'Not eligible: too young'
+    }
+    const vaxParts = String(row.vaccinationDate || '').split('/').map(Number)
+    if (row.isVaccinated && vaxParts.length === 2 && vaxParts.every(Boolean)) {
+      const year = vaxParts[1] < 100 ? 2000 + vaxParts[1] : vaxParts[1]
+      const vaxDate = new Date(year, vaxParts[0] - 1, 1)
+      const oneYearOn = new Date(year + 1, vaxParts[0] - 1, 1)
+      if (vaxDate <= today && today < oneYearOn) {
+        return 'Not eligible: vaccinated ' + String(vaxParts[0]).padStart(2, '0') + '/' + year
+      }
+    }
+    return ''
+  }
+
+  const rows = buildVaccinationListRows(cph, 'Ear-tag number (last 5 digits)', version)
+    .map(function (row) { return Object.assign({}, row, { note: vaxNote(row) }) })
+  // Page 1 also carries the date and batch boxes, so it only has room
+  // for 20 cattle; every later sheet takes the full perPage.
+  const firstPageSize = Math.min(perPage, 20)
+  const sheets = []
+  const sheetStarts = [] // row number before each sheet's first animal
+  for (let i = 0; i < rows.length; i += (i === 0 ? firstPageSize : perPage)) {
+    sheetStarts.push(i)
+    sheets.push(rows.slice(i, i + (i === 0 ? firstPageSize : perPage)))
+  }
+
+  res.render('vax/vaccination-list', {
+    farm: herdData[cph].farm,
+    cph: cph,
+    rows: rows,
+    sheets: sheets,
+    sheetStarts: sheetStarts,
+    totalPages: sheets.length + 1, // data sheets + blank sheet
+    compact: perPage === 40
+  })
+})
 
 module.exports = router

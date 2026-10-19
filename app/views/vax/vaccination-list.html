@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ farm }} - vaccination list</title>
+
+  {# Standalone print page: no GOV.UK layout, so nothing but the A4
+     sheets reaches the printer. Opened from a link in a new tab, e.g.
+     /vax/vaccination-list?cph=12/345/6789 - see the route in routes.js
+     for the options. Styles mirror /v1-3/download-list. #}
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px 16px;
+      background: #f3f2f1;
+      color: #0b0c0c;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 16px;
+    }
+
+    /* On-screen toolbar – hidden when printing. */
+    .toolbar {
+      max-width: 210mm;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .toolbar p { margin: 0; }
+    .toolbar button {
+      font: inherit;
+      font-weight: 700;
+      padding: 8px 16px;
+      color: #ffffff;
+      background: #00703c;
+      border: 0;
+      box-shadow: 0 2px 0 #002d18;
+      cursor: pointer;
+    }
+    .toolbar button:focus { outline: 3px solid #ffdd00; }
+
+    /* One A4 sheet. */
+    .sheet {
+      max-width: 210mm;
+      margin: 0 auto 24px;
+      padding: 18px;
+      background: #ffffff;
+      border: 2px solid #0b0c0c;
+    }
+    .sheet--compact { font-size: 14px; }
+
+    .sheet-header,
+    .sheet-footer {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .sheet-header {
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #0b0c0c;
+    }
+    .sheet-header__title { font-weight: 700; font-size: 1.5em; line-height: 1.2; }
+    .sheet-header__cph { font-weight: 700; font-size: 1.2em; text-align: left; }
+    .sheet-footer {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      margin-top: 8px;
+      padding-top: 4px;
+      font-weight: 700;
+    }
+    .sheet-footer__page { justify-self: center; }
+    /* Pages 2 onwards: no rule under the header. */
+    .sheet--continued .sheet-header { border-bottom: 0; }
+    .range {
+      margin-left: auto;
+      justify-self: end;
+      padding: 4px 8px;
+      background: #0b0c0c;
+      color: #ffffff;
+      font-size: 1.2em;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .range--left { margin-left: 0; justify-self: start; }
+
+    /* Page 1: CPH / count / date, then boxes to fill in by hand. */
+    .meta-table,
+    .entry-table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+    }
+    .meta-table td { padding: 2px 6px 4px 0; vertical-align: top; }
+    .entry-table { margin: 4px 0 8px; }
+    .entry-table th { text-align: left; padding: 4px 6px; line-height: 1.2; }
+    /* Page 1 details and the labels for the write-in boxes print at 11pt. */
+    .meta-table td,
+    .entry-table thead th,
+    .entry-table--date th { font-size: 11pt; }
+    .entry-table td { height: 2.1em; border: 1px solid #0b0c0c; }
+    /* Batch table: columns size to their headings, which stay on one
+       line; the Batch column shrinks to fit its own heading. */
+    .entry-table:not(.entry-table--date) { table-layout: auto; }
+    .entry-table thead th { white-space: nowrap; padding-left: 4px; padding-right: 4px; }
+    .entry-table__batch { width: 1%; text-align: center !important; }
+    tbody .entry-table__batch { border: 1px solid #0b0c0c; font-weight: 700; }
+    .entry-table--date { width: auto; margin-bottom: 4px; }
+    .entry-table--date th { padding-left: 0; }
+    .entry-table--date td { width: 12rem; }
+
+    /* Records table. Each animal is its own tbody so a row never splits
+       across printed pages. */
+    .record-table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+    }
+    .record-table th,
+    .record-table td {
+      height: 2.1em;
+      padding: 3px 6px;
+      border: 1px solid #0b0c0c;
+      vertical-align: middle;
+    }
+    .sheet--compact .record-table th,
+    .sheet--compact .record-table td { padding: 3px 5px; }
+    .record-table th { text-align: left; line-height: 1.2; }
+    /* Lines between animals are light grey, with a heavy black line
+       after every 5th animal (5|6, 10|11 ...) so the vet can count down
+       the sheet in fives. The bottom of the table stays black. */
+    .record-table tbody td {
+      border-top: 1px solid #b1b4b6;
+      border-bottom: 1px solid #b1b4b6;
+    }
+    .record-table tbody.row--fifth td { border-bottom: 3px solid #0b0c0c; }
+    .record-table tbody:last-child td { border-bottom: 1px solid #0b0c0c; }
+
+    .record-table .col-number { text-align: right; }
+    .col-number  { width: 3rem; font-variant-numeric: tabular-nums; }
+    .col-ear-tag { width: 10.5rem; text-align: left; }
+    .col-dob     { width: 7rem; text-align: left; font-variant-numeric: tabular-nums; }
+    .col-sex     { width: 3.5rem; text-align: left; }
+    .col-breed   { width: 4.5rem; text-align: left; }
+    .col-notes   { text-align: left; }
+
+    .ear-tag { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .ear-tag__last4 { font-weight: 700; }
+    /* Another animal on the farm shares these last 4 digits. */
+    .ear-tag__last4--duplicate {
+      border-top: 4px solid #000;
+      border-bottom: 4px solid #000;
+    }
+
+    @media print {
+      body { padding: 0; background: #ffffff; }
+      .toolbar { display: none; }
+      .sheet { max-width: none; margin: 0; border: 1px solid #0b0c0c; }
+      .sheet + .sheet { break-before: page; page-break-before: always; }
+      .record-table thead { display: table-header-group; }
+      .record-table tbody { break-inside: avoid; page-break-inside: avoid; }
+      @page { size: A4 portrait; margin: 10mm; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="toolbar">
+    <p><strong>{{ farm }}</strong> &middot; {{ rows.length }} cattle &middot; {{ totalPages }} pages</p>
+    <button type="button" onclick="window.print()">Print this list</button>
+  </div>
+
+  {% for sheetRows in sheets %}
+    {% set pageNumber = loop.index %}
+    {% set sheetStart = sheetStarts[loop.index0] %}
+    {% set range = (sheetRows | first).earTagParts.last4 + '–' + (sheetRows | last).earTagParts.last4 %}
+    <div class="sheet{% if compact %} sheet--compact{% endif %}{% if pageNumber > 1 %} sheet--continued{% endif %}">
+
+      <div class="sheet-header">
+        {% if pageNumber == 1 %}
+          <span class="sheet-header__title">{{ farm }} - vaccination list</span>
+        {% else %}
+          <span class="sheet-header__cph">{{ farm }} - CPH: {{ cph }}</span>
+        {% endif %}
+        <span class="range">{{ range }}</span>
+      </div>
+
+      {% if pageNumber == 1 %}
+        <table class="meta-table">
+          <tr>
+            <td><strong>CPH:</strong><br>{{ cph }}</td>
+            <td><strong>Cattle on this list:</strong><br>{{ rows.length }}</td>
+            <td><strong>Date list was made:</strong><br><span class="js-date-printed"></span></td>
+          </tr>
+        </table>
+
+        <table class="entry-table entry-table--date">
+          <tbody>
+            <tr>
+              <th scope="row">Vaccination date:</th>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+
+        {# One numbered row per vaccine / diluent batch, so the vet can
+           refer to "batch 1" or "batch 2" against each animal. #}
+        <table class="entry-table">
+          <thead>
+            <tr>
+              <th scope="col" class="entry-table__batch">Batch</th>
+              <th scope="col">Vaccine batch number:</th>
+              <th scope="col">Vaccine expiry date:</th>
+              <th scope="col">Diluent batch number:</th>
+              <th scope="col">Diluent expiry date:</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for batch in [1, 2] %}
+              <tr>
+                <th scope="row" class="entry-table__batch">{{ batch }}</th>
+                <td></td><td></td><td></td><td></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+
+      <table class="record-table">
+        <thead>
+          <tr>
+            <th scope="col" class="col-number">No.</th>
+            <th scope="col" class="col-ear-tag">Ear tag number</th>
+            <th scope="col" class="col-dob">DOB</th>
+            <th scope="col" class="col-sex">Sex</th>
+            <th scope="col" class="col-breed">Breed</th>
+            <th scope="col" class="col-notes">Notes</th>
+          </tr>
+        </thead>
+        {% for row in sheetRows %}
+          {% set rowNumber = sheetStart + loop.index %}
+          <tbody{% if rowNumber % 5 == 0 %} class="row--fifth"{% endif %}>
+            <tr>
+              <td class="col-number">{{ rowNumber }}</td>
+              <td class="col-ear-tag">
+                <span class="ear-tag">
+                  {{ row.earTagParts.prefix }} {{ row.earTagParts.herd }}{{ row.earTagParts.check }}{{ row.earTagParts.individualStart }}<span class="ear-tag__last4{% if row.isDuplicate %} ear-tag__last4--duplicate{% endif %}"
+                    {% if row.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
+                </span>
+              </td>
+              {% for cell in row.cells %}
+                <td class="col-{{ cell.key | lower }}">{{ cell.value }}</td>
+              {% endfor %}
+              <td class="col-notes">{{ row.note }}</td>
+            </tr>
+          </tbody>
+        {% endfor %}
+      </table>
+
+      <div class="sheet-footer">
+        <span class="range range--left">{{ range }}</span>
+        <span class="sheet-footer__page">Page {{ pageNumber }} of {{ totalPages }}</span>
+        <span class="range">{{ range }}</span>
+      </div>
+    </div>
+  {% endfor %}
+
+  {# Last sheet: blank rows for cattle that turn up but aren't on the list. #}
+  <div class="sheet sheet--continued{% if compact %} sheet--compact{% endif %}">
+    <div class="sheet-header">
+      <span class="sheet-header__cph">{{ farm }} - CPH: {{ cph }}</span>
+      <span class="sheet-header__title">{{ farm }} - Blank page</span>
+      <span class="range">Blank page</span>
+    </div>
+    <p>This page left blank to capture unexpected cattle.</p>
+    <table class="record-table">
+      <thead>
+        <tr>
+          <th scope="col" class="col-ear-tag">Ear tag number</th>
+          <th scope="col" class="col-dob">DOB</th>
+          <th scope="col" class="col-sex">Sex</th>
+          <th scope="col" class="col-breed">Breed</th>
+          <th scope="col" class="col-notes">Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for _i in range(0, 22) %}
+          <tr><td></td><td></td><td></td><td></td><td></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="sheet-footer">
+      <span class="range range--left">Blank page</span>
+      <span class="sheet-footer__page">Page {{ totalPages }} of {{ totalPages }}</span>
+      <span class="range">Blank page</span>
+    </div>
+  </div>
+
+  <script>
+    var stamp = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    }).format(new Date())
+    var nodes = document.querySelectorAll('.js-date-printed')
+    for (var i = 0; i < nodes.length; i++) nodes[i].textContent = stamp
+  </script>
+</body>
+</html>
