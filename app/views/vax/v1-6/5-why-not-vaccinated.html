@@ -1,0 +1,138 @@
+{% extends "layouts/main.html" %}
+
+{# Report vaccination status – why were some cattle not vaccinated?
+   Figma "why was cattle not vaccinated" (node 430:16392). Reached from
+   4-cattle-cannot-be-vaccinated when the answer is Yes.
+
+   Plain HTML. The only Nunjucks is the layout, the shared includes and
+   the saved answers put back into the fields ({{ data[...] }} and
+   {% if ... %} checked), which only the server can do. Answers are saved
+   in the session by the prototype kit when the form is sent, as:
+     not-vaccinated-reason (one or more of the checkbox values)
+   so a check your answers page can read them from data[...].
+   The error summary and error message are written out below and hidden;
+   the script at the bottom shows them if no box is ticked. #}
+
+{% block pageTitle %}
+  Why were some cattle not vaccinated? – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="/vax/v1-6/4-cattle-cannot-be-vaccinated" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* GOV.UK styles show error messages as blocks, which overrides the
+     hidden attribute – keep them hidden until the script shows them. */
+  .govuk-error-message[hidden], .govuk-error-summary[hidden] { display: none; }
+</style>
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <div class="govuk-error-summary" id="error-summary" tabindex="-1" hidden>
+      <div role="alert">
+        <h2 class="govuk-error-summary__title">There is a problem</h2>
+        <div class="govuk-error-summary__body">
+          <ul class="govuk-list govuk-error-summary__list">
+            <li>
+              <a href="#not-vaccinated-reason">You must select at least an option</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <form id="not-vaccinated-reason-form" action="/vax/v1-6/6-select-cattle" method="post" novalidate>
+
+      <div class="govuk-form-group" id="not-vaccinated-reason-group">
+        <fieldset class="govuk-fieldset" aria-describedby="not-vaccinated-reason-hint">
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--l">
+            <span class="govuk-caption-l">Report bTB vaccination for Tarbh Farm</span>
+            <h1 class="govuk-fieldset__heading">Why were some cattle not vaccinated?</h1>
+          </legend>
+          <div id="not-vaccinated-reason-hint" class="govuk-hint">Select all that apply</div>
+          <p id="not-vaccinated-reason-error" class="govuk-error-message" hidden>
+            <span class="govuk-visually-hidden">Error:</span> You must select at least an option
+          </p>
+          {# Tells the kit to clear the saved ticks when every box is unticked. #}
+          <input type="hidden" name="not-vaccinated-reason" value="_unchecked">
+          <div class="govuk-checkboxes" data-module="govuk-checkboxes">
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="not-vaccinated-reason" name="not-vaccinated-reason" type="checkbox" value="slaughter"{% if 'slaughter' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason">For slaughter in near future</label>
+            </div>
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="not-vaccinated-reason-2" name="not-vaccinated-reason" type="checkbox" value="export"{% if 'export' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-2">Intended for export</label>
+            </div>
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="not-vaccinated-reason-3" name="not-vaccinated-reason" type="checkbox" value="germplasm"{% if 'germplasm' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-3">Intended for germplasm production</label>
+            </div>
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="not-vaccinated-reason-4" name="not-vaccinated-reason" type="checkbox" value="not-present"{% if 'not-present' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-4">Not present on CPH</label>
+            </div>
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="not-vaccinated-reason-5" name="not-vaccinated-reason" type="checkbox" value="keeper-declined"{% if 'keeper-declined' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-5">Keeper declined vaccination</label>
+            </div>
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="not-vaccinated-reason-6" name="not-vaccinated-reason" type="checkbox" value="clinical-condition"{% if 'clinical-condition' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-6">Clinical condition prevents vaccination</label>
+            </div>
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="not-vaccinated-reason-7" name="not-vaccinated-reason" type="checkbox" value="deceased"{% if 'deceased' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-7">Animal is deceased</label>
+            </div>
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="not-vaccinated-reason-8" name="not-vaccinated-reason" type="checkbox" value="too-young"{% if 'too-young' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-8">Too young to be vaccinated</label>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="govuk-button-group">
+        <button type="submit" class="govuk-button" data-module="govuk-button">Continue and save</button>
+        <button type="submit" formaction="/vax/v1-6/2-cphtasklist2" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-save-later>Save and continue later</button>
+      </div>
+
+    </form>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+
+<script>
+  // Show the designed error state if no box is ticked.
+  (function () {
+    var form = document.getElementById('not-vaccinated-reason-form')
+    var summary = document.getElementById('error-summary')
+    var group = document.getElementById('not-vaccinated-reason-group')
+    var message = document.getElementById('not-vaccinated-reason-error')
+    var fieldset = group.querySelector('.govuk-fieldset')
+    var baseTitle = document.title.replace(/^Error: /, '')
+
+    form.addEventListener('submit', function (event) {
+      // Save and continue later keeps whatever has been answered so far.
+      if (event.submitter && event.submitter.hasAttribute('data-save-later')) return
+      if (form.querySelector('input[name="not-vaccinated-reason"]:checked')) return
+      event.preventDefault()
+      group.classList.add('govuk-form-group--error')
+      message.hidden = false
+      fieldset.setAttribute('aria-describedby', 'not-vaccinated-reason-hint not-vaccinated-reason-error')
+      summary.hidden = false
+      document.title = 'Error: ' + baseTitle
+      summary.focus()
+      window.scrollTo(0, 0)
+    })
+  })()
+</script>
+{% endblock %}

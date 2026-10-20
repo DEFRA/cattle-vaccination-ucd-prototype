@@ -1,0 +1,64 @@
+{% extends "layouts/main.html" %}
+
+{# CPH task list, before a vaccination list has been made.
+   Figma "CPH dashboard" (node 429:10235). Plain HTML - the only Nunjucks
+   is the layout and the shared includes.
+   "Create vaccination list" makes a list (route create-vaccination-list in
+   routes.js) and goes to 2-cphtasklist2 (node 409:8175). #}
+
+{% block pageTitle %}
+  Tarbh Farm task list – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="#" class="govuk-back-link">Back to ‘My work’</a>
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">Tarbh Farm task list: issue date 6 October 2026</h1>
+
+    <h2 class="govuk-heading-m">CPH information</h2>
+    <p class="govuk-body govuk-!-margin-bottom-2">
+      CPH number: 12/385/6809<br>
+      CPH contact: Ewan Tarbet<br>
+      Contact number: 07416 330 982<br>
+      Email address: ewan.tarbet@example.com<br>
+      Address: Tarbh Farm, Helmsley, YO62 7TB
+    </p>
+    <p class="govuk-body govuk-!-margin-bottom-7">
+      <a class="govuk-link" href="#">Full CPH information</a>
+    </p>
+
+    <h2 class="govuk-heading-m">Vaccination lists</h2>
+    <p class="govuk-body">Before visiting the CPH, create an up to date vaccination list.</p>
+    <form method="post" action="/vax/v1-6/create-vaccination-list">
+      <button type="submit" class="govuk-button" data-module="govuk-button">Create vaccination list</button>
+    </form>
+
+    <h2 class="govuk-heading-m">bTB vaccination tasks</h2>
+    <ul class="govuk-task-list">
+      <li class="govuk-task-list__item govuk-task-list__item--with-link">
+        <div class="govuk-task-list__name-and-hint">
+          <a class="govuk-link govuk-task-list__link" href="/vax/v1-6/3-vaccination-date" aria-describedby="report-status-hint report-status-status">
+            Report vaccination status
+          </a>
+          <div id="report-status-hint" class="govuk-task-list__hint">122 cattle to report</div>
+        </div>
+        <div class="govuk-task-list__status" id="report-status-status">
+          <strong class="govuk-tag govuk-tag--blue">Incomplete</strong>
+        </div>
+      </li>
+    </ul>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+{% endblock %}

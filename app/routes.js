@@ -12388,25 +12388,11 @@ registerSkinTestRoutes('v1-3')
 registerSkinTestRoutes('v1-4')
 registerSkinTestRoutes('v1-5')
 
-// -----------------------------------------------------------------------------
-// Standalone printable vaccination list – /vax/vaccination-list
-//
-// The whole list on one page, every A4 sheet one after another, with no
-// GOV.UK chrome, settings or pagination. Built to be opened from a link in
-// a new tab and printed (or saved as PDF from the print dialog).
-//
-// Query string, all optional:
-//   cph      farm to list, e.g. ?cph=12/345/6789 (defaults to Tarbh Farm)
-//   perPage  cattle on each sheet: 25 (default), 20 or 40
-//   version  which herd data to use (defaults to v1-3)
-// -----------------------------------------------------------------------------
-router.get('/vax/vaccination-list', function (req, res) {
-  const query = req.query || {}
-  const cph = [query.cph, TARBH_CPH]
-    .find(function (c) { return c && herdData[c] })
-  const perPage = [20, 25, 40].includes(Number(query.perPage)) ? Number(query.perPage) : 25
-  const version = ['v1-2', 'v1-3', 'v1-4', 'v1-5'].includes(query.version) ? query.version : 'v1-3'
-
+// Rows for the /vax screens, in printed-list order (last 4 digits of the
+// ear tag), each with its Notes text and a flag for a shared last 4 digits.
+// Shared by the printable list and the select-cattle screens so both show
+// the same cattle in the same order with the same notes.
+function buildVaxListRows (cph, version) {
   // The Notes column carries the reason an animal can't be vaccinated:
   //   "Not eligible: too young"             – under 21 days old today
   //   "Not eligible: vaccinated DATE"       – BCG vaccinated in the last
@@ -12453,12 +12439,88 @@ router.get('/vax/vaccination-list', function (req, res) {
   baseRows.forEach(function (row) {
     last4Counts[row.earTagParts.last4] = (last4Counts[row.earTagParts.last4] || 0) + 1
   })
-  const rows = baseRows.map(function (row) {
+  return baseRows.map(function (row) {
     return Object.assign({}, row, {
       note: vaxNote(row),
       isDuplicate: last4Counts[row.earTagParts.last4] > 1
     })
   })
+}
+
+// Once a vaccination report has been submitted for Tarbh Farm, a list
+// carries what it recorded: cattle reported as vaccinated read "Not
+// eligible: vaccinated DD/MM/YYYY" (the vaccination date), and cattle
+// given a reason read that reason's comment. These replace the record
+// notes, being the latest information.
+function vaxApplyReportNotes (rows, data) {
+  if (data['vax-report-submitted'] !== 'yes') return rows
+  const m = vaxParseMonth(data['vaccination-date-month'])
+  const y = vaxParseYear(data['vaccination-date-year'])
+  const d = Number(data['vaccination-date-day'])
+  const vaxDate = m && y && d
+    ? String(d).padStart(2, '0') + '/' + String(m).padStart(2, '0') + '/' + y
+    : ''
+  const vaccinated = data['vax-vaccinated-cattle'] || []
+  const reasonFor = vaxVaccinatedScreen(data).taken
+  rows.forEach(function (row) {
+    if (vaccinated.includes(row.officialId)) row.note = 'Not eligible: vaccinated' + (vaxDate ? ' ' + vaxDate : '')
+    else if (reasonFor[row.officialId]) row.note = reasonFor[row.officialId]
+  })
+  return rows
+}
+
+// -----------------------------------------------------------------------------
+// Create vaccination list – from the task list pages. Each press makes a
+// new, independent list: its date and every animal's note as they are at
+// that moment (including any submitted report's notes). The task list
+// shows them newest first, each opening its own /vax/vaccination-list?list=N,
+// which always shows exactly what it did when it was made.
+// Saved as data['vax-lists'], e.g.
+//   [{ date: '8 Oct 2026', notes: { UK518273400084: 'Not eligible: too young', … } }, …]
+// -----------------------------------------------------------------------------
+router.post('/vax/v1-6/create-vaccination-list', function (req, res) {
+  const data = req.session.data
+  const today = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date())
+  const notes = {}
+  vaxApplyReportNotes(buildVaxListRows(TARBH_CPH, 'v1-3'), data).forEach(function (row) {
+    if (row.note) notes[row.officialId] = row.note
+  })
+  data['vax-lists'] = (data['vax-lists'] || []).concat({ date: today, notes: notes })
+  res.redirect('/vax/v1-6/2-cphtasklist2')
+})
+
+// -----------------------------------------------------------------------------
+// Standalone printable vaccination list – /vax/vaccination-list
+//
+// The whole list on one page, every A4 sheet one after another, with no
+// GOV.UK chrome, settings or pagination. Built to be opened from a link in
+// a new tab and printed (or saved as PDF from the print dialog).
+//
+// Query string, all optional:
+//   cph      farm to list, e.g. ?cph=12/345/6789 (defaults to Tarbh Farm)
+//   perPage  cattle on each sheet: 25 (default), 20 or 40
+//   version  which herd data to use (defaults to v1-3)
+// -----------------------------------------------------------------------------
+router.get('/vax/vaccination-list', function (req, res) {
+  const query = req.query || {}
+  const cph = [query.cph, TARBH_CPH]
+    .find(function (c) { return c && herdData[c] })
+  const perPage = [20, 25, 40].includes(Number(query.perPage)) ? Number(query.perPage) : 25
+  const version = ['v1-2', 'v1-3', 'v1-4', 'v1-5'].includes(query.version) ? query.version : 'v1-3'
+
+  const rows = buildVaxListRows(cph, version)
+
+  // ?list=N opens list N exactly as it was made: its notes were saved when
+  // it was created (see create-vaccination-list), so a later report – or
+  // a later day – never changes it. Without ?list, the list is built from
+  // the answers as they stand now.
+  const data = req.session.data
+  const listRecord = cph === TARBH_CPH ? (data['vax-lists'] || [])[Number(query.list) - 1] : null
+  if (listRecord && listRecord.notes) {
+    rows.forEach(function (row) { row.note = listRecord.notes[row.officialId] || '' })
+  } else if (cph === TARBH_CPH) {
+    vaxApplyReportNotes(rows, data)
+  }
   // Page 1 also carries the date and batch boxes, so it only has room
   // for 20 cattle; every later sheet takes the full perPage.
   const firstPageSize = Math.min(perPage, 20)
@@ -12478,6 +12540,641 @@ router.get('/vax/vaccination-list', function (req, res) {
     totalPages: sheets.length + 1, // data sheets + blank sheet
     compact: perPage === 40
   })
+})
+
+// -----------------------------------------------------------------------------
+// Select cattle for each reason they were not vaccinated –
+// /vax/v1-6/6-select-cattle/<reason>  (Figma "For slaughter", node 551:17641)
+//
+// One screen per reason ticked on 5-why-not-vaccinated, in that page's
+// order; each screen is the same Tarbh Farm cattle table with the reason's
+// own heading. The table is in printed-list order and paged like the
+// paper – 20 on page 1, 25 on every page after – so a page's range
+// matches a printed sheet.
+//
+// Ticks are saved per reason in data['vax-selected-cattle'], e.g.
+//   { slaughter: ['UK518273400071', ...], 'too-young': [...] }
+// every time the form is sent: moving page, searching, Continue and save,
+// or Save and continue later.
+// -----------------------------------------------------------------------------
+const VAX_NOT_VACCINATED_REASONS = [
+  // comment: shown against cattle already picked for this reason.
+  { value: 'slaughter', comment: 'Not eligible: for slaughter in the near future', heading: 'Select all cattle for slaughter in the near future' },
+  { value: 'export', comment: 'Not eligible: intended for export', heading: 'Select all cattle intended for export' },
+  { value: 'germplasm', comment: 'Not eligible: intended for germplasm production', heading: 'Select all cattle intended for germplasm production' },
+  { value: 'not-present', comment: 'Not eligible: not present on the CPH', heading: 'Select all cattle not present on the CPH' },
+  { value: 'keeper-declined', comment: 'Not eligible: keeper declined vaccination', heading: 'Select all cattle the keeper declined vaccination' },
+  { value: 'clinical-condition', comment: 'Not eligible: clinical condition prevents vaccination', heading: 'Select all cattle whose clinical condition prevents vaccination' },
+  { value: 'deceased', comment: 'Not eligible: animal deceased', heading: 'Select all deceased cattle' },
+  // Offered on 11-edit-animal (page 5 doesn't list it); picking it there adds
+  // it to the reasons, so it then gets its own screen like the others.
+  { value: 'partial', comment: 'Not eligible: partial vaccine administration', heading: 'Select all cattle with partial vaccine administration', label: 'Partial vaccine administration', editOnly: true },
+  { value: 'too-young', comment: 'Not eligible: too young', heading: 'Select all cattle too young to vaccinate' },
+  { value: 'vaccinated-recently', comment: 'Not eligible: vaccinated in the last 12 months', heading: 'Select all cattle vaccinated in the last 12 months', label: 'Vaccinated in the last 12 months', editOnly: true }
+]
+const VAX_SELECT_BASE = '/vax/v1-6/6-select-cattle'
+
+// The reasons ticked on page 5, in page 5's order.
+function vaxChosenReasons (data) {
+  const raw = data['not-vaccinated-reason']
+  const ticked = (Array.isArray(raw) ? raw : [raw]).filter(Boolean)
+  return VAX_NOT_VACCINATED_REASONS.filter(function (r) { return ticked.includes(r.value) })
+}
+
+// Cattle already picked under a reason other than `reason`, as
+// { officialId: comment for the reason it was picked for }. Each animal can
+// only have one reason, so these are greyed out, ticked and locked.
+function vaxTakenByOtherReasons (data, reason) {
+  const saved = data['vax-selected-cattle'] || {}
+  const taken = {}
+  vaxChosenReasons(data).forEach(function (r) {
+    if (r.value === reason) return
+    ;(saved[r.value] || []).forEach(function (id) { if (!taken[id]) taken[id] = r.comment })
+  })
+  ;(data['vax-vaccinated-cattle'] || []).forEach(function (id) { if (!taken[id]) taken[id] = 'Selected as vaccinated' })
+  return taken
+}
+
+// Split the herd into pages: 20 on page 1, 25 on every page after.
+function vaxSelectPages (rows) {
+  const pages = []
+  for (let i = 0; i < rows.length; i += (i === 0 ? 20 : 25)) {
+    pages.push(rows.slice(i, i + (i === 0 ? 20 : 25)))
+  }
+  return pages
+}
+
+// GOV.UK pagination items: first, last, and the pages either side of the
+// current one, with an ellipsis for any gap.
+function vaxPaginationItems (current, total) {
+  const items = []
+  for (let n = 1; n <= total; n++) {
+    if (n === 1 || n === total || Math.abs(n - current) <= 1) {
+      items.push({ number: n, current: n === current })
+    } else if (items.length && !items[items.length - 1].ellipsis) {
+      items.push({ ellipsis: true })
+    }
+  }
+  return items
+}
+
+// The table screens share one template (6-select-cattle.html) and these
+// two helpers. `screen` describes one screen:
+//   heading       the page heading
+//   here          its URL (the form posts back to it)
+//   selected      ear tags ticked on this screen
+//   taken         { ear tag: comment } – cattle that can't be picked here,
+//                 shown greyed out and ticked; or { ear tag: { comment,
+//                 ticked } } to choose per animal (the batch screens show
+//                 unvaccinated cattle unticked)
+//   lockedTicked  show string-`taken` cattle ticked (true on every screen)
+//   errorMessage  shown when the URL has ?error=1
+//   backHref      where Back goes from page 1
+function vaxRenderSelect (req, res, screen) {
+  const allRows = buildVaxListRows(TARBH_CPH, 'v1-3').map(function (row, i) {
+    return Object.assign({}, row, { number: i + 1 })
+  })
+  const pages = vaxSelectPages(allRows)
+  const query = req.query || {}
+  const search = String(query.search || '').replace(/\s+/g, '')
+  const pageNumber = Math.min(Math.max(parseInt(query.page, 10) || 1, 1), pages.length)
+  const shownRows = search
+    ? allRows.filter(function (row) { return row.earTagParts.last4.startsWith(search) })
+    : pages[pageNumber - 1]
+  const selected = screen.selected
+  const taken = screen.taken
+  // A locked animal's comment and whether its box shows ticked.
+  function lockFor (id) {
+    const t = taken[id]
+    if (t === undefined) return null
+    return typeof t === 'string' ? { comment: t, ticked: !!screen.lockedTicked } : t
+  }
+  const firstFree = allRows.find(function (row) { return !lockFor(row.officialId) })
+
+  res.render(screen.template || 'vax/v1-6/6-select-cattle', {
+    farm: herdData[TARBH_CPH].farm,
+    heading: screen.heading,
+    formAction: screen.here,
+    search: search,
+    pageNumber: pageNumber,
+    totalPages: pages.length,
+    paginationItems: vaxPaginationItems(pageNumber, pages.length),
+    rangeLabel: shownRows.length
+      ? shownRows[0].earTagParts.last4 + '-' + shownRows[shownRows.length - 1].earTagParts.last4
+      : '',
+    backHref: !search && pageNumber > 1 ? screen.here + '?page=' + (pageNumber - 1) : screen.backHref,
+    focusId: String(query.focus || ''),
+    errorMessage: query.error ? screen.errorMessage : '',
+    errorHref: '#' + (firstFree ? 'cattle-' + firstFree.officialId : 'search'),
+    // Every animal on the holding, for the ear tag autocomplete: it only
+    // matches on the last 4 digits, and picking one jumps to its page.
+    searchIndex: pages.reduce(function (list, page, p) {
+      return list.concat(page.map(function (row) {
+        return {
+          id: row.officialId,
+          prefix: 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart,
+          last4: row.earTagParts.last4,
+          number: row.number,
+          page: p + 1,
+          locked: !!lockFor(row.officialId),
+          takenFor: lockFor(row.officialId) ? (lockFor(row.officialId).comment || 'Not available for this screen') : '',
+          picked: selected.includes(row.officialId)
+        }
+      }))
+    }, []),
+    shownIds: shownRows.map(function (row) { return row.officialId }).join(','),
+    selectedOnPage: shownRows.filter(function (row) { return selected.includes(row.officialId) && !taken[row.officialId] }).length,
+    rows: shownRows.map(function (row) {
+      const dob = (row.cells.find(function (c) { return c.key === 'DOB' }) || {}).value || ''
+      const sex = (row.cells.find(function (c) { return c.key === 'Sex' }) || {}).value || ''
+      const breed = (row.cells.find(function (c) { return c.key === 'Breed' }) || {}).value || ''
+      const lock = lockFor(row.officialId)
+      return Object.assign({}, row, {
+        dobShort: dob.replace(/^(\d\d\/\d\d\/)\d\d(\d\d)$/, '$1$2'),
+        sexLabel: sex === 'F' ? 'Female' : (sex === 'M' ? 'Male' : sex),
+        breed: breed,
+        checked: lock ? lock.ticked : selected.includes(row.officialId),
+        locked: !!lock,
+        takenFor: lock ? lock.comment : ''
+      })
+    })
+  })
+}
+
+// Save the ticks sent from a table screen. Returns the screen's new list
+// of ticked ear tags and, for every button except Continue and save,
+// where to go next (null means Continue and save).
+function vaxSaveSelect (req, screen) {
+  const data = req.session.data
+  const body = req.body || {}
+  const taken = screen.taken
+  // Replace the ticks for the cattle that were on screen with what was
+  // sent; ticks on other pages are kept.
+  const shown = String(body.shown || '').split(',').filter(Boolean)
+  const ticked = [].concat(body.cattle || []).filter(function (id) { return shown.includes(id) && !taken[id] })
+  const list = screen.selected.filter(function (id) { return !shown.includes(id) }).concat(ticked)
+  // The kit also stores every posted field in the session; these are only
+  // the form's controls, not answers.
+  ;['cattle', 'shown', 'action', 'goto', 'search', 'select-all', 'pick', 'back'].forEach(function (key) { delete data[key] })
+
+  const here = screen.here
+  let redirect = null
+  if (body.goto) redirect = here + '?page=' + encodeURIComponent(body.goto)
+  else if (body.action === 'search') {
+    const term = String(body.search || '').replace(/\s+/g, '')
+    redirect = term ? here + '?search=' + encodeURIComponent(term) : here
+  } else if (body.action === 'clear-search') redirect = here
+  else if (body.action === 'pick') {
+    // Picked from the ear tag autocomplete: tick it (unless it can't be
+    // picked here) and go to its page, focused on its row.
+    const pickId = String(body.pick || '')
+    const pages = vaxSelectPages(buildVaxListRows(TARBH_CPH, 'v1-3'))
+    const pickPage = pages.findIndex(function (page) {
+      return page.some(function (row) { return row.officialId === pickId })
+    })
+    if (pickPage === -1) redirect = here
+    else {
+      if (!taken[pickId] && !list.includes(pickId)) list.push(pickId)
+      redirect = here + '?page=' + (pickPage + 1) + '&focus=' + encodeURIComponent(pickId)
+    }
+  } else if (body.action === 'save-later') redirect = '/vax/v1-6/2-cphtasklist2'
+  // Back link: save, then go where Back points (only within the journey).
+  else if (body.action === 'back') redirect = /^\/vax\/v1-6\//.test(body.back || '') ? body.back : here
+  // Saved in the background as boxes are ticked: no page to go to.
+  else if (body.action === 'autosave') redirect = 'autosave'
+  return { list: list, redirect: redirect }
+}
+
+// --- Reason screens: 6-select-cattle/<reason> -------------------------------
+
+const VAX_VACCINATED_URL = '/vax/v1-6/7-vaccinated-cattle'
+
+function vaxReasonScreen (data, reasons, index) {
+  const reason = reasons[index]
+  return {
+    heading: reason.heading,
+    here: VAX_SELECT_BASE + '/' + reason.value,
+    selected: ((data['vax-selected-cattle'] || {})[reason.value]) || [],
+    taken: vaxTakenByOtherReasons(data, reason.value),
+    lockedTicked: true,
+    // Page 1's Back: the previous reason's last page, or page 5.
+    backHref: index > 0
+      ? VAX_SELECT_BASE + '/' + reasons[index - 1].value + '?page=' + vaxSelectPages(buildVaxListRows(TARBH_CPH, 'v1-3')).length
+      : '/vax/v1-6/5-why-not-vaccinated'
+  }
+}
+
+router.post(VAX_SELECT_BASE, function (req, res) {
+  const reasons = vaxChosenReasons(req.session.data)
+  if (!reasons.length) return res.redirect('/vax/v1-6/5-why-not-vaccinated')
+  res.redirect(VAX_SELECT_BASE + '/' + reasons[0].value)
+})
+
+router.get(VAX_SELECT_BASE + '/:reason', function (req, res) {
+  const reasons = vaxChosenReasons(req.session.data)
+  const index = reasons.findIndex(function (r) { return r.value === req.params.reason })
+  if (index === -1) return res.redirect('/vax/v1-6/5-why-not-vaccinated')
+  vaxRenderSelect(req, res, vaxReasonScreen(req.session.data, reasons, index))
+})
+
+router.post(VAX_SELECT_BASE + '/:reason', function (req, res) {
+  const data = req.session.data
+  const reasons = vaxChosenReasons(data)
+  const index = reasons.findIndex(function (r) { return r.value === req.params.reason })
+  if (index === -1) return res.redirect('/vax/v1-6/5-why-not-vaccinated')
+  const result = vaxSaveSelect(req, vaxReasonScreen(data, reasons, index))
+  data['vax-selected-cattle'] = Object.assign({}, data['vax-selected-cattle'], { [reasons[index].value]: result.list })
+  if (result.redirect === 'autosave') return res.sendStatus(204)
+  if (result.redirect) return res.redirect(result.redirect)
+  // Continue and save: the next ticked reason, then the vaccinated cattle.
+  if (index < reasons.length - 1) return res.redirect(VAX_SELECT_BASE + '/' + reasons[index + 1].value)
+  res.redirect(VAX_VACCINATED_URL)
+})
+
+// --- Vaccinated cattle: 7-vaccinated-cattle (Figma node 362:4962) -----------
+//
+// Reached after the last reason screen, or from page 4 when no cattle were
+// identified as unable to be vaccinated. Cattle given a reason on the
+// reason screens are greyed out and locked, ticked. Ticks are saved as
+// data['vax-vaccinated-cattle'], a list of ear tags.
+
+function vaxVaccinatedScreen (data) {
+  const reasons = data['cannot-be-vaccinated'] === 'yes' ? vaxChosenReasons(data) : []
+  const saved = data['vax-selected-cattle'] || {}
+  const taken = {}
+  reasons.forEach(function (r) {
+    ;(saved[r.value] || []).forEach(function (id) { if (!taken[id]) taken[id] = r.comment })
+  })
+  return {
+    heading: 'Select all vaccinated cattle',
+    template: 'vax/v1-6/7-vaccinated-cattle',
+    here: VAX_VACCINATED_URL,
+    selected: data['vax-vaccinated-cattle'] || [],
+    taken: taken,
+    lockedTicked: true,
+    // Page 1's Back: the last reason screen's last page, or page 4.
+    backHref: reasons.length
+      ? VAX_SELECT_BASE + '/' + reasons[reasons.length - 1].value + '?page=' + vaxSelectPages(buildVaxListRows(TARBH_CPH, 'v1-3')).length
+      : '/vax/v1-6/4-cattle-cannot-be-vaccinated'
+  }
+}
+
+// --- Cattle for each vaccine batch: 9-batch-cattle/<n> (Figma 362:12363) ----
+//
+// Only when more than one batch was entered on 8-vaccine-batch: one screen
+// for every batch except the last, headed with its number and batch
+// number (2 batches → 1 screen, 3 batches → 2 screens). The vaccinated
+// cattle not picked on any of them are the last batch. Only the cattle
+// ticked on 7-vaccinated-cattle can be picked – the rest are greyed out and
+// unticked – and cattle already picked for another batch are locked and
+// ticked. Each batch shown needs at least one animal. Saved as
+// data['vax-batch-cattle'], e.g. { 1: ['UK518273400066', …], 2: […] },
+// with the last batch filled in from what was left.
+
+const VAX_BATCH_BASE = '/vax/v1-6/9-batch-cattle'
+const VAX_CHECK_URL = '/vax/v1-6/10-check-answers'
+
+function vaxBatches (data) {
+  return (data['vaccine-batches'] || []).filter(Boolean)
+}
+
+function vaxBatchScreen (data, n) {
+  const batches = vaxBatches(data)
+  const batch = batches[n - 1] || {}
+  const vaccinated = data['vax-vaccinated-cattle'] || []
+  const perBatch = data['vax-batch-cattle'] || {}
+  const reasonComments = vaxVaccinatedScreen(data).taken
+  const taken = {}
+  buildVaxListRows(TARBH_CPH, 'v1-3').forEach(function (row) {
+    const id = row.officialId
+    if (!vaccinated.includes(id)) {
+      // Not vaccinated: greyed out and unticked, with its reason if it has one.
+      taken[id] = { comment: reasonComments[id] || '', ticked: false }
+      return
+    }
+    for (let other = 1; other < batches.length; other++) {
+      if (other !== n && (perBatch[other] || []).includes(id)) {
+        taken[id] = { comment: 'Vaccinated with vaccine batch ' + other + ': ' + ((batches[other - 1] || {})['batch-number'] || ''), ticked: true }
+        return
+      }
+    }
+  })
+  const lastPage = vaxSelectPages(buildVaxListRows(TARBH_CPH, 'v1-3')).length
+  return {
+    heading: 'Select all cattle vaccinated with vaccine batch ' + n + ': ' + (batch['batch-number'] || ''),
+    template: 'vax/v1-6/9-batch-cattle',
+    here: VAX_BATCH_BASE + '/' + n,
+    selected: perBatch[n] || [],
+    taken: taken,
+    lockedTicked: true,
+    errorMessage: 'You must select at least one animal for vaccine batch ' + n,
+    backHref: n > 1 ? VAX_BATCH_BASE + '/' + (n - 1) + '?page=' + lastPage : '/vax/v1-6/8-vaccine-batch'
+  }
+}
+
+// From 8-vaccine-batch (the kit has already saved the batches).
+router.post(VAX_BATCH_BASE, function (req, res) {
+  if (vaxBatches(req.session.data).length > 1) return res.redirect(VAX_BATCH_BASE + '/1')
+  // One batch: every vaccinated animal is on it, so straight to the check.
+  res.redirect(VAX_CHECK_URL)
+})
+
+function vaxBatchNumber (req) {
+  const n = parseInt(req.params.n, 10)
+  // Screens run to the last-but-one batch; the last is what's left.
+  return n >= 1 && n < vaxBatches(req.session.data).length ? n : null
+}
+
+router.get(VAX_BATCH_BASE + '/:n', function (req, res) {
+  const n = vaxBatchNumber(req)
+  if (!n) return res.redirect('/vax/v1-6/8-vaccine-batch')
+  vaxRenderSelect(req, res, vaxBatchScreen(req.session.data, n))
+})
+
+router.post(VAX_BATCH_BASE + '/:n', function (req, res) {
+  const data = req.session.data
+  const n = vaxBatchNumber(req)
+  if (!n) return res.redirect('/vax/v1-6/8-vaccine-batch')
+  const result = vaxSaveSelect(req, vaxBatchScreen(data, n))
+  data['vax-batch-cattle'] = Object.assign({}, data['vax-batch-cattle'], { [n]: result.list })
+  if (result.redirect === 'autosave') return res.sendStatus(204)
+  if (result.redirect) return res.redirect(result.redirect)
+  // Continue and save: at least one animal for this batch, then the next
+  // batch with a screen. After the last screen, the vaccinated cattle not
+  // picked for any batch become the last batch, then check your answers.
+  if (!result.list.length) return res.redirect(VAX_BATCH_BASE + '/' + n + '?error=1')
+  const count = vaxBatches(data).length
+  if (n < count - 1) return res.redirect(VAX_BATCH_BASE + '/' + (n + 1))
+  const perBatch = Object.assign({}, data['vax-batch-cattle'])
+  const picked = []
+  for (let b = 1; b < count; b++) picked.push.apply(picked, perBatch[b] || [])
+  perBatch[count] = (data['vax-vaccinated-cattle'] || []).filter(function (id) { return !picked.includes(id) })
+  // Drop any batches beyond the ones now entered (a batch was removed).
+  Object.keys(perBatch).forEach(function (key) { if (Number(key) > count) delete perBatch[key] })
+  data['vax-batch-cattle'] = perBatch
+  res.redirect(VAX_CHECK_URL)
+})
+
+router.get(VAX_VACCINATED_URL, function (req, res) {
+  vaxRenderSelect(req, res, vaxVaccinatedScreen(req.session.data))
+})
+
+router.post(VAX_VACCINATED_URL, function (req, res) {
+  const data = req.session.data
+  // Arriving from page 4 (its answer is already saved by the kit) rather
+  // than sending this screen's own table: just show the screen.
+  if (!('shown' in (req.body || {}))) return res.redirect(VAX_VACCINATED_URL)
+  const result = vaxSaveSelect(req, vaxVaccinatedScreen(data))
+  data['vax-vaccinated-cattle'] = result.list
+  if (result.redirect === 'autosave') return res.sendStatus(204)
+  if (result.redirect) return res.redirect(result.redirect)
+  // Continue and save: the vaccine batch details.
+  res.redirect('/vax/v1-6/8-vaccine-batch')
+})
+
+// --- Check your answers: 10-check-answers (Figma node 362:13592) ------------
+//
+// Everything reported, read back from the session:
+//   - the vaccination date and whether the job is complete (page 3)
+//   - each vaccine batch (page 8)
+//   - how many cattle were vaccinated (page 7)
+//   - every animal with something recorded – its batch, or why it was not
+//     vaccinated – grouped by the same pages as the cattle tables
+// The last batch is worked out here too (the vaccinated cattle not picked
+// for an earlier batch), so a single batch needs no batch screen.
+
+const VAX_MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+  'August', 'September', 'October', 'November', 'December']
+
+// Month as 1–12 from "4", "Apr", "April" or "Sept"; NaN otherwise.
+function vaxParseMonth (value) {
+  const v = String(value || '').trim()
+  if (/^\d{1,2}$/.test(v)) return Number(v)
+  const name = v.toLowerCase().replace(/\.$/, '')
+  if (name === 'sept') return 9
+  const i = VAX_MONTH_NAMES.findIndex(function (m) {
+    m = m.toLowerCase()
+    return name === m || (name.length === 3 && m.indexOf(name) === 0)
+  })
+  return i === -1 ? NaN : i + 1
+}
+
+function vaxParseYear (value) {
+  const v = String(value || '').trim()
+  return v.length === 2 ? 2000 + Number(v) : Number(v)
+}
+
+// "12 October 2026" / "July 2028" from what was typed, as typed if unreadable.
+function vaxFormatDate (day, month, year) {
+  const m = vaxParseMonth(month)
+  const y = vaxParseYear(year)
+  if (!m || !y) return [day, month, year].filter(Boolean).join(' ')
+  return (day ? Number(day) + ' ' : '') + VAX_MONTH_NAMES[m - 1] + ' ' + y
+}
+
+// Read-only copy of check your answers, opened from the completed task on
+// the task list after the report is submitted.
+const VAX_REPORT_URL = '/vax/v1-6/13-submitted-report'
+
+router.get(VAX_CHECK_URL, function (req, res) { vaxRenderCheck(req, res, false) })
+router.get(VAX_REPORT_URL, function (req, res) { vaxRenderCheck(req, res, true) })
+
+// Submit vaccination details: record that the report was sent, with the
+// date and number vaccinated the task list shows, then the confirmation.
+router.post('/vax/v1-6/12-submitted', function (req, res) {
+  const data = req.session.data
+  const m = vaxParseMonth(data['vaccination-date-month'])
+  const y = vaxParseYear(data['vaccination-date-year'])
+  data['vax-report-submitted'] = 'yes'
+  data['vax-report-date'] = m && y
+    ? Number(data['vaccination-date-day']) + ' ' + VAX_MONTH_NAMES[m - 1].slice(0, 3) + ' ' + y
+    : ''
+  data['vax-report-vaccinated'] = (data['vax-vaccinated-cattle'] || []).length
+  data['vax-report-to-report'] = Math.max(Number(herdData[TARBH_CPH].cattle) - data['vax-report-vaccinated'], 0)
+  res.redirect('/vax/v1-6/12-submitted')
+})
+
+function vaxRenderCheck (req, res, readOnly) {
+  const data = req.session.data
+  const batches = vaxBatches(data)
+  const count = batches.length
+  const vaccinated = data['vax-vaccinated-cattle'] || []
+  const perBatch = data['vax-batch-cattle'] || {}
+
+  // Which batch each vaccinated animal is on: picked on a batch screen, or
+  // the last batch (all of them, when there is only one).
+  const batchOf = {}
+  for (let b = 1; b < count; b++) (perBatch[b] || []).forEach(function (id) { batchOf[id] = b })
+  vaccinated.forEach(function (id) { if (!batchOf[id] && count) batchOf[id] = count })
+
+  // Why the others were not vaccinated (the reason screens' comments).
+  const reasonFor = vaxVaccinatedScreen(data).taken
+  const reasons = data['cannot-be-vaccinated'] === 'yes' ? vaxChosenReasons(data) : []
+  const reasonValueFor = {}
+  reasons.forEach(function (r) {
+    ;(((data['vax-selected-cattle'] || {})[r.value]) || []).forEach(function (id) {
+      if (!reasonValueFor[id]) reasonValueFor[id] = r.value
+    })
+  })
+
+  const pages = vaxSelectPages(buildVaxListRows(TARBH_CPH, 'v1-3'))
+  const cattlePages = pages.map(function (rows, p) {
+    const page = p + 1
+    const listed = rows.filter(function (row) {
+      return vaccinated.includes(row.officialId) || reasonFor[row.officialId]
+    }).map(function (row) {
+      const id = row.officialId
+      let value
+      let href
+      if (vaccinated.includes(id)) {
+        const b = batchOf[id]
+        value = 'Vaccine batch ' + b + ': ' + ((batches[b - 1] || {})['batch-number'] || '')
+        // Picked on a batch screen → that screen; last (or only) batch →
+        // the vaccinated cattle.
+        href = (b < count ? VAX_BATCH_BASE + '/' + b : VAX_VACCINATED_URL)
+      } else {
+        value = reasonFor[id]
+        href = VAX_SELECT_BASE + '/' + reasonValueFor[id]
+      }
+      return {
+        id: id,
+        tag: 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart + row.earTagParts.last4,
+        value: value,
+        // Change opens the animal on its own (11-edit-animal).
+        href: VAX_EDIT_BASE + '/' + encodeURIComponent(id)
+      }
+    })
+    return {
+      page: page,
+      range: rows[0].earTagParts.last4 + ' - ' + rows[rows.length - 1].earTagParts.last4,
+      cattle: listed
+    }
+  }).filter(function (p) { return p.cattle.length })
+
+  res.render(readOnly ? 'vax/v1-6/13-submitted-report' : 'vax/v1-6/10-check-answers', {
+    farm: herdData[TARBH_CPH].farm,
+    vaccinationDate: vaxFormatDate(data['vaccination-date-day'], data['vaccination-date-month'], data['vaccination-date-year']),
+    // Page 3 asks if there are more cattle to vaccinate; the job is
+    // complete when there are not.
+    jobComplete: data['more-cattle'] === 'yes' ? 'No' : (data['more-cattle'] === 'no' ? 'Yes' : ''),
+    batches: batches.map(function (b, i) {
+      return {
+        number: i + 1,
+        batchNumber: b['batch-number'] || '',
+        expiry: vaxFormatDate('', b['expiry-month'], b['expiry-year']),
+        diluentNumber: b['diluent-number'] || '',
+        diluentExpiry: vaxFormatDate('', b['diluent-month'], b['diluent-year'])
+      }
+    }),
+    vaccinatedCount: vaccinated.length,
+    focusId: String((req.query || {}).focus || ''),
+    totalPages: pages.length,
+    cattlePages: cattlePages,
+    readOnly: readOnly,
+    backHref: readOnly
+      ? '/vax/v1-6/2-cphtasklist2'
+      : (count > 1 ? VAX_BATCH_BASE + '/' + (count - 1) + '?page=' + pages.length : '/vax/v1-6/8-vaccine-batch')
+  })
+}
+
+// --- Edit one animal: 11-edit-animal/<ear tag> (Figma 378:16427, 483:23097) --
+//
+// Opened from an animal's Change link on 10-check-answers. "Was animal …
+// vaccinated?" – Yes reveals the batches from 8-vaccine-batch, No reveals
+// the reasons. Continue moves the animal to its new answer everywhere it
+// is recorded (vaccinated list, batch picks, reason picks) and returns to
+// check your answers.
+
+const VAX_EDIT_BASE = '/vax/v1-6/11-edit-animal'
+
+// The reasons offered on the edit screen, in the design's order, with the
+// page 5 wording.
+const VAX_EDIT_REASON_LABELS = {
+  slaughter: 'For slaughter in near future',
+  export: 'Intended for export',
+  germplasm: 'Intended for germplasm production',
+  'not-present': 'Not present on CPH',
+  'keeper-declined': 'Keeper declined vaccination',
+  'clinical-condition': 'Clinical condition prevents vaccination',
+  deceased: 'Animal is deceased',
+  partial: 'Partial vaccine administration',
+  'too-young': 'Too young to vaccinate',
+  'vaccinated-recently': 'Vaccinated in the last 12 months'
+}
+
+function vaxFindAnimal (id) {
+  return buildVaxListRows(TARBH_CPH, 'v1-3').find(function (row) { return row.officialId === id })
+}
+
+router.get(VAX_EDIT_BASE + '/:id', function (req, res) {
+  const data = req.session.data
+  const row = vaxFindAnimal(req.params.id)
+  if (!row) return res.redirect(VAX_CHECK_URL)
+  const id = row.officialId
+  const batches = vaxBatches(data)
+  const perBatch = data['vax-batch-cattle'] || {}
+  const vaccinated = (data['vax-vaccinated-cattle'] || []).includes(id)
+  let batch = ''
+  if (vaccinated) {
+    batch = batches.length
+    for (let b = 1; b < batches.length; b++) if ((perBatch[b] || []).includes(id)) batch = b
+  }
+  const reasons = data['cannot-be-vaccinated'] === 'yes' ? vaxChosenReasons(data) : []
+  const reason = (reasons.find(function (r) {
+    return (((data['vax-selected-cattle'] || {})[r.value]) || []).includes(id)
+  }) || {}).value || ''
+
+  res.render('vax/v1-6/11-edit-animal', {
+    farm: herdData[TARBH_CPH].farm,
+    id: id,
+    tag: 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart + row.earTagParts.last4,
+    vaccinated: vaccinated ? 'yes' : (reason ? 'no' : ''),
+    batch: String(batch),
+    reason: reason,
+    batches: batches.map(function (b, i) { return { number: i + 1, batchNumber: b['batch-number'] || '' } }),
+    reasons: Object.keys(VAX_EDIT_REASON_LABELS).map(function (value) {
+      return { value: value, label: VAX_EDIT_REASON_LABELS[value] }
+    })
+  })
+})
+
+router.post(VAX_EDIT_BASE + '/:id', function (req, res) {
+  const data = req.session.data
+  const body = req.body || {}
+  const row = vaxFindAnimal(req.params.id)
+  ;['edit-vaccinated', 'edit-batch', 'edit-reason'].forEach(function (key) { delete data[key] })
+  if (!row) return res.redirect(VAX_CHECK_URL)
+  if (body.action === 'save-later') return res.redirect('/vax/v1-6/2-cphtasklist2')
+  const id = row.officialId
+  const without = function (list) { return (list || []).filter(function (x) { return x !== id }) }
+
+  // Take the animal out of everything it was recorded against…
+  data['vax-vaccinated-cattle'] = without(data['vax-vaccinated-cattle'])
+  const perBatch = Object.assign({}, data['vax-batch-cattle'])
+  Object.keys(perBatch).forEach(function (b) { perBatch[b] = without(perBatch[b]) })
+  const selected = Object.assign({}, data['vax-selected-cattle'])
+  Object.keys(selected).forEach(function (r) { selected[r] = without(selected[r]) })
+
+  // …then record its new answer.
+  const batches = vaxBatches(data)
+  if (body['edit-vaccinated'] === 'yes') {
+    data['vax-vaccinated-cattle'].push(id)
+    const n = parseInt(body['edit-batch'], 10)
+    // The last batch is whatever is left, so only earlier batches are picked.
+    if (n >= 1 && n < batches.length) perBatch[n] = (perBatch[n] || []).concat(id)
+  } else if (body['edit-vaccinated'] === 'no' && VAX_EDIT_REASON_LABELS[body['edit-reason']]) {
+    const r = body['edit-reason']
+    selected[r] = (selected[r] || []).concat(id)
+    // Make sure the reason is one of the reasons for this visit.
+    const ticked = [].concat(data['not-vaccinated-reason'] || []).filter(function (v) { return v && v !== '_unchecked' })
+    if (!ticked.includes(r)) ticked.push(r)
+    data['not-vaccinated-reason'] = ticked
+    data['cannot-be-vaccinated'] = 'yes'
+  }
+  data['vax-batch-cattle'] = perBatch
+  data['vax-selected-cattle'] = selected
+  // Back to check your answers, focused on the row just edited.
+  res.redirect(VAX_CHECK_URL + '?focus=' + encodeURIComponent(id))
 })
 
 module.exports = router

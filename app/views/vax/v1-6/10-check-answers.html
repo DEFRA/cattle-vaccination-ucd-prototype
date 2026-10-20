@@ -1,0 +1,141 @@
+{% extends "layouts/main.html" %}
+
+{# 10 – Check your answers before submitting vaccination details.
+   Figma "Check your answers" (node 362:13592). Everything on it is read
+   back from the session by the route in routes.js (search for
+   10-check-answers), so this page loops over what it is given; the
+   markup is the GOV.UK summary list.
+
+   Each Change link goes back to the screen the answer came from; the
+   cattle ones open the animal on 11-edit-animal.
+
+   Also used read-only (readOnly) for 13-submitted-report, opened from the
+   completed task on the task list: no Change links and no submit. #}
+
+{% block pageTitle %}
+  {{ "Submitted vaccination report" if readOnly else "Check your answers before submitting vaccination details" }} – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="{{ backHref }}" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
+    <h1 class="govuk-heading-l">{{ "Submitted vaccination report" if readOnly else "Check your answers before submitting vaccination details" }}</h1>
+
+    <h2 class="govuk-heading-m">Vaccine details</h2>
+    <dl class="govuk-summary-list govuk-!-margin-bottom-9">
+      <div class="govuk-summary-list__row">
+        <dt class="govuk-summary-list__key">Date of vaccination</dt>
+        <dd class="govuk-summary-list__value">{{ vaccinationDate }}</dd>
+        {% if not readOnly %}<dd class="govuk-summary-list__actions">
+          <a class="govuk-link" href="/vax/v1-6/3-vaccination-date">Change<span class="govuk-visually-hidden"> date of vaccination</span></a>
+        </dd>{% endif %}
+      </div>
+      <div class="govuk-summary-list__row">
+        <dt class="govuk-summary-list__key">Is the job complete?</dt>
+        <dd class="govuk-summary-list__value">{{ jobComplete }}</dd>
+        {% if not readOnly %}<dd class="govuk-summary-list__actions">
+          <a class="govuk-link" href="/vax/v1-6/3-vaccination-date">Change<span class="govuk-visually-hidden"> whether the job is complete</span></a>
+        </dd>{% endif %}
+      </div>
+      {% for batch in batches %}
+        <div class="govuk-summary-list__row govuk-summary-list__row--no-border">
+          <dt class="govuk-summary-list__key">Vaccine batch number {{ batch.number }}</dt>
+          <dd class="govuk-summary-list__value">{{ batch.batchNumber }}</dd>
+          {% if not readOnly %}<dd class="govuk-summary-list__actions">
+            <a class="govuk-link" href="/vax/v1-6/8-vaccine-batch">Change<span class="govuk-visually-hidden"> vaccine batch {{ batch.number }}</span></a>
+          </dd>{% endif %}
+        </div>
+        <div class="govuk-summary-list__row govuk-summary-list__row--no-border govuk-summary-list__row--no-actions">
+          <dt class="govuk-summary-list__key">Batch {{ batch.number }} expiry date</dt>
+          <dd class="govuk-summary-list__value">{{ batch.expiry }}</dd>
+        </div>
+        <div class="govuk-summary-list__row govuk-summary-list__row--no-border govuk-summary-list__row--no-actions">
+          <dt class="govuk-summary-list__key">Diluent {{ batch.number }} number</dt>
+          <dd class="govuk-summary-list__value">{{ batch.diluentNumber }}</dd>
+        </div>
+        <div class="govuk-summary-list__row govuk-summary-list__row--no-actions">
+          <dt class="govuk-summary-list__key">Diluent {{ batch.number }} expiry date</dt>
+          <dd class="govuk-summary-list__value">{{ batch.diluentExpiry }}</dd>
+        </div>
+      {% endfor %}
+    </dl>
+
+    <h2 class="govuk-heading-m">Vaccinated cattle</h2>
+    <dl class="govuk-summary-list govuk-!-margin-bottom-9">
+      <div class="govuk-summary-list__row">
+        <dt class="govuk-summary-list__key">Cattle vaccinated</dt>
+        <dd class="govuk-summary-list__value">{{ vaccinatedCount }}</dd>
+        {% if not readOnly %}<dd class="govuk-summary-list__actions">
+          <a class="govuk-link" href="/vax/v1-6/7-vaccinated-cattle">Change<span class="govuk-visually-hidden"> cattle vaccinated</span></a>
+        </dd>{% endif %}
+      </div>
+    </dl>
+
+    {% for p in cattlePages %}
+      <h2 class="govuk-heading-m">Page {{ p.page }} of {{ totalPages }} - cattle range {{ p.range }}</h2>
+      <dl class="govuk-summary-list govuk-!-margin-bottom-9">
+        {% for animal in p.cattle %}
+          <div class="govuk-summary-list__row" id="animal-{{ animal.id }}">
+            <dt class="govuk-summary-list__key">{{ animal.tag }}</dt>
+            <dd class="govuk-summary-list__value">{{ animal.value }}</dd>
+            {% if not readOnly %}<dd class="govuk-summary-list__actions">
+              <a class="govuk-link" href="{{ animal.href }}">Change<span class="govuk-visually-hidden"> {{ animal.tag }}</span></a>
+            </dd>{% endif %}
+          </div>
+        {% endfor %}
+      </dl>
+    {% endfor %}
+
+    {% if not readOnly %}
+    <h2 class="govuk-heading-m">Now submit your vaccination details</h2>
+    <p class="govuk-body">By submitting these vaccination details, you are confirming that, to the best of your knowledge, the details you are providing are correct.</p>
+
+    <form action="/vax/v1-6/12-submitted" method="post" novalidate>
+      <div class="govuk-button-group">
+        <button type="submit" class="govuk-button" data-module="govuk-button">Submit vaccination details</button>
+        <button type="submit" formaction="/vax/v1-6/2-cphtasklist2" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and continue later</button>
+      </div>
+    </form>
+    {% else %}
+    <a href="/vax/v1-6/2-cphtasklist2" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">Return to the task list</a>
+    {% endif %}
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+
+<style>
+  /* The row just edited, until focus moves on. */
+  .app-row--found { background: #fff7bf; }
+</style>
+<script>
+  // Back from editing an animal: highlight its row and focus its Change
+  // link, after the GOV.UK scripts have started so nothing takes focus.
+  ;(function () {
+    var focusId = {{ focusId | dump | safe }}
+    if (!focusId) return
+    var row = document.getElementById('animal-' + focusId)
+    if (!row) return
+    var link = row.querySelector('a')
+    row.classList.add('app-row--found')
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        link.focus()
+        row.scrollIntoView({ block: 'center' })
+        link.addEventListener('blur', function () { row.classList.remove('app-row--found') }, { once: true })
+      }, 0)
+    })
+  })()
+</script>
+{% endblock %}

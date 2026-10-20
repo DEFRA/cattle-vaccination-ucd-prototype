@@ -1,0 +1,56 @@
+{% extends "layouts/main.html" %}
+
+{# 12 – Vaccination report submitted. Figma "Success screen" (node
+   378:29606). Reached from "Submit vaccination details" on
+   10-check-answers.
+
+   The design is the part report – page 3 said there are more cattle to
+   vaccinate in this CPH. When the job is complete (page 3 answered No)
+   the heading and text change; that wording is a placeholder until the
+   complete version is designed. The only Nunjucks besides the layout and
+   includes is that one switch. #}
+
+{% block pageTitle %}
+  {% set partReport = data['more-cattle'] != 'no' %}
+  {{ "Part vaccination report submitted" if partReport else "Vaccination report submitted" }} – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block content %}
+{% set partReport = data['more-cattle'] != 'no' %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <div class="govuk-panel govuk-panel--confirmation">
+      <h1 class="govuk-panel__title">
+        {% if partReport %}Part vaccination report submitted{% else %}Vaccination report submitted{% endif %}
+      </h1>
+    </div>
+
+    <p class="govuk-body govuk-!-margin-bottom-0">The data entered has been submitted to APHA.</p>
+    {% if partReport %}
+      <p class="govuk-body">You have reported part of the cattle vaccination. You will need to return to the CPH to complete the vaccinations.</p>
+    {% else %}
+      {# Placeholder – the complete version is not designed yet. #}
+      <p class="govuk-body">You have reported the cattle vaccination for this CPH.</p>
+    {% endif %}
+
+    <h2 class="govuk-heading-m">What happens next</h2>
+    {% if partReport %}
+      <ol class="govuk-list govuk-list--number">
+        <li>A new task has been added to the CPH task list.</li>
+        <li>Create an updated vaccination list before your next visit to the CPH. This list will be a new sheet without the reported vaccinated cattle.</li>
+      </ol>
+    {% else %}
+      {# Placeholder – the complete version is not designed yet. #}
+      <p class="govuk-body">APHA will review the vaccination report.</p>
+    {% endif %}
+
+    <a href="/vax/v1-6/2-cphtasklist2" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">Return to the task list</a>
+
+  </div>
+</div>
+{% endblock %}

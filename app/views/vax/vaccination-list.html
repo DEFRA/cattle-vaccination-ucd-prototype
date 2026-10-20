@@ -150,9 +150,9 @@
     .col-sex     { width: 3rem; text-align: left; }
     .col-breed   { width: 4rem; text-align: left; }
     .col-notes   { text-align: left; }
-    /* Printed notes stay on one line so every row is the same height
-       and each sheet fits on one A4 page. */
-    td.col-notes { white-space: nowrap; }
+    /* Long reasons from a submitted report (e.g. "Not eligible: clinical
+       condition prevents vaccination") wrap onto a second line. */
+    td.col-notes { line-height: 1; padding-top: 1px; padding-bottom: 1px; }
 
     .ear-tag { white-space: nowrap; font-variant-numeric: tabular-nums; }
     .ear-tag__last4 { font-weight: 700; }

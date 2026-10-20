@@ -1,0 +1,427 @@
+{% extends "layouts/main.html" %}
+
+{# The cattle table screens, all from this one template:
+     6-select-cattle/<reason>  Figma "For slaughter" (node 551:17641) –
+                               once for every reason ticked on
+                               5-why-not-vaccinated, with its own heading
+     7-vaccinated-cattle       Figma "Vaccinated cattle" (node 362:4962)
+   The routes are in routes.js (search for 6-select-cattle), which also
+   list the headings. Cattle that can't be picked on a screen are greyed
+   out, ticked and locked: on the reason screens, cattle picked for
+   another reason; on the vaccinated screen, cattle given a reason.
+
+   The cattle, page and heading change from screen to screen, so this
+   page uses Nunjucks loops; everything else is plain GOV.UK HTML.
+
+   Every button and page number sends the form, so the ticks on screen
+   are saved before moving on (see "Selected animals will be saved as you
+   progress").
+
+   Ear tag search: an autocomplete over every animal on the holding,
+   matching the last 4 digits only. Picking an animal ticks it for this
+   reason, goes to its page and focuses its row. Without JavaScript the
+   plain search box and Search button below are used instead; the Search
+   button comes first in the form so pressing Enter searches rather than
+   continuing. #}
+
+{% block pageTitle %}
+  {% if errorMessage %}Error: {% endif %}{{ heading }} – GOV.UK
+{% endblock %}
+
+{% block stylesheets %}
+  {{ super() }}
+  {# GOV.UK accessible autocomplete, vendored into app/assets. #}
+  <link rel="stylesheet" href="/public/stylesheets/vendor/accessible-autocomplete.min.css">
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="{{ backHref }}" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Page numbers are buttons so moving page saves the ticks; make them
+     look like the GOV.UK pagination links. */
+  .app-pagination-button {
+    font: inherit;
+    color: #1d70b8;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-thickness: max(1px, .0625rem);
+    text-underline-offset: .1578em;
+  }
+  /* GOV.UK only colours pagination *links*, so set its colours here:
+     blue, darker blue on hover, white on the current page's blue block,
+     and black on yellow when focused. */
+  .app-pagination-button:hover { color: #003078; text-decoration-thickness: max(3px, .1875rem); }
+  .govuk-pagination__item--current .app-pagination-button { color: #ffffff; text-decoration: none; }
+  .app-pagination-button:focus { color: #0b0c0c; text-decoration: none; }
+  .app-search { display: flex; align-items: flex-end; gap: 10px; }
+  .app-search .govuk-form-group { margin-bottom: 0; flex: 0 0 auto; }
+  .app-select-table .govuk-table__cell,
+  .app-select-table .govuk-table__header { vertical-align: middle; }
+  .app-select-table .govuk-checkboxes__item { margin-bottom: 0; }
+  /* Ear tags never wrap, even when the error border narrows the table. */
+  .app-select-table .govuk-checkboxes__label { white-space: nowrap; }
+  .app-row-number { width: 40px; text-align: center; font-weight: 700; }
+  /* Shared last 4 digits – a bar above and below, as on the printed list. */
+  .app-last4--duplicate {
+    border-top: 3px solid #0b0c0c;
+    border-bottom: 3px solid #0b0c0c;
+  }
+  .app-select-all[hidden] { display: none; }
+  .app-search .autocomplete__wrapper { width: 20em; max-width: 100%; }
+  .app-search .autocomplete__option strong { font-weight: 700; }
+  /* The autocomplete sits outside GOV.UK's typography, so give the box
+     and its dropdown the GOV.UK font and body size (as the other
+     autocompletes in this prototype do). */
+  .autocomplete__input,
+  .autocomplete__hint,
+  .autocomplete__menu,
+  .autocomplete__option {
+    font-family: "GDS Transport", arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-weight: 400;
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+  @media (min-width: 40.0625em) {
+    .autocomplete__input,
+    .autocomplete__hint,
+    .autocomplete__menu,
+    .autocomplete__option {
+      font-size: 1.1875rem;
+      line-height: 1.31579;
+    }
+  }
+  .autocomplete__input { background-color: #ffffff; }
+  /* The row picked from the search, until focus moves on. */
+  .app-row--found .govuk-table__cell { background: #fff7bf; }
+  /* Already picked under another reason: greyed out, ticked and locked. */
+  .app-row--taken .govuk-table__cell { background: #f3f2f1; color: #505a5f; }
+  .app-row--taken .govuk-checkboxes__label { color: #505a5f; }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% if errorMessage %}
+      <div class="govuk-error-summary" data-module="govuk-error-summary">
+        <div role="alert">
+          <h2 class="govuk-error-summary__title">There is a problem</h2>
+          <div class="govuk-error-summary__body">
+            <ul class="govuk-list govuk-error-summary__list">
+              <li><a href="{{ errorHref }}">{{ errorMessage }}</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
+    <h1 class="govuk-heading-l">{{ heading }}</h1>
+  </div>
+</div>
+
+<form method="post" action="{{ formAction }}" novalidate>
+  <input type="hidden" name="shown" value="{{ shownIds }}">
+  <input type="hidden" name="back" value="{{ backHref }}">
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <div class="app-search">
+        <div class="govuk-form-group">
+          <label class="govuk-label" for="search">Search for an official ear tag number</label>
+          <div id="search-hint" class="govuk-hint">Enter the last 4 digits</div>
+          <div id="search-autocomplete"></div>
+          <input class="govuk-input govuk-input--width-5 js-search-fallback" id="search" name="search" type="text" inputmode="numeric" maxlength="4" value="{{ search }}" aria-describedby="search-hint">
+        </div>
+        <button type="submit" name="action" value="search" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0 js-search-fallback" data-module="govuk-button">Search</button>
+        <input type="hidden" name="pick" value="" id="pick">
+      </div>
+
+      <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible">
+    </div>
+  </div>
+
+  {# Built once, shown above and below the table. #}
+  {% set paginationHtml %}
+    {% if not search and totalPages > 1 %}
+      <nav class="govuk-pagination" aria-label="Pages">
+        {% if pageNumber > 1 %}
+          <div class="govuk-pagination__prev">
+            <button type="submit" name="goto" value="{{ pageNumber - 1 }}" class="govuk-link govuk-pagination__link app-pagination-button">
+              <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13"><path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.449-4.1856-3.9768h12.896v-2h-12.984l4.2931-4.293-1.414-1.414z"></path></svg>
+              <span class="govuk-pagination__link-title">Previous<span class="govuk-visually-hidden"> page</span></span>
+            </button>
+          </div>
+        {% endif %}
+        <ul class="govuk-pagination__list">
+          {% for item in paginationItems %}
+            {% if item.ellipsis %}
+              <li class="govuk-pagination__item govuk-pagination__item--ellipses">&ctdot;</li>
+            {% else %}
+              <li class="govuk-pagination__item{% if item.current %} govuk-pagination__item--current{% endif %}">
+                <button type="submit" name="goto" value="{{ item.number }}" class="govuk-link govuk-pagination__link app-pagination-button" aria-label="Page {{ item.number }}"{% if item.current %} aria-current="page"{% endif %}>{{ item.number }}</button>
+              </li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+        {% if pageNumber < totalPages %}
+          <div class="govuk-pagination__next">
+            <button type="submit" name="goto" value="{{ pageNumber + 1 }}" class="govuk-link govuk-pagination__link app-pagination-button">
+              <span class="govuk-pagination__link-title">Next<span class="govuk-visually-hidden"> page</span></span>
+              <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13"><path d="m8.107-0.0078125-1.4136 1.414 4.2926 4.293h-12.986v2h12.896l-4.1855 3.9766 1.377 1.4492 6.7441-6.4062-6.7246-6.7266z"></path></svg>
+            </button>
+          </div>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% endset %}
+
+  {{ paginationHtml | safe }}
+
+  {% if search %}
+    <h2 class="govuk-heading-m">Search results for ‘{{ search }}’: {{ rows | length }} {{ "animal" if rows | length == 1 else "cattle" }}</h2>
+    <p class="govuk-body">
+      <button type="submit" name="action" value="clear-search" class="govuk-link app-pagination-button">Clear search and show all cattle</button>
+    </p>
+  {% else %}
+    <h2 class="govuk-heading-m">Page {{ pageNumber }} - cattle range {{ rangeLabel }}</h2>
+  {% endif %}
+
+  {# At least one animal is needed (batch screens): shown after Continue. #}
+  <div class="govuk-form-group{% if errorMessage %} govuk-form-group--error{% endif %}">
+  {% if errorMessage %}
+    <p id="cattle-error" class="govuk-error-message">
+      <span class="govuk-visually-hidden">Error:</span> {{ errorMessage }}
+    </p>
+  {% endif %}
+  {% if rows | length %}
+    <div class="govuk-checkboxes app-select-all" data-module="govuk-checkboxes" hidden>
+      <div class="govuk-checkboxes__item">
+        <input class="govuk-checkboxes__input" id="select-all" type="checkbox">
+        <label class="govuk-label govuk-checkboxes__label" for="select-all">
+          Select all cattle {{ "in these results" if search else "on page " + pageNumber }}
+        </label>
+      </div>
+    </div>
+
+    <table class="govuk-table app-select-table">
+      <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+          <th scope="col" class="govuk-table__header app-row-number">No.</th>
+          <th scope="col" class="govuk-table__header">Select ear tag number</th>
+          <th scope="col" class="govuk-table__header">Comments</th>
+          <th scope="col" class="govuk-table__header">Date of birth</th>
+          <th scope="col" class="govuk-table__header">Sex</th>
+          <th scope="col" class="govuk-table__header">Breed</th>
+        </tr>
+      </thead>
+      <tbody class="govuk-table__body">
+        {% for row in rows %}
+          <tr class="govuk-table__row{% if row.locked %} app-row--taken{% endif %}">
+            <td class="govuk-table__cell app-row-number">{{ row.number }}</td>
+            <td class="govuk-table__cell">
+              <div class="govuk-checkboxes" data-module="govuk-checkboxes">
+                <div class="govuk-checkboxes__item">
+                  <input class="govuk-checkboxes__input js-cattle" id="cattle-{{ row.officialId }}" name="cattle" type="checkbox" value="{{ row.officialId }}"{% if row.checked %} checked{% endif %}{% if row.locked %} disabled{% if row.takenFor %} aria-describedby="cattle-{{ row.officialId }}-taken"{% endif %}{% endif %}>
+                  <label class="govuk-label govuk-checkboxes__label" for="cattle-{{ row.officialId }}">
+                    UK {{ row.earTagParts.herd }}{{ row.earTagParts.check }}{{ row.earTagParts.individualStart }}<span class="{% if row.isDuplicate %}app-last4--duplicate{% endif %}"{% if row.isDuplicate %} title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
+                  </label>
+                </div>
+              </div>
+            </td>
+            <td class="govuk-table__cell">
+              {% if row.takenFor %}<span id="cattle-{{ row.officialId }}-taken">{{ row.takenFor }}</span>{% if row.note and row.note != row.takenFor %}<br>{% endif %}{% endif %}
+              {% if row.note != row.takenFor %}{{ row.note }}{% endif %}
+            </td>
+            <td class="govuk-table__cell">{{ row.dobShort }}</td>
+            <td class="govuk-table__cell">{{ row.sexLabel }}</td>
+            <td class="govuk-table__cell">{{ row.breed }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="govuk-body">No cattle on this farm have an ear tag containing ‘{{ search }}’.</p>
+  {% endif %}
+  </div>
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {# Live feedback: updates as boxes are ticked and is announced in full
+         ("Number of cattle selected on page 1: 3"), so it is a status
+         message styled as a heading, not a heading. The line below it is a
+         static instruction and sits outside the live region. #}
+      <p class="govuk-heading-m govuk-!-margin-bottom-2" id="selected-status" role="status" aria-live="polite" aria-atomic="true">
+        Number of cattle selected {{ "in these results" if search else "on page " + pageNumber }}: <span id="selected-count">{{ selectedOnPage }}</span>
+      </p>
+      <p class="govuk-body-s">Selected animals will be saved as you progress.</p>
+    </div>
+  </div>
+
+  {{ paginationHtml | safe }}
+
+  <div class="govuk-button-group">
+    <button type="submit" name="action" value="continue" class="govuk-button" data-module="govuk-button">Continue and save</button>
+    <button type="submit" name="action" value="save-later" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and continue later</button>
+  </div>
+</form>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    {% include "includes/vax/contact-us-for-help.html" %}
+  </div>
+</div>
+
+<script>
+  // Live count of ticked cattle, and a "select all" box for the cattle on
+  // screen (only shown when this script runs).
+  (function () {
+    // Cattle already picked for another reason are locked, so they are
+    // left out of the count and of "select all".
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('.js-cattle:not(:disabled)'))
+    var count = document.getElementById('selected-count')
+    var selectAllWrap = document.querySelector('.app-select-all')
+    var selectAll = document.getElementById('select-all')
+    if (!boxes.length) return
+
+    function update () {
+      var ticked = boxes.filter(function (b) { return b.checked }).length
+      // Only touch the live region when the number changes, so nothing is
+      // announced when the page first loads.
+      if (count.textContent !== String(ticked)) count.textContent = ticked
+      selectAll.checked = ticked === boxes.length
+    }
+    selectAllWrap.hidden = false
+    selectAll.addEventListener('change', function () {
+      boxes.forEach(function (b) { b.checked = selectAll.checked })
+      update()
+    })
+    boxes.forEach(function (b) { b.addEventListener('change', update) })
+    update()
+  })()
+
+  // Save as you go: every tick is saved in the background, so nothing is
+  // lost by moving away – including with the browser's Back button. The
+  // Back link also sends the form, so the server saves before going back.
+  ;(function () {
+    var form = document.querySelector('input[name="shown"]').form
+    function send (action, keepalive) {
+      var body = new URLSearchParams(new FormData(form))
+      body.set('action', action)
+      // getAttribute: the buttons named "action" hide form.action.
+      return fetch(form.getAttribute('action'), { method: 'POST', body: body, keepalive: !!keepalive, credentials: 'same-origin' })
+    }
+    var pending = null
+    form.addEventListener('change', function (event) {
+      if (!event.target.classList.contains('js-cattle') && event.target.id !== 'select-all') return
+      // "Select all" changes many boxes at once – send once, after they settle.
+      clearTimeout(pending)
+      pending = setTimeout(function () { send('autosave', true) }, 150)
+    })
+    var back = document.querySelector('.govuk-back-link')
+    if (back) {
+      back.addEventListener('click', function (event) {
+        event.preventDefault()
+        clearTimeout(pending)
+        var action = document.createElement('input')
+        action.type = 'hidden'
+        action.name = 'action'
+        action.value = 'back'
+        form.appendChild(action)
+        form.submit()
+      })
+    }
+  })()
+</script>
+
+<script src="/public/javascripts/vendor/accessible-autocomplete.min.js"></script>
+<script>
+  // Ear tag autocomplete. Matches the last 4 digits of every animal on
+  // the holding; picking one sends the form (saving the ticks on screen),
+  // ticks that animal and opens its page focused on its row.
+  (function () {
+    var cattle = {{ searchIndex | dump | safe }}
+    var form = document.getElementById('search').form
+    var mount = document.getElementById('search-autocomplete')
+    if (!window.accessibleAutocomplete || !mount) return
+
+    // Swap the plain search box and button for the autocomplete.
+    Array.prototype.forEach.call(document.querySelectorAll('.js-search-fallback'), function (el) {
+      el.parentNode.removeChild(el)
+    })
+
+    function detail (animal) {
+      if (animal.locked) return animal.takenFor
+      return 'row ' + animal.number + ', page ' + animal.page + (animal.picked ? ' – already selected' : '')
+    }
+
+    window.accessibleAutocomplete({
+      element: mount,
+      id: 'search',
+      minLength: 1,
+      autoselect: false,
+      showNoOptionsFound: true,
+      displayMenu: 'overlay',
+      tNoResults: function () { return 'No cattle on this CPH end in those digits' },
+      source: function (query, populate) {
+        var q = String(query || '').replace(/\D/g, '')
+        if (!q || q.length > 4) return populate([])
+        populate(cattle.filter(function (animal) { return animal.last4.indexOf(q) === 0 }))
+      },
+      templates: {
+        inputValue: function (animal) { return animal ? animal.last4 : '' },
+        suggestion: function (animal) {
+          if (typeof animal === 'string') return animal
+          return animal.prefix + '<strong>' + animal.last4 + '</strong> – ' + detail(animal)
+        }
+      },
+      onConfirm: function (animal) {
+        if (!animal || !animal.id) return
+        document.getElementById('pick').value = animal.id
+        var action = document.createElement('input')
+        action.type = 'hidden'
+        action.name = 'action'
+        action.value = 'pick'
+        form.appendChild(action)
+        form.submit()
+      }
+    })
+
+    var input = document.getElementById('search')
+    input.setAttribute('aria-describedby', 'search-hint')
+    input.setAttribute('inputmode', 'numeric')
+    // Enter only ever chooses from the list - never sends the form via
+    // the first button on the page (a page number).
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') event.preventDefault()
+    })
+  })()
+
+  // Arriving from the search: focus the picked animal's row.
+  ;(function () {
+    var focusId = {{ focusId | dump | safe }}
+    if (!focusId) return
+    var box = document.getElementById('cattle-' + focusId)
+    if (!box) return
+    var row = box.closest('tr')
+    row.classList.add('app-row--found')
+    // After the GOV.UK scripts have started, so nothing takes focus back.
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        box.focus()
+        row.scrollIntoView({ block: 'center' })
+        box.addEventListener('blur', function () { row.classList.remove('app-row--found') }, { once: true })
+      }, 0)
+    })
+  })()
+</script>
+{% endblock %}

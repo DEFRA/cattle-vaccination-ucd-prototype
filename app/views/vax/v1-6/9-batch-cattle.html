@@ -1,0 +1,7 @@
+{# 9 – Select all cattle vaccinated with vaccine batch N (Figma node
+   362:12363). Shown for every batch except the last when more than one
+   batch was entered on 8-vaccine-batch; the vaccinated cattle not picked
+   are the last batch. The same cattle table as 6-select-cattle, so it uses
+   that template; the route in routes.js (search for 9-batch-cattle) sets
+   the heading and which cattle can be picked. #}
+{% extends "vax/v1-6/6-select-cattle.html" %}

@@ -1,0 +1,161 @@
+{% extends "layouts/main.html" %}
+
+{# 11 – Edit one animal from check your answers. Figma "Animal" (Yes:
+   node 378:16427, No: node 483:23097). GOV.UK radios with conditional
+   reveals: Yes shows the vaccine batches, No shows the reasons. The route
+   in routes.js (search for 11-edit-animal) fills in the animal, its
+   current answer and the batches, and saves the change.
+
+   Error messages are written out below and hidden; the script at the
+   bottom shows the one that applies. #}
+
+{% block pageTitle %}
+  Animal: {{ tag }} – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="/vax/v1-6/10-check-answers" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  .govuk-error-message[hidden], .govuk-error-summary[hidden] { display: none; }
+  /* The follow-up questions read as plain labels in the design. */
+  .app-legend-regular { font-weight: 400; }
+</style>
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <div class="govuk-error-summary" id="error-summary" tabindex="-1" hidden>
+      <div role="alert">
+        <h2 class="govuk-error-summary__title">There is a problem</h2>
+        <div class="govuk-error-summary__body">
+          <ul class="govuk-list govuk-error-summary__list">
+            <li id="error-summary-item"><a href="#edit-vaccinated"></a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
+    <h1 class="govuk-heading-l">Animal: {{ tag }}</h1>
+
+    <form id="edit-form" action="/vax/v1-6/11-edit-animal/{{ id }}" method="post" novalidate>
+
+      <div class="govuk-form-group" id="edit-vaccinated-group">
+        <fieldset class="govuk-fieldset">
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
+            <h2 class="govuk-fieldset__heading">Was animal {{ tag }} vaccinated?</h2>
+          </legend>
+          <p id="edit-vaccinated-error" class="govuk-error-message" hidden>
+            <span class="govuk-visually-hidden">Error:</span> Select yes if animal {{ tag }} was vaccinated
+          </p>
+          <div class="govuk-radios" data-module="govuk-radios">
+
+            <div class="govuk-radios__item">
+              <input class="govuk-radios__input" id="edit-vaccinated" name="edit-vaccinated" type="radio" value="yes" data-aria-controls="conditional-yes"{% if vaccinated == 'yes' %} checked{% endif %}>
+              <label class="govuk-label govuk-radios__label" for="edit-vaccinated">Yes</label>
+            </div>
+            <div class="govuk-radios__conditional govuk-radios__conditional--hidden" id="conditional-yes">
+              <div class="govuk-form-group" id="edit-batch-group">
+                <fieldset class="govuk-fieldset">
+                  <legend class="govuk-fieldset__legend govuk-fieldset__legend--s app-legend-regular">Which vaccination batch did you use?</legend>
+                  <p id="edit-batch-error" class="govuk-error-message" hidden>
+                    <span class="govuk-visually-hidden">Error:</span> Select which vaccination batch you used
+                  </p>
+                  <div class="govuk-radios" data-module="govuk-radios">
+                    {% for b in batches %}
+                      <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="edit-batch{% if not loop.first %}-{{ b.number }}{% endif %}" name="edit-batch" type="radio" value="{{ b.number }}"{% if batch == b.number | string %} checked{% endif %}>
+                        <label class="govuk-label govuk-radios__label" for="edit-batch{% if not loop.first %}-{{ b.number }}{% endif %}">Batch {{ b.number }}: {{ b.batchNumber }}</label>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </fieldset>
+              </div>
+            </div>
+
+            <div class="govuk-radios__item">
+              <input class="govuk-radios__input" id="edit-vaccinated-no" name="edit-vaccinated" type="radio" value="no" data-aria-controls="conditional-no"{% if vaccinated == 'no' %} checked{% endif %}>
+              <label class="govuk-label govuk-radios__label" for="edit-vaccinated-no">No</label>
+            </div>
+            <div class="govuk-radios__conditional govuk-radios__conditional--hidden" id="conditional-no">
+              <div class="govuk-form-group" id="edit-reason-group">
+                <fieldset class="govuk-fieldset">
+                  <legend class="govuk-fieldset__legend govuk-fieldset__legend--s app-legend-regular">Why wasn’t the animal vaccinated?</legend>
+                  <p id="edit-reason-error" class="govuk-error-message" hidden>
+                    <span class="govuk-visually-hidden">Error:</span> Select why the animal wasn’t vaccinated
+                  </p>
+                  <div class="govuk-radios" data-module="govuk-radios">
+                    {% for r in reasons %}
+                      <div class="govuk-radios__item">
+                        <input class="govuk-radios__input" id="edit-reason{% if not loop.first %}-{{ r.value }}{% endif %}" name="edit-reason" type="radio" value="{{ r.value }}"{% if reason == r.value %} checked{% endif %}>
+                        <label class="govuk-label govuk-radios__label" for="edit-reason{% if not loop.first %}-{{ r.value }}{% endif %}">{{ r.label }}</label>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </fieldset>
+              </div>
+            </div>
+
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="govuk-button-group">
+        <button type="submit" name="action" value="continue" class="govuk-button" data-module="govuk-button">Continue and save</button>
+        <button type="submit" name="action" value="save-later" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-save-later>Save and continue later</button>
+      </div>
+    </form>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+
+<script>
+  // Show the error for whichever question is unanswered.
+  (function () {
+    var form = document.getElementById('edit-form')
+    var summary = document.getElementById('error-summary')
+    var summaryLink = document.querySelector('#error-summary-item a')
+    var baseTitle = document.title.replace(/^Error: /, '')
+    var groups = ['edit-vaccinated', 'edit-batch', 'edit-reason']
+
+    function clear () {
+      groups.forEach(function (name) {
+        document.getElementById(name + '-group').classList.remove('govuk-form-group--error')
+        document.getElementById(name + '-error').hidden = true
+      })
+    }
+    function show (name, firstId) {
+      document.getElementById(name + '-group').classList.add('govuk-form-group--error')
+      var message = document.getElementById(name + '-error')
+      message.hidden = false
+      summaryLink.textContent = message.textContent.replace(/^\s*Error:\s*/, '').trim()
+      summaryLink.setAttribute('href', '#' + firstId)
+    }
+
+    form.addEventListener('submit', function (event) {
+      if (event.submitter && event.submitter.hasAttribute('data-save-later')) return
+      clear()
+      var answer = form.querySelector('input[name="edit-vaccinated"]:checked')
+      var problem = null
+      if (!answer) problem = ['edit-vaccinated', 'edit-vaccinated']
+      else if (answer.value === 'yes' && !form.querySelector('input[name="edit-batch"]:checked')) problem = ['edit-batch', 'edit-batch']
+      else if (answer.value === 'no' && !form.querySelector('input[name="edit-reason"]:checked')) problem = ['edit-reason', 'edit-reason']
+      if (!problem) return
+      event.preventDefault()
+      show(problem[0], problem[1])
+      summary.hidden = false
+      document.title = 'Error: ' + baseTitle
+      summary.focus()
+      window.scrollTo(0, 0)
+    })
+  })()
+</script>
+{% endblock %}
