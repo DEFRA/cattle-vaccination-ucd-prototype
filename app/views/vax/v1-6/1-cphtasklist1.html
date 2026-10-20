@@ -63,10 +63,11 @@
 </div>
 
 <script>
-  // "Create vaccination list" reloads the page: keep the vet where they were
-  // rather than back at the top. The scroll position is remembered as the
-  // form is sent and put back on the next page; focus returns to the button,
-  // or to the "still up to date" message when one is shown.
+  // "Create vaccination list" reloads the page. When the "still up to
+  // date" message is shown, focus moves to it (scrolling it into view) so
+  // it is seen and read out. Otherwise the vet stays where they were: the
+  // scroll position remembered as the form was sent is put back and focus
+  // returns to the button.
   ;(function () {
     var form = document.querySelector('form[action="/vax/v1-6/create-vaccination-list"]')
     if (!form) return
@@ -79,9 +80,13 @@
     window.addEventListener('load', function () {
       setTimeout(function () {
         var banner = document.querySelector('.govuk-notification-banner')
-        var target = banner || form.querySelector('button')
-        if (banner) banner.setAttribute('tabindex', '-1')
-        target.focus({ preventScroll: true })
+        if (banner) {
+          banner.setAttribute('tabindex', '-1')
+          banner.focus()
+          banner.scrollIntoView({ block: 'center' })
+          return
+        }
+        form.querySelector('button').focus({ preventScroll: true })
         window.scrollTo(0, Number(saved))
       }, 0)
     })
