@@ -12471,7 +12471,7 @@ function vaxApplyReportNotes (rows, data) {
 
 // -----------------------------------------------------------------------------
 // Create vaccination list – from the task list pages. Each press makes a
-// new, independent list: its date and every animal's note as they are at
+// new, independent list (unless the latest one is still up to date): its date and every animal's note as they are at
 // that moment (including any submitted report's notes). The task list
 // shows them newest first, each opening its own /vax/vaccination-list?list=N,
 // which always shows exactly what it did when it was made.
@@ -12485,8 +12485,30 @@ router.post('/vax/v1-6/create-vaccination-list', function (req, res) {
   vaxApplyReportNotes(buildVaxListRows(TARBH_CPH, 'v1-3'), data).forEach(function (row) {
     if (row.note) notes[row.officialId] = row.note
   })
-  data['vax-lists'] = (data['vax-lists'] || []).concat({ date: today, notes: notes })
-  res.redirect('/vax/v1-6/2-cphtasklist2')
+  // Only make a new list if the latest one is out of date – some animal's
+  // note would now be different (a report submitted since, a calf no
+  // longer too young…). Otherwise say the latest list is still current.
+  const lists = data['vax-lists'] || []
+  const latest = lists[lists.length - 1]
+  const same = function (a, b) {
+    const keys = Object.keys(a)
+    return keys.length === Object.keys(b).length && keys.every(function (k) { return a[k] === b[k] })
+  }
+  if (latest && latest.notes && same(latest.notes, notes)) {
+    req.session.vaxListMessage = 'up-to-date'
+  } else {
+    data['vax-lists'] = lists.concat({ date: today, notes: notes })
+  }
+  // Back at the lists section (the page script restores the exact scroll
+  // position when it can).
+  res.redirect('/vax/v1-6/2-cphtasklist2#vaccination-lists')
+})
+
+// Show the "still up to date" message once, then let the kit render the page.
+router.get('/vax/v1-6/2-cphtasklist2', function (req, res, next) {
+  res.locals.listUpToDate = req.session.vaxListMessage === 'up-to-date'
+  delete req.session.vaxListMessage
+  next()
 })
 
 // -----------------------------------------------------------------------------
