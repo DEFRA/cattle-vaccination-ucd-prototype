@@ -453,7 +453,10 @@ const herdData = {
   // Riverside Farm – main holding + dairy unit + beef finishing unit
   '12/352/6808':    { cph: '12/352/6808',    farm: 'Riverside Farm', address: 'Riverside Farm, Tadcaster, LS24 9UV',            cattle: '300', holdingLabel: 'Main holding' },
   '12/352/6808-01': { cph: '12/352/6808-01', farm: 'Riverside Farm', address: 'Riverside Dairy Unit, Tadcaster, LS24 9UV',      cattle: '130', holdingLabel: 'Dairy unit' },
-  '12/352/6808-02': { cph: '12/352/6808-02', farm: 'Riverside Farm', address: 'Riverside Beef Finishing Unit, Tadcaster, LS24 9UV', cattle: '82',  holdingLabel: 'Beef finishing unit' }
+  '12/352/6808-02': { cph: '12/352/6808-02', farm: 'Riverside Farm', address: 'Riverside Beef Finishing Unit, Tadcaster, LS24 9UV', cattle: '82',  holdingLabel: 'Beef finishing unit' },
+  // Tarbh Farm – 122 cattle aged up to 15 years, 5% of them calves under
+  // 21 days old (see the Tarbh Farm block after v11AnimalsByCph).
+  '12/385/6809': { cph: '12/385/6809', farm: 'Tarbh Farm', address: 'Tarbh Farm, Helmsley, YO62 7TB', cattle: '122' }
 }
  
 function searchResultsForTerm(search) {
@@ -855,7 +858,8 @@ const v11HerdMarks = {
   '17/218/6805': { mark: '135791', check: '3' },
   '12/355/6806': { mark: '579135', check: '6' },
   '12/370/6807': { mark: '813579', check: '9' },
-  '12/352/6808': { mark: '183483', check: '7' }
+  '12/352/6808': { mark: '183483', check: '7' },
+  '12/385/6809': { mark: '518273', check: '4' }
 }
 
 const v11Breeds = ['HF', 'BF', 'AAX', 'LIM', 'CH', 'SIM', 'HER', 'BB', 'BALX', 'DS']
@@ -896,7 +900,8 @@ const v11FarmTbStatus = {
   '17/218/6805': { status: 'OTFW', lastTestDate: '8 April 2025',      lastBreakdown: '1 April 2025' },
   '12/355/6806': { status: 'OTF',  lastTestDate: '16 August 2025',    lastBreakdown: 'None recorded' },
   '12/370/6807': { status: 'OTF',  lastTestDate: '3 May 2025',        lastBreakdown: '21 February 2022' },
-  '12/352/6808': { status: 'OTF',  lastTestDate: '30 January 2025',   lastBreakdown: 'None recorded' }
+  '12/352/6808': { status: 'OTF',  lastTestDate: '30 January 2025',   lastBreakdown: 'None recorded' },
+  '12/385/6809': { status: 'OTF',  lastTestDate: '12 March 2026',     lastBreakdown: 'None recorded' }
 }
 
 function getV11TbStatusForCph(cph) {
@@ -1091,6 +1096,14 @@ const v12FarmDetails = {
     riskArea: 'Edge', testInterval: 'Annual',
     nextSkinTest: 'February 2026', nextSkinTestOverdue: true,
     vaccinationStatus: 'Mixed', vaccinationBooster: 'Due August 2026'
+  },
+  // Tarbh Farm – 122 cattle, mixed, with young calves on the ground
+  '12/385/6809': {
+    bulls: 4, type: 'Mixed', contact: 'Ewan Tarbet', phone: '07416 330 982',
+    lastTbTestDay2: '12 March 2026', lastTbTestType: 'Whole herd test',
+    riskArea: 'High', testInterval: 'Annual',
+    nextSkinTest: 'March 2027', nextSkinTestOverdue: false,
+    vaccinationStatus: 'Not vaccinated', vaccinationBooster: 'Not due'
   }
 }
 
@@ -1301,6 +1314,52 @@ function buildV11Dataset() {
 
 // Build the v1-1 dataset once at module load time.
 const v11AnimalsByCph = buildV11Dataset()
+
+// Tarbh Farm: the generator's ear tags, breeds and sexes, but its own
+// ages – anything from a few days to 15 years old, weighted towards
+// younger stock, with 5% of the herd (6 of 122) calves under 21 days
+// old, spread through the herd. Ages count back from the day the kit
+// starts, and the calves sit at 3–17 days so a long-running instance
+// stays under 21. A further 10% (12) were BCG vaccinated 2 weeks to 11
+// months ago, so they are not eligible again yet; each has a full
+// vaccinatedOn date plus the MM/YY vaccinationDate the rest of the
+// prototype reads. Set here, before v1-2+ copy the v1-1 herds.
+const TARBH_CPH = '12/385/6809'
+if (v11AnimalsByCph[TARBH_CPH]) {
+  const rng = v11Mulberry32(v11Hash(TARBH_CPH + ':dob'))
+  const herd = v11AnimalsByCph[TARBH_CPH]
+  const youngCount = Math.round(herd.length * 0.05)
+  const youngStep = Math.floor(herd.length / youngCount)
+  const vaccinatedCount = Math.round(herd.length * 0.10)
+  const MAX_DAYS = 15 * 365
+  v11AnimalsByCph[TARBH_CPH] = herd.map(function (a, i) {
+    const isYoung = i % youngStep === 7 && Math.floor(i / youngStep) < youngCount
+    // Every 10th animal from the 4th – never one of the young calves.
+    const isVaccinated = !isYoung && i % 10 === 3 && Math.floor(i / 10) < vaccinatedCount
+    let daysOld = isYoung
+      ? 3 + Math.floor(rng() * 15)
+      : 21 + Math.floor(Math.pow(rng(), 1.6) * (MAX_DAYS - 21))
+    const changes = { vaccinationStatus: 'Not vaccinated', vaccinationDate: '' }
+    if (isVaccinated) {
+      const vaxDaysAgo = 14 + Math.floor(rng() * 316)
+      // Old enough to have been vaccinated at the time.
+      if (daysOld < vaxDaysAgo + 60) daysOld = vaxDaysAgo + 60 + Math.floor(rng() * 700)
+      const vaccinatedOn = v5DaysAgo(vaxDaysAgo)
+      changes.vaccinationStatus = 'Vaccinated'
+      changes.vaccinatedOn = vaccinatedOn
+      changes.vaccinationDate = vaccinatedOn.slice(3, 5) + '/' + vaccinatedOn.slice(8, 10)
+    }
+    changes.dob = v5DaysAgo(daysOld)
+    changes.age = Math.floor(daysOld / 30.44)
+    // Retag one animal so three tags end in 0100 and, sorted by last 4,
+    // sit at rows 20–22 of the list: a shared last-4 group split across
+    // the page 1 / page 2 break.
+    if (a.officialId === 'UK518273400097') {
+      changes.officialId = changes.earTagNumber = changes.barcode = 'UK518273410100'
+    }
+    return Object.assign({}, a, changes)
+  })
+}
 
 // v1-2 dataset: same as v1-1 except for per-farm overrides where v1-2
 // has diverged. Mill House Farm in v1-2 marks a hand-picked set of
@@ -1680,7 +1739,8 @@ function buildVaccinationListRows (selectedCattleV12, sortByV12, version) {
         isVaccinated: enrichedV12[idx].isVaccinated,
         vaccinationDate: enrichedV12[idx].vaccinationDate,
         isRecentlyVaccinated: enrichedV12[idx].isRecentlyVaccinated,
-        eligibilityLabel: enrichedV12[idx].eligibilityLabel
+        eligibilityLabel: enrichedV12[idx].eligibilityLabel,
+        vaccinatedOn: enrichedV12[idx].vaccinatedOn
       })
     })
 }
@@ -12336,25 +12396,25 @@ registerSkinTestRoutes('v1-5')
 // a new tab and printed (or saved as PDF from the print dialog).
 //
 // Query string, all optional:
-//   cph      farm to list, e.g. ?cph=12/345/6789 (defaults to the farm
-//            picked in the journey, then Hill Farm)
+//   cph      farm to list, e.g. ?cph=12/345/6789 (defaults to Tarbh Farm)
 //   perPage  cattle on each sheet: 25 (default), 20 or 40
 //   version  which herd data to use (defaults to v1-3)
 // -----------------------------------------------------------------------------
 router.get('/vax/vaccination-list', function (req, res) {
   const query = req.query || {}
-  const cph = [query.cph, req.session.data.selectedCattle, '12/345/6789']
+  const cph = [query.cph, TARBH_CPH]
     .find(function (c) { return c && herdData[c] })
   const perPage = [20, 25, 40].includes(Number(query.perPage)) ? Number(query.perPage) : 25
   const version = ['v1-2', 'v1-3', 'v1-4', 'v1-5'].includes(query.version) ? query.version : 'v1-3'
 
   // The Notes column carries the reason an animal can't be vaccinated:
   //   "Not eligible: too young"             – under 21 days old today
-  //   "Not eligible: vaccinated MM/YYYY"    – BCG vaccinated in the last
+  //   "Not eligible: vaccinated DATE"       – BCG vaccinated in the last
   //                                           12 months
-  // Vaccination dates are MM/YY, anchored to the 1st of the month. A
-  // vaccinated animal with no recorded date can't be placed, so it gets
-  // no note.
+  // Uses the full DD/MM/YYYY vaccinatedOn date where the herd has one
+  // (Tarbh Farm); otherwise the MM/YY vaccinationDate, anchored to the
+  // 1st of the month and shown as MM/YYYY. A vaccinated animal with no
+  // recorded date can't be placed, so it gets no note.
   const today = new Date()
   function vaxNote (row) {
     const dobCell = (row.cells || []).find(function (c) { return c.key === 'DOB' })
@@ -12363,20 +12423,42 @@ router.get('/vax/vaccination-list', function (req, res) {
       const dob = new Date(dobParts[2], dobParts[1] - 1, dobParts[0])
       if ((today - dob) / (24 * 60 * 60 * 1000) < 21) return 'Not eligible: too young'
     }
+    if (!row.isVaccinated) return ''
+    const onParts = String(row.vaccinatedOn || '').split('/').map(Number)
     const vaxParts = String(row.vaccinationDate || '').split('/').map(Number)
-    if (row.isVaccinated && vaxParts.length === 2 && vaxParts.every(Boolean)) {
+    let vaxDate = null
+    let shown = ''
+    if (onParts.length === 3 && onParts.every(Boolean)) {
+      vaxDate = new Date(onParts[2], onParts[1] - 1, onParts[0])
+      shown = row.vaccinatedOn
+    } else if (vaxParts.length === 2 && vaxParts.every(Boolean)) {
       const year = vaxParts[1] < 100 ? 2000 + vaxParts[1] : vaxParts[1]
-      const vaxDate = new Date(year, vaxParts[0] - 1, 1)
-      const oneYearOn = new Date(year + 1, vaxParts[0] - 1, 1)
+      vaxDate = new Date(year, vaxParts[0] - 1, 1)
+      shown = String(vaxParts[0]).padStart(2, '0') + '/' + year
+    }
+    if (vaxDate) {
+      const oneYearOn = new Date(vaxDate)
+      oneYearOn.setFullYear(oneYearOn.getFullYear() + 1)
       if (vaxDate <= today && today < oneYearOn) {
-        return 'Not eligible: vaccinated ' + String(vaxParts[0]).padStart(2, '0') + '/' + year
+        return 'Not eligible: vaccinated ' + shown
       }
     }
     return ''
   }
 
-  const rows = buildVaccinationListRows(cph, 'Ear-tag number (last 5 digits)', version)
-    .map(function (row) { return Object.assign({}, row, { note: vaxNote(row) }) })
+  // The shared row builder only flags shared last-4 digits on Mill House;
+  // this list flags them on every farm, so the vet checks the full tag.
+  const baseRows = buildVaccinationListRows(cph, 'Ear-tag number (last 5 digits)', version)
+  const last4Counts = {}
+  baseRows.forEach(function (row) {
+    last4Counts[row.earTagParts.last4] = (last4Counts[row.earTagParts.last4] || 0) + 1
+  })
+  const rows = baseRows.map(function (row) {
+    return Object.assign({}, row, {
+      note: vaxNote(row),
+      isDuplicate: last4Counts[row.earTagParts.last4] > 1
+    })
+  })
   // Page 1 also carries the date and batch boxes, so it only has room
   // for 20 cattle; every later sheet takes the full perPage.
   const firstPageSize = Math.min(perPage, 20)
