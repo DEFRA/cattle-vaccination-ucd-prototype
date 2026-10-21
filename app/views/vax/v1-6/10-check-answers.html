@@ -26,7 +26,7 @@
 
 {% block content %}
 <div class="govuk-grid-row">
-  <div class="govuk-grid-column-two-thirds">
+  <div class="govuk-grid-column-full">
 
     {% if removed %}
       <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="removed-title" data-module="govuk-notification-banner">
@@ -99,10 +99,11 @@
       <h2 class="govuk-heading-m">Page {{ p.page }} of {{ totalPages }} - cattle range {{ p.range }}</h2>
       <dl class="govuk-summary-list govuk-!-margin-bottom-9 app-summary-list--two-actions">
         {% for animal in p.cattle %}
-          <div class="govuk-summary-list__row" id="animal-{{ animal.id }}">
+          <div class="govuk-summary-list__row{% if animal.earlier or readOnly %} govuk-summary-list__row--no-actions{% endif %}" id="animal-{{ animal.id }}">
             <dt class="govuk-summary-list__key">{{ animal.tag }}</dt>
             <dd class="govuk-summary-list__value">{{ animal.value }}</dd>
-            {% if not readOnly %}<dd class="govuk-summary-list__actions">
+            {# Reported in an earlier report: done, so no actions. #}
+            {% if not readOnly and not animal.earlier %}<dd class="govuk-summary-list__actions">
               <ul class="govuk-summary-list__actions-list">
                 {% if not animal.fromRecord %}
                 <li class="govuk-summary-list__actions-list-item">

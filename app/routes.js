@@ -12612,7 +12612,8 @@ function vaxTakenByOtherReasons (data, reason) {
     ;(saved[r.value] || []).forEach(function (id) { if (!taken[id]) taken[id] = r.comment })
   })
   ;(data['vax-vaccinated-cattle'] || []).forEach(function (id) { if (!taken[id]) taken[id] = 'Selected as vaccinated' })
-  return taken
+  // Cattle reported in an earlier report are locked too.
+  return Object.assign({}, vaxPreviouslyReported(data), taken)
 }
 
 // Split the herd into pages: 20 on page 1, 25 on every page after.
@@ -12844,10 +12845,11 @@ function vaxCurrentReasons (data) {
 }
 
 function vaxVaccinatedScreen (data) {
-  // Locked: cattle given a reason in this report. Cattle from an earlier
-  // report stay selectable (the vet may need to report them again); they
-  // show their comment from that report instead.
-  const taken = vaxCurrentReasons(data)
+  // Locked: cattle given a reason in this report, and every animal reported
+  // in an earlier report (vaccinated or given a reason – done, not to be
+  // reported again). Cattle vaccinated in the last 12 months on their record
+  // stay selectable so the vet can override them.
+  const taken = Object.assign({}, vaxPreviouslyReported(data), vaxCurrentReasons(data))
   return {
     heading: 'Select all vaccinated cattle',
     template: 'vax/v1-6/7-vaccinated-cattle',
@@ -13108,9 +13110,9 @@ function vaxReportComplete (data) {
 // report (/vax/v1-6/start-report, the "Report vaccination status N" task)
 // clears the journey's answers and records every animal already reported as
 // data['vax-previously-reported'] – { ear tag: comment }. The cattle screens
-// show that comment but leave them selectable (the vet may need to report
-// one again), they count as accounted for, check your answers lists them,
-// and the printed list keeps their notes.
+// show them greyed out and locked with that comment, they count as
+// accounted for, check your answers lists them without actions, and the
+// printed list keeps their notes.
 
 // The answers that belong to one report.
 const VAX_REPORT_KEYS = [
@@ -13218,10 +13220,10 @@ function vaxRenderCheck (req, res, readOnly, dataOverride) {
   })
 
   const pages = vaxSelectPages(buildVaxListRows(TARBH_CPH, 'v1-3'))
-  // Cattle already accounted for outside this report are always listed too,
-  // with Change but no Remove: those vaccinated in the last 12 months on
-  // their record, and those reported in an earlier report (with that
-  // report's comment).
+  // Cattle already accounted for outside this report are always listed too:
+  // those vaccinated in the last 12 months on their record (Change only –
+  // the vet can override them) and those reported in an earlier report
+  // (with that report's comment, and no actions – they are done).
   const previous = vaxPreviouslyReported(data)
   const cattlePages = pages.map(function (rows, p) {
     const page = p + 1
@@ -13252,6 +13254,8 @@ function vaxRenderCheck (req, res, readOnly, dataOverride) {
         value: value,
         // From the record, not this report: nothing to remove.
         fromRecord: fromRecord,
+        // Reported in an earlier report: locked, so no actions at all.
+        earlier: fromRecord && !!previous[id],
         // Change opens the animal on its own (11-edit-animal).
         href: VAX_EDIT_BASE + '/' + encodeURIComponent(id)
       }
