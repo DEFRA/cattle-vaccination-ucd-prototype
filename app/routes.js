@@ -12586,8 +12586,8 @@ const VAX_NOT_VACCINATED_REASONS = [
   { value: 'slaughter', comment: 'Not eligible: for slaughter in the near future', heading: 'Select all cattle for slaughter in the near future' },
   { value: 'export', comment: 'Not eligible: intended for export', heading: 'Select all cattle intended for export' },
   { value: 'germplasm', comment: 'Not eligible: intended for germplasm production', heading: 'Select all cattle intended for germplasm production' },
-  { value: 'not-present', comment: 'Not eligible: not present on the CPH', heading: 'Select all cattle not present on the CPH' },
-  { value: 'keeper-declined', comment: 'Not eligible: keeper declined vaccination', heading: 'Select all cattle the keeper declined vaccination' },
+  { value: 'not-present', comment: 'Not eligible: not present on the CPH', heading: 'Select all cattle that were not present on the CPH' },
+  { value: 'keeper-declined', comment: 'Not eligible: keeper declined vaccination', heading: 'Select all cattle the keeper declined to vaccinate' },
   { value: 'clinical-condition', comment: 'Not eligible: clinical condition prevents vaccination', heading: 'Select all cattle whose clinical condition prevents vaccination' },
   { value: 'deceased', comment: 'Not eligible: animal deceased', heading: 'Select all deceased cattle' },
   { value: 'too-young', comment: 'Not eligible: too young', heading: 'Select all cattle too young to vaccinate' }
@@ -13228,8 +13228,11 @@ function vaxRenderCheck (req, res, readOnly, dataOverride) {
   const cattlePages = pages.map(function (rows, p) {
     const page = p + 1
     const listed = rows.filter(function (row) {
-      return vaccinated.includes(row.officialId) || reasonFor[row.officialId] ||
-        vaxRecordVaccinated(row) || previous[row.officialId]
+      if (vaccinated.includes(row.officialId) || reasonFor[row.officialId]) return true
+      // The submitted report (opened from its task) shows only the cattle
+      // selected in that report; check your answers also lists the ones
+      // accounted for elsewhere.
+      return !readOnly && (vaxRecordVaccinated(row) || previous[row.officialId])
     }).map(function (row) {
       const id = row.officialId
       let value
