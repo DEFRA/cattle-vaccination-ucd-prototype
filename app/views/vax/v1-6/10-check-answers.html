@@ -28,6 +28,17 @@
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 
+    {% if removedTag %}
+      <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="removed-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+          <h2 class="govuk-notification-banner__title" id="removed-title">Success</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+          <p class="govuk-notification-banner__heading">{{ removedTag }} has been removed from this report</p>
+        </div>
+      </div>
+    {% endif %}
+
     <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
     <h1 class="govuk-heading-l">{{ "Submitted vaccination report" if readOnly else "Check your answers before submitting vaccination details" }}</h1>
 
@@ -40,12 +51,11 @@
           <a class="govuk-link" href="/vax/v1-6/3-vaccination-date">Change<span class="govuk-visually-hidden"> date of vaccination</span></a>
         </dd>{% endif %}
       </div>
-      <div class="govuk-summary-list__row">
+      {# Worked out from the report: Yes when every animal on the holding has
+         been reported (vaccinated or given a reason). Nothing to change here. #}
+      <div class="govuk-summary-list__row govuk-summary-list__row--no-actions">
         <dt class="govuk-summary-list__key">Is the job complete?</dt>
         <dd class="govuk-summary-list__value">{{ jobComplete }}</dd>
-        {% if not readOnly %}<dd class="govuk-summary-list__actions">
-          <a class="govuk-link" href="/vax/v1-6/3-vaccination-date">Change<span class="govuk-visually-hidden"> whether the job is complete</span></a>
-        </dd>{% endif %}
       </div>
       {% for batch in batches %}
         <div class="govuk-summary-list__row govuk-summary-list__row--no-border">
@@ -83,13 +93,23 @@
 
     {% for p in cattlePages %}
       <h2 class="govuk-heading-m">Page {{ p.page }} of {{ totalPages }} - cattle range {{ p.range }}</h2>
-      <dl class="govuk-summary-list govuk-!-margin-bottom-9">
+      <dl class="govuk-summary-list govuk-!-margin-bottom-9 app-summary-list--two-actions">
         {% for animal in p.cattle %}
           <div class="govuk-summary-list__row" id="animal-{{ animal.id }}">
             <dt class="govuk-summary-list__key">{{ animal.tag }}</dt>
             <dd class="govuk-summary-list__value">{{ animal.value }}</dd>
             {% if not readOnly %}<dd class="govuk-summary-list__actions">
-              <a class="govuk-link" href="{{ animal.href }}">Change<span class="govuk-visually-hidden"> {{ animal.tag }}</span></a>
+              <ul class="govuk-summary-list__actions-list">
+                <li class="govuk-summary-list__actions-list-item">
+                  {# Removing changes the report, so it is a form button styled as a link. #}
+                  <form method="post" action="/vax/v1-6/11-edit-animal/{{ animal.id }}/remove" class="app-inline-form">
+                    <button type="submit" class="govuk-link app-link-button">Remove<span class="govuk-visually-hidden"> {{ animal.tag }}</span></button>
+                  </form>
+                </li>
+                <li class="govuk-summary-list__actions-list-item">
+                  <a class="govuk-link" href="{{ animal.href }}">Change<span class="govuk-visually-hidden"> {{ animal.tag }}</span></a>
+                </li>
+              </ul>
             </dd>{% endif %}
           </div>
         {% endfor %}
@@ -116,6 +136,26 @@
 </div>
 
 <style>
+  /* Remove is a button (it changes the report) that looks like the
+     Change link next to it. */
+  .app-inline-form { display: inline; margin: 0; }
+  /* Remove | Change side by side, as in the design. */
+  @media (min-width: 40.0625em) {
+    .app-summary-list--two-actions .govuk-summary-list__actions { width: 10.5em; white-space: nowrap; }
+  }
+  .app-link-button {
+    font: inherit;
+    color: #1d70b8;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-thickness: max(1px, .0625rem);
+    text-underline-offset: .1578em;
+  }
+  .app-link-button:hover { color: #003078; text-decoration-thickness: max(3px, .1875rem); }
+  .app-link-button:focus { color: #0b0c0c; text-decoration: none; }
   /* The row just edited, until focus moves on. */
   .app-row--found { background: #fff7bf; }
 </style>

@@ -28,7 +28,8 @@
 {% endblock %}
 
 {% block beforeContent %}
-  <a href="/vax/v1-6/7-vaccinated-cattle" class="govuk-back-link">Back</a>
+  {# Back to the screen that led here – set by the route in routes.js. #}
+  <a href="{{ backHref or '/vax/v1-6/7-vaccinated-cattle' }}" class="govuk-back-link">Back</a>
 {% endblock %}
 
 

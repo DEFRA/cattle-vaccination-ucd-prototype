@@ -82,11 +82,11 @@
 
     <h2 class="govuk-heading-m">bTB vaccination tasks</h2>
     {# Once a report is submitted (Figma node 409:8442) the task is
-       Completed and opens the read-only report. If page 3 said there are
-       more cattle to vaccinate, a new task is added above it for the rest. #}
+       Completed and opens the read-only report. If not every animal was
+       reported, a new task is added above it for the rest. #}
     <ul class="govuk-task-list">
       {% if data['vax-report-submitted'] == 'yes' %}
-        {% if data['more-cattle'] == 'yes' %}
+        {% if data['vax-report-complete'] != 'yes' %}
           <li class="govuk-task-list__item govuk-task-list__item--with-link">
             <div class="govuk-task-list__name-and-hint">
               <a class="govuk-link govuk-task-list__link" href="#" aria-describedby="report-status-2-hint report-status-2-status">

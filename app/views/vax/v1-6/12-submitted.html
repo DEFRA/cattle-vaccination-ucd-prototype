@@ -4,14 +4,14 @@
    378:29606). Reached from "Submit vaccination details" on
    10-check-answers.
 
-   The design is the part report – page 3 said there are more cattle to
-   vaccinate in this CPH. When the job is complete (page 3 answered No)
-   the heading and text change; that wording is a placeholder until the
-   complete version is designed. The only Nunjucks besides the layout and
+   The design is the part report – not every animal on the holding has
+   been reported yet. When every animal has (vax-report-complete, worked
+   out on submit) the heading and text change; that wording is a
+   placeholder until the complete version is designed. The only Nunjucks besides the layout and
    includes is that one switch. #}
 
 {% block pageTitle %}
-  {% set partReport = data['more-cattle'] != 'no' %}
+  {% set partReport = data['vax-report-complete'] != 'yes' %}
   {{ "Part vaccination report submitted" if partReport else "Vaccination report submitted" }} – GOV.UK
 {% endblock %}
 
@@ -20,7 +20,7 @@
 {% endblock %}
 
 {% block content %}
-{% set partReport = data['more-cattle'] != 'no' %}
+{% set partReport = data['vax-report-complete'] != 'yes' %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 

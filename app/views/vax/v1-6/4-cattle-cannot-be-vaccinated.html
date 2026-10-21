@@ -1,10 +1,8 @@
 {% extends "layouts/main.html" %}
 
 {# Report vaccination status – have you identified cattle that cannot be
-   vaccinated? Figma node 433:37489. Reached from 3-vaccination-date with
-   either answer to "Are there more cattle to vaccinate in this CPH?"
-   (saved as more-cattle); the journey after this page differs by that
-   answer – this is the Yes branch.
+   vaccinated? Figma node 433:37489. Always reached from
+   3-vaccination-date.
 
    Plain HTML. The only Nunjucks is the layout, the shared includes and
    the saved answers put back into the fields ({{ data[...] }} and
@@ -17,7 +15,7 @@
 
    Where "Continue and save" goes depends on the answer (set by the
    script): Yes → 5-why-not-vaccinated; No → the form's action below,
-   7-vaccinated-cattle. #}
+   6b-all-cattle-vaccinated. #}
 
 {% block pageTitle %}
   Have you identified cattle that cannot be vaccinated? – GOV.UK
@@ -53,14 +51,15 @@
       </div>
     </div>
 
-    <form id="cannot-be-vaccinated-form" action="/vax/v1-6/7-vaccinated-cattle" method="post" novalidate>
+    <form id="cannot-be-vaccinated-form" action="/vax/v1-6/6b-all-cattle-vaccinated" method="post" novalidate>
 
       <div class="govuk-form-group" id="cannot-be-vaccinated-group">
-        <fieldset class="govuk-fieldset">
+        <fieldset class="govuk-fieldset" aria-describedby="cannot-be-vaccinated-hint">
           <legend class="govuk-fieldset__legend govuk-fieldset__legend--l">
             <span class="govuk-caption-l">Report bTB vaccination for Tarbh Farm</span>
             <h1 class="govuk-fieldset__heading">Have you identified cattle that cannot be vaccinated?</h1>
           </legend>
+          <div id="cannot-be-vaccinated-hint" class="govuk-hint">For example, if there are animals intended for export</div>
           <p id="cannot-be-vaccinated-error" class="govuk-error-message" hidden>
             <span class="govuk-visually-hidden">Error:</span> Select ‘Yes’ if some cattle cannot be vaccinated
           </p>
@@ -110,7 +109,7 @@
       event.preventDefault()
       group.classList.add('govuk-form-group--error')
       message.hidden = false
-      fieldset.setAttribute('aria-describedby', 'cannot-be-vaccinated-error')
+      fieldset.setAttribute('aria-describedby', 'cannot-be-vaccinated-hint cannot-be-vaccinated-error')
       summary.hidden = false
       document.title = 'Error: ' + baseTitle
       summary.focus()

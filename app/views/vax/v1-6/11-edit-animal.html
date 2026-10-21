@@ -2,7 +2,8 @@
 
 {# 11 – Edit one animal from check your answers. Figma "Animal" (Yes:
    node 378:16427, No: node 483:23097). GOV.UK radios with conditional
-   reveals: Yes shows the vaccine batches, No shows the reasons. The route
+   reveals: Yes shows the vaccine batches (only when more than one was
+   entered – with one, Yes means that batch), No shows the reasons. The route
    in routes.js (search for 11-edit-animal) fills in the animal, its
    current answer and the batches, and saves the change.
 
@@ -57,9 +58,12 @@
           <div class="govuk-radios" data-module="govuk-radios">
 
             <div class="govuk-radios__item">
-              <input class="govuk-radios__input" id="edit-vaccinated" name="edit-vaccinated" type="radio" value="yes" data-aria-controls="conditional-yes"{% if vaccinated == 'yes' %} checked{% endif %}>
+              <input class="govuk-radios__input" id="edit-vaccinated" name="edit-vaccinated" type="radio" value="yes"{% if batches | length > 1 %} data-aria-controls="conditional-yes"{% endif %}{% if vaccinated == 'yes' %} checked{% endif %}>
               <label class="govuk-label govuk-radios__label" for="edit-vaccinated">Yes</label>
             </div>
+            {# Only asked when more than one batch was entered – with one, Yes
+               means that batch. #}
+            {% if batches | length > 1 %}
             <div class="govuk-radios__conditional govuk-radios__conditional--hidden" id="conditional-yes">
               <div class="govuk-form-group" id="edit-batch-group">
                 <fieldset class="govuk-fieldset">
@@ -78,6 +82,7 @@
                 </fieldset>
               </div>
             </div>
+            {% endif %}
 
             <div class="govuk-radios__item">
               <input class="govuk-radios__input" id="edit-vaccinated-no" name="edit-vaccinated" type="radio" value="no" data-aria-controls="conditional-no"{% if vaccinated == 'no' %} checked{% endif %}>
@@ -124,7 +129,10 @@
     var summary = document.getElementById('error-summary')
     var summaryLink = document.querySelector('#error-summary-item a')
     var baseTitle = document.title.replace(/^Error: /, '')
-    var groups = ['edit-vaccinated', 'edit-batch', 'edit-reason']
+    // The batch question is only on the page when there is more than one batch.
+    var groups = ['edit-vaccinated', 'edit-batch', 'edit-reason'].filter(function (name) {
+      return document.getElementById(name + '-group')
+    })
 
     function clear () {
       groups.forEach(function (name) {
@@ -146,7 +154,7 @@
       var answer = form.querySelector('input[name="edit-vaccinated"]:checked')
       var problem = null
       if (!answer) problem = ['edit-vaccinated', 'edit-vaccinated']
-      else if (answer.value === 'yes' && !form.querySelector('input[name="edit-batch"]:checked')) problem = ['edit-batch', 'edit-batch']
+      else if (answer.value === 'yes' && form.querySelector('input[name="edit-batch"]') && !form.querySelector('input[name="edit-batch"]:checked')) problem = ['edit-batch', 'edit-batch']
       else if (answer.value === 'no' && !form.querySelector('input[name="edit-reason"]:checked')) problem = ['edit-reason', 'edit-reason']
       if (!problem) return
       event.preventDefault()

@@ -12588,11 +12588,7 @@ const VAX_NOT_VACCINATED_REASONS = [
   { value: 'keeper-declined', comment: 'Not eligible: keeper declined vaccination', heading: 'Select all cattle the keeper declined vaccination' },
   { value: 'clinical-condition', comment: 'Not eligible: clinical condition prevents vaccination', heading: 'Select all cattle whose clinical condition prevents vaccination' },
   { value: 'deceased', comment: 'Not eligible: animal deceased', heading: 'Select all deceased cattle' },
-  // Offered on 11-edit-animal (page 5 doesn't list it); picking it there adds
-  // it to the reasons, so it then gets its own screen like the others.
-  { value: 'partial', comment: 'Not eligible: partial vaccine administration', heading: 'Select all cattle with partial vaccine administration', label: 'Partial vaccine administration', editOnly: true },
-  { value: 'too-young', comment: 'Not eligible: too young', heading: 'Select all cattle too young to vaccinate' },
-  { value: 'vaccinated-recently', comment: 'Not eligible: vaccinated in the last 12 months', heading: 'Select all cattle vaccinated in the last 12 months', label: 'Vaccinated in the last 12 months', editOnly: true }
+  { value: 'too-young', comment: 'Not eligible: too young', heading: 'Select all cattle too young to vaccinate' }
 ]
 const VAX_SELECT_BASE = '/vax/v1-6/6-select-cattle'
 
@@ -12770,6 +12766,7 @@ function vaxSaveSelect (req, screen) {
 // --- Reason screens: 6-select-cattle/<reason> -------------------------------
 
 const VAX_VACCINATED_URL = '/vax/v1-6/7-vaccinated-cattle'
+const VAX_ALL_VACCINATED_URL = '/vax/v1-6/6b-all-cattle-vaccinated'
 
 function vaxReasonScreen (data, reasons, index) {
   const reason = reasons[index]
@@ -12808,9 +12805,10 @@ router.post(VAX_SELECT_BASE + '/:reason', function (req, res) {
   data['vax-selected-cattle'] = Object.assign({}, data['vax-selected-cattle'], { [reasons[index].value]: result.list })
   if (result.redirect === 'autosave') return res.sendStatus(204)
   if (result.redirect) return res.redirect(result.redirect)
-  // Continue and save: the next ticked reason, then the vaccinated cattle.
+  // Continue and save: the next ticked reason, then "Was all cattle
+  // vaccinated?".
   if (index < reasons.length - 1) return res.redirect(VAX_SELECT_BASE + '/' + reasons[index + 1].value)
-  res.redirect(VAX_VACCINATED_URL)
+  res.redirect(VAX_ALL_VACCINATED_URL)
 })
 
 // --- Vaccinated cattle: 7-vaccinated-cattle (Figma node 362:4962) -----------
@@ -12834,10 +12832,8 @@ function vaxVaccinatedScreen (data) {
     selected: data['vax-vaccinated-cattle'] || [],
     taken: taken,
     lockedTicked: true,
-    // Page 1's Back: the last reason screen's last page, or page 4.
-    backHref: reasons.length
-      ? VAX_SELECT_BASE + '/' + reasons[reasons.length - 1].value + '?page=' + vaxSelectPages(buildVaxListRows(TARBH_CPH, 'v1-3')).length
-      : '/vax/v1-6/4-cattle-cannot-be-vaccinated'
+    // Page 1's Back: "Was all cattle vaccinated?", the question before it.
+    backHref: VAX_ALL_VACCINATED_URL
   }
 }
 
@@ -12937,6 +12933,39 @@ router.post(VAX_BATCH_BASE + '/:n', function (req, res) {
   res.redirect(VAX_CHECK_URL)
 })
 
+// --- Was all cattle vaccinated? 6b-all-cattle-vaccinated (Figma 583:44635) --
+//
+// After the reason screens (or page 4's No). Yes marks every animal that
+// was not given a reason as vaccinated and goes straight to the vaccine
+// batch details, skipping 7-vaccinated-cattle; No goes to page 7 to pick
+// them. Saved as all-cattle-vaccinated (yes/no).
+
+router.get(VAX_ALL_VACCINATED_URL, function (req, res, next) {
+  const data = req.session.data
+  const reasons = data['cannot-be-vaccinated'] === 'yes' ? vaxChosenReasons(data) : []
+  // Back: the last reason screen's last page, or page 4 when there were none.
+  res.locals.backHref = reasons.length
+    ? VAX_SELECT_BASE + '/' + reasons[reasons.length - 1].value + '?page=' + vaxSelectPages(buildVaxListRows(TARBH_CPH, 'v1-3')).length
+    : '/vax/v1-6/4-cattle-cannot-be-vaccinated'
+  next()
+})
+
+router.post(VAX_ALL_VACCINATED_URL, function (req, res) {
+  const data = req.session.data
+  const answer = (req.body || {})['all-cattle-vaccinated']
+  // Arriving from page 4 (its answer is already saved by the kit): show
+  // the question.
+  if (!answer) return res.redirect(VAX_ALL_VACCINATED_URL)
+  if (answer === 'yes') {
+    const taken = vaxVaccinatedScreen(data).taken
+    data['vax-vaccinated-cattle'] = buildVaxListRows(TARBH_CPH, 'v1-3')
+      .map(function (row) { return row.officialId })
+      .filter(function (id) { return !taken[id] })
+    return res.redirect('/vax/v1-6/8-vaccine-batch')
+  }
+  res.redirect(VAX_VACCINATED_URL)
+})
+
 router.get(VAX_VACCINATED_URL, function (req, res) {
   vaxRenderSelect(req, res, vaxVaccinatedScreen(req.session.data))
 })
@@ -12950,8 +12979,20 @@ router.post(VAX_VACCINATED_URL, function (req, res) {
   data['vax-vaccinated-cattle'] = result.list
   if (result.redirect === 'autosave') return res.sendStatus(204)
   if (result.redirect) return res.redirect(result.redirect)
-  // Continue and save: the vaccine batch details.
-  res.redirect('/vax/v1-6/8-vaccine-batch')
+  // Continue and save: "Part vaccination report" when not every animal has
+  // been marked as vaccinated or given a reason, otherwise straight to the
+  // vaccine batch details.
+  res.redirect(vaxReportComplete(data) ? '/vax/v1-6/8-vaccine-batch' : '/vax/v1-6/7b-part-vaccination-report')
+})
+
+// Page 8's Back: the screen that led there – "Was all cattle vaccinated?"
+// (Yes skips page 7), "Part vaccination report", or page 7.
+router.get('/vax/v1-6/8-vaccine-batch', function (req, res, next) {
+  const data = req.session.data
+  res.locals.backHref = data['all-cattle-vaccinated'] === 'yes'
+    ? VAX_ALL_VACCINATED_URL
+    : (vaxReportComplete(data) ? VAX_VACCINATED_URL : '/vax/v1-6/7b-part-vaccination-report')
+  next()
 })
 
 // --- Check your answers: 10-check-answers (Figma node 362:13592) ------------
@@ -12994,6 +13035,16 @@ function vaxFormatDate (day, month, year) {
   return (day ? Number(day) + ' ' : '') + VAX_MONTH_NAMES[m - 1] + ' ' + y
 }
 
+// The job is complete when every animal on the holding has been reported –
+// vaccinated, or given a reason it was not. Otherwise it is a part report:
+// the confirmation says so and the task list gets a new task for the rest.
+function vaxReportComplete (data) {
+  const reported = {}
+  ;(data['vax-vaccinated-cattle'] || []).forEach(function (id) { reported[id] = true })
+  Object.keys(vaxVaccinatedScreen(data).taken).forEach(function (id) { reported[id] = true })
+  return Object.keys(reported).length >= buildVaxListRows(TARBH_CPH, 'v1-3').length
+}
+
 // Read-only copy of check your answers, opened from the completed task on
 // the task list after the report is submitted.
 const VAX_REPORT_URL = '/vax/v1-6/13-submitted-report'
@@ -13012,6 +13063,7 @@ router.post('/vax/v1-6/12-submitted', function (req, res) {
     ? Number(data['vaccination-date-day']) + ' ' + VAX_MONTH_NAMES[m - 1].slice(0, 3) + ' ' + y
     : ''
   data['vax-report-vaccinated'] = (data['vax-vaccinated-cattle'] || []).length
+  data['vax-report-complete'] = vaxReportComplete(data) ? 'yes' : 'no'
   data['vax-report-to-report'] = Math.max(Number(herdData[TARBH_CPH].cattle) - data['vax-report-vaccinated'], 0)
   res.redirect('/vax/v1-6/12-submitted')
 })
@@ -13076,9 +13128,7 @@ function vaxRenderCheck (req, res, readOnly) {
   res.render(readOnly ? 'vax/v1-6/13-submitted-report' : 'vax/v1-6/10-check-answers', {
     farm: herdData[TARBH_CPH].farm,
     vaccinationDate: vaxFormatDate(data['vaccination-date-day'], data['vaccination-date-month'], data['vaccination-date-year']),
-    // Page 3 asks if there are more cattle to vaccinate; the job is
-    // complete when there are not.
-    jobComplete: data['more-cattle'] === 'yes' ? 'No' : (data['more-cattle'] === 'no' ? 'Yes' : ''),
+    jobComplete: vaxReportComplete(data) ? 'Yes' : 'No',
     batches: batches.map(function (b, i) {
       return {
         number: i + 1,
@@ -13090,6 +13140,8 @@ function vaxRenderCheck (req, res, readOnly) {
     }),
     vaccinatedCount: vaccinated.length,
     focusId: String((req.query || {}).focus || ''),
+    // Shown once after Remove (see 11-edit-animal/:id/remove).
+    removedTag: (function () { const t = req.session.vaxRemoved; delete req.session.vaxRemoved; return t || '' })(),
     totalPages: pages.length,
     cattlePages: cattlePages,
     readOnly: readOnly,
@@ -13119,9 +13171,7 @@ const VAX_EDIT_REASON_LABELS = {
   'keeper-declined': 'Keeper declined vaccination',
   'clinical-condition': 'Clinical condition prevents vaccination',
   deceased: 'Animal is deceased',
-  partial: 'Partial vaccine administration',
-  'too-young': 'Too young to vaccinate',
-  'vaccinated-recently': 'Vaccinated in the last 12 months'
+  'too-young': 'Too young to vaccinate'
 }
 
 function vaxFindAnimal (id) {
@@ -13158,6 +13208,28 @@ router.get(VAX_EDIT_BASE + '/:id', function (req, res) {
       return { value: value, label: VAX_EDIT_REASON_LABELS[value] }
     })
   })
+})
+
+// Remove an animal from the report (the Remove action on
+// 10-check-answers): it is taken out of everything it was recorded against
+// – vaccinated, a batch, a reason – so it is neither vaccinated nor given
+// a reason, and counts as still to report. Check your answers then says it
+// was removed.
+router.post(VAX_EDIT_BASE + '/:id/remove', function (req, res) {
+  const data = req.session.data
+  const row = vaxFindAnimal(req.params.id)
+  if (!row) return res.redirect(VAX_CHECK_URL)
+  const id = row.officialId
+  const without = function (list) { return (list || []).filter(function (x) { return x !== id }) }
+  data['vax-vaccinated-cattle'] = without(data['vax-vaccinated-cattle'])
+  const perBatch = Object.assign({}, data['vax-batch-cattle'])
+  Object.keys(perBatch).forEach(function (b) { perBatch[b] = without(perBatch[b]) })
+  data['vax-batch-cattle'] = perBatch
+  const selected = Object.assign({}, data['vax-selected-cattle'])
+  Object.keys(selected).forEach(function (r) { selected[r] = without(selected[r]) })
+  data['vax-selected-cattle'] = selected
+  req.session.vaxRemoved = 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart + row.earTagParts.last4
+  res.redirect(VAX_CHECK_URL)
 })
 
 router.post(VAX_EDIT_BASE + '/:id', function (req, res) {

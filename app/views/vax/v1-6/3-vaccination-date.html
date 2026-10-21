@@ -8,8 +8,9 @@
    the saved answers put back into the fields ({{ data[...] }} and
    {% if ... %} checked), which only the server can do. Answers are saved
    in the session by the prototype kit when the form is sent, as:
-     vaccination-date-day, vaccination-date-month, vaccination-date-year, more-cattle (yes/no)
+     vaccination-date-day, vaccination-date-month, vaccination-date-year
    so a check your answers page can read them from data[...].
+   "Continue and save" always goes on to 4-cattle-cannot-be-vaccinated.
    The error summary and every error message are written out below and
    hidden; the script at the bottom checks the answers when "Continue and
    save" is pressed and shows only the errors that apply, so the wording
@@ -56,9 +57,6 @@
                 <span data-error="future" hidden>The vaccination date must be in the past</span>
               </a>
             </li>
-            <li id="error-summary-more-cattle" hidden>
-              <a href="#more-cattle">Select ‘Yes’ if there are more cattle to vaccinate</a>
-            </li>
           </ul>
         </div>
       </div>
@@ -102,27 +100,6 @@
         </fieldset>
       </div>
 
-      <div class="govuk-form-group" id="more-cattle-group">
-        <fieldset class="govuk-fieldset">
-          <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
-            Are there more cattle to vaccinate in this CPH?
-          </legend>
-          <p id="more-cattle-error" class="govuk-error-message" hidden>
-            <span class="govuk-visually-hidden">Error:</span> Select ‘Yes’ if there are more cattle to vaccinate
-          </p>
-          <div class="govuk-radios" data-module="govuk-radios">
-            <div class="govuk-radios__item">
-              <input class="govuk-radios__input" id="more-cattle" name="more-cattle" type="radio" value="yes"{% if data['more-cattle'] == 'yes' %} checked{% endif %}>
-              <label class="govuk-label govuk-radios__label" for="more-cattle">Yes</label>
-            </div>
-            <div class="govuk-radios__item">
-              <input class="govuk-radios__input" id="more-cattle-no" name="more-cattle" type="radio" value="no"{% if data['more-cattle'] == 'no' %} checked{% endif %}>
-              <label class="govuk-label govuk-radios__label" for="more-cattle-no">No</label>
-            </div>
-          </div>
-        </fieldset>
-      </div>
-
       <div class="govuk-button-group">
         <button type="submit" class="govuk-button" data-module="govuk-button">Continue and save</button>
         <button type="submit" formaction="/vax/v1-6/2-cphtasklist2" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-save-later>Save and continue later</button>
@@ -136,8 +113,7 @@
 </div>
 
 <script>
-  // Show the designed error state for whichever questions are unanswered
-  // or wrong.
+  // Show the designed error state if the date is missing or wrong.
   (function () {
     var form = document.getElementById('vaccination-date-form')
     var summary = document.getElementById('error-summary')
@@ -205,12 +181,10 @@
       // Save and continue later keeps whatever has been answered so far.
       if (event.submitter && event.submitter.hasAttribute('data-save-later')) return
       var dateError = dateProblem()
-      var moreCattleError = form.querySelector('input[name="more-cattle"]:checked') ? null : 'empty'
 
       setError('vaccination-date', dateError, dateInputs)
-      setError('more-cattle', moreCattleError)
 
-      if (dateError || moreCattleError) {
+      if (dateError) {
         event.preventDefault()
         summary.hidden = false
         document.title = 'Error: ' + baseTitle

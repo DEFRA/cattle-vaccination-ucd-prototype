@@ -1,0 +1,41 @@
+{% extends "layouts/main.html" %}
+
+{# 7b – Part vaccination report. Figma node 583:45456.
+   Shown after 7-vaccinated-cattle when not every animal on the holding
+   has been marked as vaccinated or given a reason (vaxReportComplete in
+   routes.js). When every animal has been, page 7 goes straight on to
+   8-vaccine-batch instead. Nothing to answer here, so both buttons are
+   links. Plain HTML apart from the layout and includes. #}
+
+{% block pageTitle %}
+  Part vaccination report – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="/vax/v1-6/7-vaccinated-cattle" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">Report bTB vaccination for Tarbh Farm</span>
+    <h1 class="govuk-heading-l">Part vaccination report</h1>
+
+    <p class="govuk-body">As some cattle have not been vaccinated or marked as ineligible, the work order will remain open until the job is complete.</p>
+    <p class="govuk-body">To close this work order all cattle must be marked as vaccinated or ineligible.</p>
+
+    <div class="govuk-button-group">
+      <a href="/vax/v1-6/8-vaccine-batch" role="button" draggable="false" class="govuk-button" data-module="govuk-button">Continue and save</a>
+      <a href="/vax/v1-6/2-cphtasklist2" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and continue later</a>
+    </div>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+{% endblock %}
