@@ -28,13 +28,17 @@
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 
-    {% if removedTag %}
+    {% if removed %}
       <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="removed-title" data-module="govuk-notification-banner">
         <div class="govuk-notification-banner__header">
           <h2 class="govuk-notification-banner__title" id="removed-title">Success</h2>
         </div>
         <div class="govuk-notification-banner__content">
-          <p class="govuk-notification-banner__heading">{{ removedTag }} has been removed from this report</p>
+          <p class="govuk-notification-banner__heading">{{ removed.tag }} has been removed from this report</p>
+          {% if removed.nowPart %}
+            {# Removing it means not every animal is accounted for. #}
+            <p class="govuk-body">Not all cattle are now marked as vaccinated or ineligible, so this is now a part vaccination report. The work order will remain open until the job is complete.</p>
+          {% endif %}
         </div>
       </div>
     {% endif %}

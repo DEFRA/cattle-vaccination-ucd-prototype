@@ -34,7 +34,7 @@
     </p>
     
     <p class="govuk-body govuk-!-margin-bottom-7">
-      <a class="govuk-link" href="#">Full CPH information</a>
+      <a class="govuk-link" href="/vax/v1-6/cph-information?return=2-cphtasklist2">Full CPH information</a>
     </p>
 
     <h2 class="govuk-heading-m" id="vaccination-lists">Vaccination lists</h2>
@@ -81,46 +81,41 @@
     </table>
 
     <h2 class="govuk-heading-m">bTB vaccination tasks</h2>
-    {# Once a report is submitted (Figma node 409:8442) the task is
-       Completed and opens the read-only report. If not every animal was
-       reported, a new task is added above it for the rest. #}
+    {# One task per report (Figma nodes 409:8442, 429:9937). Submitted
+       reports are Completed, newest first, each opening its read-only copy.
+       While some cattle are still to report, a To do task for the next
+       report sits on top: the first goes straight into the journey, later
+       ones start a fresh report (start-report) with the cattle already
+       reported locked. #}
+    {% set reports = data['vax-reports'] or [] %}
+    {% set latest = reports | last if reports | length else null %}
     <ul class="govuk-task-list">
-      {% if data['vax-report-submitted'] == 'yes' %}
-        {% if data['vax-report-complete'] != 'yes' %}
-          <li class="govuk-task-list__item govuk-task-list__item--with-link">
-            <div class="govuk-task-list__name-and-hint">
-              <a class="govuk-link govuk-task-list__link" href="#" aria-describedby="report-status-2-hint report-status-2-status">
-                Report vaccination status 2
-              </a>
-              <div id="report-status-2-hint" class="govuk-task-list__hint">{{ data['vax-report-to-report'] }} cattle to report</div>
-            </div>
-            <div class="govuk-task-list__status" id="report-status-2-status">
-              <strong class="govuk-tag govuk-tag--blue">To do</strong>
-            </div>
-          </li>
-        {% endif %}
+      {% if not latest or latest.complete != 'yes' %}
+        {% set nextNumber = reports | length + 1 %}
         <li class="govuk-task-list__item govuk-task-list__item--with-link">
           <div class="govuk-task-list__name-and-hint">
-            <a class="govuk-link govuk-task-list__link" href="/vax/v1-6/13-submitted-report" aria-describedby="report-status-hint report-status-status">
-              Report vaccination status
+            <a class="govuk-link govuk-task-list__link" href="{{ '/vax/v1-6/start-report' if nextNumber > 1 else '/vax/v1-6/3-vaccination-date' }}" aria-describedby="report-{{ nextNumber }}-hint report-{{ nextNumber }}-status">
+              Report vaccination status{% if nextNumber > 1 %} {{ nextNumber }}{% endif %}
             </a>
-            <div id="report-status-hint" class="govuk-task-list__hint">{{ data['vax-report-vaccinated'] }} cattle vaccinated on {{ data['vax-report-date'] }}</div>
+            <div id="report-{{ nextNumber }}-hint" class="govuk-task-list__hint">{{ latest.toReport if latest else 122 }} cattle to report</div>
           </div>
-          <div class="govuk-task-list__status" id="report-status-status">Completed</div>
-        </li>
-      {% else %}
-        <li class="govuk-task-list__item govuk-task-list__item--with-link">
-          <div class="govuk-task-list__name-and-hint">
-            <a class="govuk-link govuk-task-list__link" href="/vax/v1-6/3-vaccination-date" aria-describedby="report-status-hint report-status-status">
-              Report vaccination status
-            </a>
-            <div id="report-status-hint" class="govuk-task-list__hint">122 cattle to report</div>
-          </div>
-          <div class="govuk-task-list__status" id="report-status-status">
+          <div class="govuk-task-list__status" id="report-{{ nextNumber }}-status">
             <strong class="govuk-tag govuk-tag--blue">To do</strong>
           </div>
         </li>
       {% endif %}
+      {% for n in range(reports | length, 0, -1) %}
+        {% set report = reports[n - 1] %}
+        <li class="govuk-task-list__item govuk-task-list__item--with-link">
+          <div class="govuk-task-list__name-and-hint">
+            <a class="govuk-link govuk-task-list__link" href="/vax/v1-6/13-submitted-report?report={{ n }}" aria-describedby="report-{{ n }}-hint report-{{ n }}-status">
+              Report vaccination status{% if n > 1 %} {{ n }}{% endif %}
+            </a>
+            <div id="report-{{ n }}-hint" class="govuk-task-list__hint">{{ report.vaccinated }} cattle vaccinated on {{ report.date }}</div>
+          </div>
+          <div class="govuk-task-list__status" id="report-{{ n }}-status">Completed</div>
+        </li>
+      {% endfor %}
     </ul>
 
     {% include "includes/vax/contact-us-for-help.html" %}

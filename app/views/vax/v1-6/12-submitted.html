@@ -4,15 +4,16 @@
    378:29606). Reached from "Submit vaccination details" on
    10-check-answers.
 
-   The design is the part report – not every animal on the holding has
-   been reported yet. When every animal has (vax-report-complete, worked
-   out on submit) the heading and text change; that wording is a
-   placeholder until the complete version is designed. The only Nunjucks besides the layout and
+   Two versions, switched on vax-report-complete (worked out on submit):
+     part     – not every animal on the holding reported yet (Figma
+                "Success screen", node 378:29606)
+     complete – every animal reported (Figma "Full report - Success
+                screen", node 483:15228) The only Nunjucks besides the layout and
    includes is that one switch. #}
 
 {% block pageTitle %}
   {% set partReport = data['vax-report-complete'] != 'yes' %}
-  {{ "Part vaccination report submitted" if partReport else "Vaccination report submitted" }} – GOV.UK
+  {{ "Part vaccination report submitted" if partReport else "Vaccination report complete" }} – GOV.UK
 {% endblock %}
 
 {% block header %}
@@ -26,16 +27,15 @@
 
     <div class="govuk-panel govuk-panel--confirmation">
       <h1 class="govuk-panel__title">
-        {% if partReport %}Part vaccination report submitted{% else %}Vaccination report submitted{% endif %}
+        {% if partReport %}Part vaccination report submitted{% else %}Vaccination report complete{% endif %}
       </h1>
     </div>
 
-    <p class="govuk-body govuk-!-margin-bottom-0">The data entered has been submitted to APHA.</p>
     {% if partReport %}
+      <p class="govuk-body govuk-!-margin-bottom-0">The data entered has been submitted to APHA.</p>
       <p class="govuk-body">You have reported part of the cattle vaccination. You will need to return to the CPH to complete the vaccinations.</p>
     {% else %}
-      {# Placeholder – the complete version is not designed yet. #}
-      <p class="govuk-body">You have reported the cattle vaccination for this CPH.</p>
+      <p class="govuk-body">The data entered has been submitted to APHA.</p>
     {% endif %}
 
     <h2 class="govuk-heading-m">What happens next</h2>
@@ -45,11 +45,14 @@
         <li>Create an updated vaccination list before your next visit to the CPH. This list will be a new sheet without the reported vaccinated cattle.</li>
       </ol>
     {% else %}
-      {# Placeholder – the complete version is not designed yet. #}
-      <p class="govuk-body">APHA will review the vaccination report.</p>
+      <p class="govuk-body">APHA will review the information provided.<br>There are no further tasks to complete for bTB vaccination at this CPH.</p>
     {% endif %}
 
     <a href="/vax/v1-6/2-cphtasklist2" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">Return to the task list</a>
+
+    {% if not partReport %}
+      {% include "includes/vax/contact-us-for-help.html" %}
+    {% endif %}
 
   </div>
 </div>

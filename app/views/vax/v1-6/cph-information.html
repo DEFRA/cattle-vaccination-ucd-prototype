@@ -1,0 +1,87 @@
+{% extends "layouts/main.html" %}
+
+{# Full CPH information – Figma "CPH full details" (node 257:17071).
+   Opened from "Full CPH information" on the task list pages. Plain HTML
+   with Tarbh Farm's details written in; the only Nunjucks is the layout,
+   the includes, and which task list Back and "Return to the task list" go
+   to: the link adds ?return=1-cphtasklist1 or ?return=2-cphtasklist2, which
+   the prototype kit saves as data['return']. #}
+
+{% block pageTitle %}
+  Tarbh Farm: CPH 12/385/6809 – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="/vax/v1-6/{{ data['return'] or '2-cphtasklist2' }}" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">Tarbh Farm: CPH 12/385/6809</h1>
+
+    <p class="govuk-body">This information comes from the <a class="govuk-link" href="https://www.gov.uk/cattle-tracing-online" target="_blank" rel="noopener noreferrer">Cattle Tracing System (opens in a new tab)</a>. It may not be up to date.</p>
+
+    <table class="govuk-table govuk-!-margin-bottom-8">
+      <tbody class="govuk-table__body">
+        <tr class="govuk-table__row">
+          <th scope="row" class="govuk-table__header govuk-!-width-one-half">Address</th>
+          <td class="govuk-table__cell">Tarbh Farm, Helmsley, YO62 7TB</td>
+        </tr>
+        <tr class="govuk-table__row">
+          <th scope="row" class="govuk-table__header">CPH contact</th>
+          <td class="govuk-table__cell">Ewan Tarbet</td>
+        </tr>
+        <tr class="govuk-table__row">
+          <th scope="row" class="govuk-table__header">Phone number</th>
+          <td class="govuk-table__cell">07416 330 982</td>
+        </tr>
+        <tr class="govuk-table__row">
+          <th scope="row" class="govuk-table__header">Email address</th>
+          <td class="govuk-table__cell">ewan.tarbet@example.com</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 class="govuk-heading-m">Holding details</h2>
+    <table class="govuk-table">
+      <tbody class="govuk-table__body">
+        <tr class="govuk-table__row">
+          <th scope="row" class="govuk-table__header govuk-!-width-one-half">Risk area</th>
+          <td class="govuk-table__cell">High</td>
+        </tr>
+        <tr class="govuk-table__row">
+          <th scope="row" class="govuk-table__header">Total cattle</th>
+          <td class="govuk-table__cell">122</td>
+        </tr>
+        <tr class="govuk-table__row">
+          <th scope="row" class="govuk-table__header">Type of cattle</th>
+          <td class="govuk-table__cell">Mixed</td>
+        </tr>
+        <tr class="govuk-table__row">
+          <th scope="row" class="govuk-table__header">Bulls on the CPH</th>
+          <td class="govuk-table__cell">4</td>
+        </tr>
+        <tr class="govuk-table__row">
+          <th scope="row" class="govuk-table__header">Bulls to vaccinate</th>
+          <td class="govuk-table__cell">4</td>
+        </tr>
+        <tr class="govuk-table__row">
+          <th scope="row" class="govuk-table__header">Unvaccinated cattle</th>
+          <td class="govuk-table__cell">110</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <a href="/vax/v1-6/{{ data['return'] or '2-cphtasklist2' }}" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">Return to the task list</a>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+{% endblock %}
