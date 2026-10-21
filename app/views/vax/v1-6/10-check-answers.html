@@ -104,12 +104,14 @@
             <dd class="govuk-summary-list__value">{{ animal.value }}</dd>
             {% if not readOnly %}<dd class="govuk-summary-list__actions">
               <ul class="govuk-summary-list__actions-list">
+                {% if not animal.fromRecord %}
                 <li class="govuk-summary-list__actions-list-item">
                   {# Removing changes the report, so it is a form button styled as a link. #}
                   <form method="post" action="/vax/v1-6/11-edit-animal/{{ animal.id }}/remove" class="app-inline-form">
                     <button type="submit" class="govuk-link app-link-button">Remove<span class="govuk-visually-hidden"> {{ animal.tag }}</span></button>
                   </form>
                 </li>
+                {% endif %}
                 <li class="govuk-summary-list__actions-list-item">
                   <a class="govuk-link" href="{{ animal.href }}">Change<span class="govuk-visually-hidden"> {{ animal.tag }}</span></a>
                 </li>

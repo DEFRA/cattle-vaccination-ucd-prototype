@@ -9,12 +9,12 @@
            8-vaccine-batch (page 7 is skipped)
      No  → 7-vaccinated-cattle, to pick the vaccinated cattle
 
-   Plain HTML. The only Nunjucks is the layout, the includes, the Back link
-   and the saved answer ticked again. Saved as all-cattle-vaccinated
+   Plain HTML. The only Nunjucks is the layout, the includes, the Back link,
+   the date being reported on (page 3) and the saved answer ticked again. Saved as all-cattle-vaccinated
    (yes/no). The error is written out below and shown by the script. #}
 
 {% block pageTitle %}
-  Was all cattle vaccinated? – GOV.UK
+  Was all cattle vaccinated on {{ vaccinationDate }}? – GOV.UK
 {% endblock %}
 
 {% block header %}
@@ -49,9 +49,12 @@
         <fieldset class="govuk-fieldset" aria-describedby="all-cattle-vaccinated-hint">
           <legend class="govuk-fieldset__legend govuk-fieldset__legend--l">
             <span class="govuk-caption-l">Report bTB vaccination for Tarbh Farm</span>
-            <h1 class="govuk-fieldset__heading">Was all cattle vaccinated?</h1>
+            <h1 class="govuk-fieldset__heading">Were all cattle vaccinated on {{ vaccinationDate }}?</h1>
           </legend>
-          <div id="all-cattle-vaccinated-hint" class="govuk-hint">Selecting ‘Yes’ will mark all remaining cattle as vaccinated</div>
+          <div id="all-cattle-vaccinated-hint" class="govuk-hint">
+            <p class="govuk-hint govuk-!-margin-bottom-2">Selecting ‘Yes’ will mark all remaining cattle as vaccinated.</p>
+            <p class="govuk-hint govuk-!-margin-bottom-0">You do not need to report cattle already vaccinated in the last 12 months.</p>
+          </div>
           <p id="all-cattle-vaccinated-error" class="govuk-error-message" hidden>
             <span class="govuk-visually-hidden">Error:</span> Select ‘Yes’ if some cattle still needs to be vaccinated
           </p>
