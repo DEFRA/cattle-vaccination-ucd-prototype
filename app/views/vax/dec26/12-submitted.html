@@ -1,0 +1,36 @@
+{% extends "layouts/main.html" %}
+
+{# 12 – Vaccination report submitted. Figma "Full report - Success screen"
+   (node 483:15228). Reached from "Submit vaccination details" on
+   10-check-answers. dec26 has no part vaccination report, so this is the
+   only version. Plain HTML – the only Nunjucks is the layout and the
+   shared includes. #}
+
+{% block pageTitle %}
+  Vaccination report complete – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <div class="govuk-panel govuk-panel--confirmation">
+      <h1 class="govuk-panel__title">Vaccination report complete</h1>
+    </div>
+
+    <p class="govuk-body">The data entered has been submitted to APHA.</p>
+
+    <h2 class="govuk-heading-m">What happens next</h2>
+    <p class="govuk-body">APHA will review the information provided.<br> If there are animals still to vaccinate in the CPH, a new task will appear in the tasklist.</p>
+
+    <a href="/vax/dec26/2-cphtasklist2" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">Return to the task list</a>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,197 @@
+{% extends "layouts/main.html" %}
+
+{# Report vaccination status – date of vaccination.
+   Figma "Vaccination date" (node 261:13824) and its error state
+   "Vaccination date - error" (node 292:19021).
+
+   Plain HTML. The only Nunjucks is the layout, the shared includes and
+   the saved answers put back into the fields ({{ data[...] }} and
+   {% if ... %} checked), which only the server can do. Answers are saved
+   in the session by the prototype kit when the form is sent, as:
+     vaccination-date-day, vaccination-date-month, vaccination-date-year
+   so a check your answers page can read them from data[...].
+   "Continue and save" always goes on to 4-cattle-cannot-be-vaccinated.
+   The error summary and every error message are written out below and
+   hidden; the script at the bottom checks the answers when "Continue and
+   save" is pressed and shows only the errors that apply, so the wording
+   can be edited here like any other text.
+
+   The date has three messages, one per problem, marked with data-error:
+     empty    – day, month or year left blank
+     invalid  – not a real date (31 2 2026, letters in the day, a 3-digit year)
+   Accepted as well as numbers: a 2-digit year (26 = 2026) and the month as
+   a name or abbreviation (10, Oct, October, Sept – any case).
+     future   – after today (today itself is accepted) #}
+
+{% block pageTitle %}
+  What was the date of vaccination? – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="/vax/dec26/2-cphtasklist2" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* GOV.UK styles show error messages as blocks, which overrides the
+     hidden attribute – keep them hidden until the script shows them. */
+  .govuk-error-message[hidden], .govuk-error-summary[hidden],
+  [data-error][hidden] { display: none; }
+</style>
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <div class="govuk-error-summary" id="error-summary" tabindex="-1" hidden>
+      <div role="alert">
+        <h2 class="govuk-error-summary__title">There is a problem</h2>
+        <div class="govuk-error-summary__body">
+          <ul class="govuk-list govuk-error-summary__list">
+            <li id="error-summary-vaccination-date" hidden>
+              <a href="#vaccination-date-day">
+                <span data-error="empty">You must enter a date</span>
+                <span data-error="invalid" hidden>You must enter a valid date, for example 12 4 2027</span>
+                <span data-error="future" hidden>The vaccination date must be in the past</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <form id="vaccination-date-form" action="/vax/dec26/6b-all-cattle-vaccinated" method="post" novalidate>
+
+      <div class="govuk-form-group" id="vaccination-date-group">
+        <fieldset class="govuk-fieldset" role="group" aria-describedby="vaccination-date-hint">
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--l">
+            <span class="govuk-caption-l">Report bTB vaccination for Tarbh Farm</span>
+            <h1 class="govuk-fieldset__heading">What was the date of vaccination?</h1>
+          </legend>
+          <div id="vaccination-date-hint" class="govuk-hint">For example, 20 4 2028</div>
+          <p id="vaccination-date-error" class="govuk-error-message" hidden>
+            <span class="govuk-visually-hidden">Error:</span>
+            <span data-error="empty">You must enter a date</span>
+            <span data-error="invalid" hidden>You must enter a valid date, for example 12 4 2027</span>
+            <span data-error="future" hidden>The vaccination date must be in the past</span>
+          </p>
+          <div class="govuk-date-input" id="vaccination-date">
+            <div class="govuk-date-input__item">
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-date-input__label" for="vaccination-date-day">Day</label>
+                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="vaccination-date-day" name="vaccination-date-day" type="text" inputmode="numeric" value="{{ data['vaccination-date-day'] }}">
+              </div>
+            </div>
+            <div class="govuk-date-input__item">
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-date-input__label" for="vaccination-date-month">Month</label>
+                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="vaccination-date-month" name="vaccination-date-month" type="text" value="{{ data['vaccination-date-month'] }}">
+              </div>
+            </div>
+            <div class="govuk-date-input__item">
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-date-input__label" for="vaccination-date-year">Year</label>
+                <input class="govuk-input govuk-date-input__input govuk-input--width-4" id="vaccination-date-year" name="vaccination-date-year" type="text" inputmode="numeric" value="{{ data['vaccination-date-year'] }}">
+              </div>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="govuk-button-group">
+        <button type="submit" class="govuk-button" data-module="govuk-button">Continue and save</button>
+        <button type="submit" formaction="/vax/dec26/2-cphtasklist2" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-save-later>Save and continue later</button>
+      </div>
+
+    </form>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+
+<script>
+  // Show the designed error state if the date is missing or wrong.
+  (function () {
+    var form = document.getElementById('vaccination-date-form')
+    var summary = document.getElementById('error-summary')
+    var dateInputs = ['day', 'month', 'year'].map(function (p) {
+      return document.getElementById('vaccination-date-' + p)
+    })
+    var baseTitle = document.title.replace(/^Error: /, '')
+
+    var MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july',
+      'august', 'september', 'october', 'november', 'december']
+
+    // Month as a number (1–12) from "10", "Oct", "October" or "Sept"; NaN if
+    // it is none of those.
+    function parseMonth (value) {
+      if (/^\d{1,2}$/.test(value)) return Number(value)
+      var name = value.toLowerCase().replace(/\.$/, '')
+      if (name === 'sept') return 9
+      for (var i = 0; i < MONTHS.length; i++) {
+        if (name === MONTHS[i] || (name.length === 3 && MONTHS[i].indexOf(name) === 0)) return i + 1
+      }
+      return NaN
+    }
+
+    // Which date problem there is, if any: 'empty', 'invalid' or 'future'.
+    function dateProblem () {
+      var parts = dateInputs.map(function (input) { return input.value.trim() })
+      if (parts.some(function (v) { return !v })) return 'empty'
+      if (!/^\d{1,2}$/.test(parts[0]) || !/^(\d{2}|\d{4})$/.test(parts[2])) return 'invalid'
+      var day = Number(parts[0])
+      var month = parseMonth(parts[1])
+      var year = parts[2].length === 2 ? 2000 + Number(parts[2]) : Number(parts[2])
+      if (isNaN(month)) return 'invalid'
+      var date = new Date(year, month - 1, day)
+      if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return 'invalid'
+      var today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (date > today) return 'future'
+      return null
+    }
+
+    // Turn one question's error state on (with the message for `problem`)
+    // or off (problem is null).
+    function setError (name, problem, inputs) {
+      var on = !!problem
+      var message = document.getElementById(name + '-error')
+      var summaryItem = document.getElementById('error-summary-' + name)
+      document.getElementById(name + '-group').classList.toggle('govuk-form-group--error', on)
+      message.hidden = !on
+      summaryItem.hidden = !on
+      ;[message, summaryItem].forEach(function (el) {
+        el.querySelectorAll('[data-error]').forEach(function (variant) {
+          variant.hidden = variant.getAttribute('data-error') !== problem
+        })
+      })
+      var fieldset = document.querySelector('#' + name + '-group .govuk-fieldset')
+      var describedBy = (fieldset.getAttribute('aria-describedby') || '')
+        .split(' ').filter(function (id) { return id && id !== name + '-error' })
+      if (on) describedBy.push(name + '-error')
+      if (describedBy.length) fieldset.setAttribute('aria-describedby', describedBy.join(' '))
+      else fieldset.removeAttribute('aria-describedby')
+      ;(inputs || []).forEach(function (input) { input.classList.toggle('govuk-input--error', on) })
+    }
+
+    form.addEventListener('submit', function (event) {
+      // Save and continue later keeps whatever has been answered so far.
+      if (event.submitter && event.submitter.hasAttribute('data-save-later')) return
+      var dateError = dateProblem()
+
+      setError('vaccination-date', dateError, dateInputs)
+
+      if (dateError) {
+        event.preventDefault()
+        summary.hidden = false
+        document.title = 'Error: ' + baseTitle
+        summary.focus()
+        window.scrollTo(0, 0)
+      }
+    })
+  })()
+</script>
+{% endblock %}

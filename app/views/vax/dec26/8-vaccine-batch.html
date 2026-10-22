@@ -1,0 +1,255 @@
+{% extends "layouts/main.html" %}
+
+{# 8 – Enter vaccine batch details. Figma "Vaccination batch" (node
+   541:15834). One batch only – no "add another". The batch needs a batch
+   number, a diluent batch number and both expiry dates before the vet can
+   continue.
+
+   Answers are saved by the kit as data['vaccine-batches'], a list with
+   the one batch in it (so the rest of the journey reads it as before):
+     { 'batch-number', 'expiry-month', 'expiry-year',
+       'diluent-number', 'diluent-month', 'diluent-year' }
+   The saved batch is written back into the fields, which is the only
+   Nunjucks besides the layout and includes. Error messages are written
+   out and hidden; the script at the bottom shows the ones
+   that apply and builds the error summary from them. #}
+
+{% block pageTitle %}
+  Enter vaccine batch details – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  {# Back to the screen that led here – set by the route in routes.js. #}
+  <a href="{{ backHref or '/vax/dec26/7-vaccinated-cattle' }}" class="govuk-back-link">Back</a>
+{% endblock %}
+
+
+{% block content %}
+{# The batch's fields. Index i numbers the field names; b holds any saved answers. #}
+{% macro batchFields(i, b) %}
+  <div class="app-batch" data-batch>
+    <fieldset class="govuk-fieldset">
+      <legend class="govuk-fieldset__legend govuk-fieldset__legend--m">
+        <h2 class="govuk-fieldset__heading">Vaccine batch</h2>
+      </legend>
+
+      <div class="govuk-form-group" data-field="batch-number">
+        <label class="govuk-label" for="vaccine-batches-{{ i }}-batch-number">Vaccine batch number</label>
+        <div id="vaccine-batches-{{ i }}-batch-number-hint" class="govuk-hint">For example, 125007G</div>
+        <p id="vaccine-batches-{{ i }}-batch-number-error" class="govuk-error-message" hidden>
+          <span class="govuk-visually-hidden">Error:</span>
+          <span data-error="empty">You must enter a vaccine batch number</span>
+        </p>
+        <input class="govuk-input govuk-input--width-10" id="vaccine-batches-{{ i }}-batch-number" name="vaccine-batches[{{ i }}][batch-number]" type="text" spellcheck="false" autocomplete="off" aria-describedby="vaccine-batches-{{ i }}-batch-number-hint" value="{{ b['batch-number'] }}">
+      </div>
+
+      <div class="govuk-form-group" data-field="expiry" data-date="vaccine">
+        <fieldset class="govuk-fieldset" role="group" aria-describedby="vaccine-batches-{{ i }}-expiry-hint">
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--s app-legend-regular">Vaccine expiry date</legend>
+          <div id="vaccine-batches-{{ i }}-expiry-hint" class="govuk-hint">For example, 4 2033</div>
+          <p id="vaccine-batches-{{ i }}-expiry-error" class="govuk-error-message" hidden>
+            <span class="govuk-visually-hidden">Error:</span>
+            <span data-error="empty">You must enter a vaccine expiry date</span>
+            <span data-error="invalid" hidden>You must enter a valid vaccine expiry date, for example 4 2027</span>
+            <span data-error="past" hidden>The vaccine expiry date must be in the future</span>
+          </p>
+          <div class="govuk-date-input">
+            <div class="govuk-date-input__item">
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-date-input__label" for="vaccine-batches-{{ i }}-expiry-month">Month</label>
+                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="vaccine-batches-{{ i }}-expiry-month" name="vaccine-batches[{{ i }}][expiry-month]" type="text" value="{{ b['expiry-month'] }}">
+              </div>
+            </div>
+            <div class="govuk-date-input__item">
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-date-input__label" for="vaccine-batches-{{ i }}-expiry-year">Year</label>
+                <input class="govuk-input govuk-date-input__input govuk-input--width-4" id="vaccine-batches-{{ i }}-expiry-year" name="vaccine-batches[{{ i }}][expiry-year]" type="text" inputmode="numeric" value="{{ b['expiry-year'] }}">
+              </div>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="govuk-form-group" data-field="diluent-number">
+        <label class="govuk-label" for="vaccine-batches-{{ i }}-diluent-number">Diluent batch number</label>
+        <div id="vaccine-batches-{{ i }}-diluent-number-hint" class="govuk-hint">For example, 125007G</div>
+        <p id="vaccine-batches-{{ i }}-diluent-number-error" class="govuk-error-message" hidden>
+          <span class="govuk-visually-hidden">Error:</span>
+          <span data-error="empty">You must enter a diluent batch number</span>
+        </p>
+        <input class="govuk-input govuk-input--width-10" id="vaccine-batches-{{ i }}-diluent-number" name="vaccine-batches[{{ i }}][diluent-number]" type="text" spellcheck="false" autocomplete="off" aria-describedby="vaccine-batches-{{ i }}-diluent-number-hint" value="{{ b['diluent-number'] }}">
+      </div>
+
+      <div class="govuk-form-group" data-field="diluent" data-date="diluent">
+        <fieldset class="govuk-fieldset" role="group" aria-describedby="vaccine-batches-{{ i }}-diluent-hint">
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--s app-legend-regular">Diluent expiry date</legend>
+          <div id="vaccine-batches-{{ i }}-diluent-hint" class="govuk-hint">For example, 4 2033</div>
+          <p id="vaccine-batches-{{ i }}-diluent-error" class="govuk-error-message" hidden>
+            <span class="govuk-visually-hidden">Error:</span>
+            <span data-error="empty">You must enter a diluent expiry date</span>
+            <span data-error="invalid" hidden>You must enter a valid diluent expiry date, for example 4 2027</span>
+            <span data-error="past" hidden>The diluent expiry date must be in the future</span>
+          </p>
+          <div class="govuk-date-input">
+            <div class="govuk-date-input__item">
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-date-input__label" for="vaccine-batches-{{ i }}-diluent-month">Month</label>
+                <input class="govuk-input govuk-date-input__input govuk-input--width-2" id="vaccine-batches-{{ i }}-diluent-month" name="vaccine-batches[{{ i }}][diluent-month]" type="text" value="{{ b['diluent-month'] }}">
+              </div>
+            </div>
+            <div class="govuk-date-input__item">
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-date-input__label" for="vaccine-batches-{{ i }}-diluent-year">Year</label>
+                <input class="govuk-input govuk-date-input__input govuk-input--width-4" id="vaccine-batches-{{ i }}-diluent-year" name="vaccine-batches[{{ i }}][diluent-year]" type="text" inputmode="numeric" value="{{ b['diluent-year'] }}">
+              </div>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+
+    </fieldset>
+  </div>
+{% endmacro %}
+<style>
+  /* GOV.UK styles show error messages as blocks, which overrides the
+     hidden attribute – keep them hidden until the script shows them. */
+  .govuk-error-message[hidden], .govuk-error-summary[hidden],
+  [data-error][hidden] { display: none; }
+  /* The expiry date legends read as field labels in the design. */
+  .app-legend-regular { font-weight: 400; }
+  .app-batch { margin-bottom: 40px; }
+</style>
+
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <div class="govuk-error-summary" id="error-summary" tabindex="-1" hidden>
+      <div role="alert">
+        <h2 class="govuk-error-summary__title">There is a problem</h2>
+        <div class="govuk-error-summary__body">
+          <ul class="govuk-list govuk-error-summary__list" id="error-summary-list"></ul>
+        </div>
+      </div>
+    </div>
+
+    <span class="govuk-caption-l">Report bTB vaccination for Tarbh Farm</span>
+    <h1 class="govuk-heading-l">Enter vaccine batch details</h1>
+
+    <form id="batch-form" action="/vax/dec26/10-check-answers" method="post" novalidate>
+
+      <div id="batches">
+        {% set saved = data['vaccine-batches'] if data['vaccine-batches'] and data['vaccine-batches'].length else [{}] %}
+        {{ batchFields(0, saved[0] or {}) }}
+      </div>
+
+      <div class="govuk-button-group">
+        <button type="submit" class="govuk-button" data-module="govuk-button">Continue and save</button>
+        <button type="submit" formaction="/vax/dec26/2-cphtasklist2" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-save-later>Save and continue later</button>
+      </div>
+
+    </form>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+
+<script>
+  (function () {
+    var form = document.getElementById('batch-form')
+    var list = document.getElementById('batches')
+    var summary = document.getElementById('error-summary')
+    var summaryList = document.getElementById('error-summary-list')
+    var baseTitle = document.title.replace(/^Error: /, '')
+
+    function batches () { return Array.prototype.slice.call(list.querySelectorAll('[data-batch]')) }
+
+    // --- Checks -----------------------------------------------------------
+    var MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july',
+      'august', 'september', 'october', 'november', 'december']
+
+    // Month as 1–12 from "4", "Apr" or "April" (any case, "Sept" too).
+    function parseMonth (value) {
+      if (/^\d{1,2}$/.test(value)) return Number(value)
+      var name = value.toLowerCase().replace(/\.$/, '')
+      if (name === 'sept') return 9
+      for (var i = 0; i < MONTHS.length; i++) {
+        if (name === MONTHS[i] || (name.length === 3 && MONTHS[i].indexOf(name) === 0)) return i + 1
+      }
+      return NaN
+    }
+
+    // 'empty', 'invalid' or 'past' for a month + year expiry date, or null.
+    // A batch still in its expiry month counts as in date.
+    function expiryProblem (monthInput, yearInput) {
+      var m = monthInput.value.trim()
+      var y = yearInput.value.trim()
+      if (!m || !y) return 'empty'
+      var month = parseMonth(m)
+      if (isNaN(month) || month < 1 || month > 12 || !/^(\d{2}|\d{4})$/.test(y)) return 'invalid'
+      var year = y.length === 2 ? 2000 + Number(y) : Number(y)
+      var now = new Date()
+      if (year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)) return 'past'
+      return null
+    }
+
+    function setError (group, problem) {
+      var message = group.querySelector('.govuk-error-message')
+      group.classList.toggle('govuk-form-group--error', !!problem)
+      message.hidden = !problem
+      message.querySelectorAll('[data-error]').forEach(function (variant) {
+        variant.hidden = variant.getAttribute('data-error') !== problem
+      })
+      group.querySelectorAll('input').forEach(function (input) {
+        input.classList.toggle('govuk-input--error', !!problem)
+      })
+      var described = group.querySelector('[aria-describedby]')
+      if (described) {
+        var ids = described.getAttribute('aria-describedby').split(' ').filter(function (id) { return id && id !== message.id })
+        if (problem) ids.push(message.id)
+        described.setAttribute('aria-describedby', ids.join(' '))
+      }
+    }
+
+    form.addEventListener('submit', function (event) {
+      // Save and continue later keeps whatever has been entered so far.
+      if (event.submitter && event.submitter.hasAttribute('data-save-later')) return
+
+      var errors = []
+      batches().forEach(function (batch) {
+        batch.querySelectorAll('[data-field]').forEach(function (group) {
+          var inputs = group.querySelectorAll('input')
+          var problem = group.hasAttribute('data-date')
+            ? expiryProblem(inputs[0], inputs[1])
+            : (inputs[0].value.trim() ? null : 'empty')
+          setError(group, problem)
+          if (problem) {
+            var text = group.querySelector('.govuk-error-message [data-error="' + problem + '"]').textContent.trim()
+            errors.push({ href: '#' + inputs[0].id, text: text })
+          }
+        })
+      })
+
+      if (!errors.length) return
+      event.preventDefault()
+      summaryList.innerHTML = ''
+      errors.forEach(function (error) {
+        var item = document.createElement('li')
+        var link = document.createElement('a')
+        link.href = error.href
+        link.textContent = error.text
+        item.appendChild(link)
+        summaryList.appendChild(item)
+      })
+      summary.hidden = false
+      document.title = 'Error: ' + baseTitle
+      summary.focus()
+      window.scrollTo(0, 0)
+    })
+  })()
+</script>
+{% endblock %}

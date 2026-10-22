@@ -1,0 +1,156 @@
+{% extends "layouts/main.html" %}
+
+{# CPH task list, after "Create vaccination list" on 1-cphtasklist1.
+   Figma "CPH dashboard" (node 409:8175). Plain HTML - the only Nunjucks
+   is the layout and the shared includes.
+   The lists table shows every list made, newest first, each opening its
+   own version of Tarbh Farm's printable list in a new tab. #}
+
+{% block pageTitle %}
+  Tarbh Farm task list – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="#" class="govuk-back-link">Back to ‘My work’</a>
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <h1 class="govuk-heading-l">Tarbh Farm task list: issue date 6 October 2026</h1>
+
+    <h2 class="govuk-heading-m">CPH information</h2>
+    <p class="govuk-body govuk-!-margin-bottom-2">
+      CPH number: 12/385/6809<br>
+      CPH contact: Ewan Tarbet<br>
+      Contact number: 07416 330 982<br>
+      Email address: ewan.tarbet@example.com<br>
+      Address: Tarbh Farm, Helmsley, YO62 7TB
+    </p>
+<!--     
+    <p class="govuk-body govuk-!-margin-bottom-7">
+      <a class="govuk-link" href="/vax/v1-6/cph-information?return=2-cphtasklist2">Full CPH information</a>
+    </p> -->
+
+    <br>
+    <br>
+
+    <h2 class="govuk-heading-m" id="vaccination-lists">Vaccination lists</h2>
+    <p class="govuk-body">Before visiting the CPH, create an up to date vaccination list.</p>
+    <form method="post" action="/vax/dec26/create-vaccination-list">
+      <button type="submit" class="govuk-button" data-module="govuk-button">Create vaccination list</button>
+    </form>
+
+    {# Shown when "Create vaccination list" found nothing has changed since
+       the latest list, so no new list was made. #}
+    {% if listUpToDate %}
+      <div class="govuk-notification-banner" role="region" aria-labelledby="list-up-to-date-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+          <h2 class="govuk-notification-banner__title" id="list-up-to-date-title">Important</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+          <p class="govuk-notification-banner__heading">The latest vaccination list is still up to date</p>
+          <p class="govuk-body">Nothing has changed since it was made, so a new list was not created. Download the list dated {{ (data['vax-lists'] | last).date }}.</p>
+        </div>
+      </div>
+    {% endif %}
+
+    <table class="govuk-table govuk-!-margin-bottom-8">
+      <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+          <th scope="col" class="govuk-table__header govuk-!-width-one-quarter">List date</th>
+          <th scope="col" class="govuk-table__header">Download link</th>
+        </tr>
+      </thead>
+      {# Every list made with "Create vaccination list", newest first (Figma
+         node 429:9937). Each link opens that list as it was made. #}
+      <tbody class="govuk-table__body">
+        {% set lists = data['vax-lists'] or [] %}
+        {% for n in range(lists | length, 0, -1) %}
+          {% set list = lists[n - 1] %}
+          <tr class="govuk-table__row">
+            <th scope="row" class="govuk-table__header">{{ list.date }}</th>
+            <td class="govuk-table__cell">
+              <a class="govuk-link" href="/vax/vaccination-list?cph=12/385/6809&amp;list={{ n }}" target="_blank" rel="noopener noreferrer">bTB vaccination list Tarbh Farm {{ list.date }} (opens in a new tab)</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <br>
+    
+    <h2 class="govuk-heading-m">bTB vaccination tasks</h2>
+    {# One task per report (Figma nodes 409:8442, 429:9937). Submitted
+       reports are Completed, newest first, each opening its read-only copy.
+       While some cattle are still to report, a To do task for the next
+       report sits on top: the first goes straight into the journey, later
+       ones start a fresh report (start-report) with the cattle already
+       reported locked. #}
+    {% set reports = data['vax-reports'] or [] %}
+    {% set latest = reports | last if reports | length else null %}
+    <ul class="govuk-task-list">
+      {% if not latest or latest.complete != 'yes' %}
+        {% set nextNumber = reports | length + 1 %}
+        <li class="govuk-task-list__item govuk-task-list__item--with-link">
+          <div class="govuk-task-list__name-and-hint">
+            <a class="govuk-link govuk-task-list__link" href="{{ '/vax/dec26/start-report' if nextNumber > 1 else '/vax/dec26/3-vaccination-date' }}" aria-describedby="report-{{ nextNumber }}-hint report-{{ nextNumber }}-status">
+              Report vaccination status{% if nextNumber > 1 %} {{ nextNumber }}{% endif %}
+            </a>
+            <div id="report-{{ nextNumber }}-hint" class="govuk-task-list__hint">{{ latest.toReport if latest else 122 }} cattle to report</div>
+          </div>
+          <div class="govuk-task-list__status" id="report-{{ nextNumber }}-status">
+            <strong class="govuk-tag govuk-tag--blue">To do</strong>
+          </div>
+        </li>
+      {% endif %}
+      {% for n in range(reports | length, 0, -1) %}
+        {% set report = reports[n - 1] %}
+        <li class="govuk-task-list__item govuk-task-list__item--with-link">
+          <div class="govuk-task-list__name-and-hint">
+            <a class="govuk-link govuk-task-list__link" href="/vax/v1-6/13-submitted-report?report={{ n }}" aria-describedby="report-{{ n }}-hint report-{{ n }}-status">
+              Report vaccination status{% if n > 1 %} {{ n }}{% endif %}
+            </a>
+            <div id="report-{{ n }}-hint" class="govuk-task-list__hint">{{ report.vaccinated }} cattle vaccinated on {{ report.date }}</div>
+          </div>
+          <div class="govuk-task-list__status" id="report-{{ n }}-status">Completed</div>
+        </li>
+      {% endfor %}
+    </ul>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+
+<script>
+  // "Create vaccination list" reloads the page: keep the vet where they were
+  // rather than back at the top. The scroll position is remembered as the
+  // form is sent and put back on the next page; focus returns to the button,
+  // or to the "still up to date" message when one is shown.
+  ;(function () {
+    var form = document.querySelector('form[action="/vax/dec26/create-vaccination-list"]')
+    if (!form) return
+    form.addEventListener('submit', function () {
+      try { sessionStorage.setItem('vax-list-scroll', String(window.scrollY)) } catch (e) {}
+    })
+    var saved = null
+    try { saved = sessionStorage.getItem('vax-list-scroll'); sessionStorage.removeItem('vax-list-scroll') } catch (e) {}
+    if (saved === null) return
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        var banner = document.querySelector('.govuk-notification-banner')
+        var target = banner || form.querySelector('button')
+        if (banner) banner.setAttribute('tabindex', '-1')
+        target.focus({ preventScroll: true })
+        window.scrollTo(0, Number(saved))
+      }, 0)
+    })
+  })()
+</script>
+{% endblock %}

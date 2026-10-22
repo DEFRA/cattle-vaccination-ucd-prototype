@@ -1,0 +1,110 @@
+{% extends "layouts/main.html" %}
+
+{# 6b – Was all cattle vaccinated? Figma node 583:44635.
+   Asked after the cattle that could not be vaccinated have been picked on
+   the 6-select-cattle screens (or straight after 4-cattle-cannot-be-
+   vaccinated when none were). The route in routes.js (search for
+   6b-all-cattle-vaccinated) acts on the answer:
+     Yes → every animal without a reason is marked vaccinated, then
+           8-vaccine-batch (page 7 is skipped)
+     No  → 7-vaccinated-cattle, to pick the vaccinated cattle
+
+   Plain HTML. The only Nunjucks is the layout, the includes, the Back link,
+   the date being reported on (page 3) and the saved answer ticked again. Saved as all-cattle-vaccinated
+   (yes/no). The error is written out below and shown by the script. #}
+
+{% block pageTitle %}
+  Was all cattle vaccinated on {{ vaccinationDate }}? – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="{{ backHref or '/vax/dec26/3-vaccination-date' }}" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  .govuk-error-message[hidden], .govuk-error-summary[hidden] { display: none; }
+</style>
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <div class="govuk-error-summary" id="error-summary" tabindex="-1" hidden>
+      <div role="alert">
+        <h2 class="govuk-error-summary__title">There is a problem</h2>
+        <div class="govuk-error-summary__body">
+          <ul class="govuk-list govuk-error-summary__list">
+            <li><a href="#all-cattle-vaccinated">Select ‘Yes’ if some cattle still needs to be vaccinated</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <form id="all-cattle-vaccinated-form" action="/vax/dec26/6b-all-cattle-vaccinated" method="post" novalidate>
+
+      <div class="govuk-form-group" id="all-cattle-vaccinated-group">
+        <fieldset class="govuk-fieldset" aria-describedby="all-cattle-vaccinated-hint">
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--l">
+            <span class="govuk-caption-l">Report bTB vaccination for Tarbh Farm</span>
+            <h1 class="govuk-fieldset__heading">Were all cattle vaccinated on {{ vaccinationDate }}?</h1>
+          </legend>
+          <div id="all-cattle-vaccinated-hint" class="govuk-hint">
+            <p class="govuk-hint govuk-!-margin-bottom-2">Selecting ‘Yes’ will mark all remaining cattle as vaccinated.</p>
+
+          </div>
+          <p id="all-cattle-vaccinated-error" class="govuk-error-message" hidden>
+            <span class="govuk-visually-hidden">Error:</span> Select ‘Yes’ if some cattle still needs to be vaccinated
+          </p>
+          <div class="govuk-radios" data-module="govuk-radios">
+            <div class="govuk-radios__item">
+              <input class="govuk-radios__input" id="all-cattle-vaccinated" name="all-cattle-vaccinated" type="radio" value="yes"{% if data['all-cattle-vaccinated'] == 'yes' %} checked{% endif %}>
+              <label class="govuk-label govuk-radios__label" for="all-cattle-vaccinated">Yes</label>
+            </div>
+            <div class="govuk-radios__item">
+              <input class="govuk-radios__input" id="all-cattle-vaccinated-no" name="all-cattle-vaccinated" type="radio" value="no"{% if data['all-cattle-vaccinated'] == 'no' %} checked{% endif %}>
+              <label class="govuk-label govuk-radios__label" for="all-cattle-vaccinated-no">No</label>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="govuk-button-group">
+        <button type="submit" class="govuk-button" data-module="govuk-button">Continue and save</button>
+        <button type="submit" formaction="/vax/dec26/2-cphtasklist2" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-save-later>Save and continue later</button>
+      </div>
+
+    </form>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+
+<script>
+  // Show the designed error state if no answer is chosen.
+  (function () {
+    var form = document.getElementById('all-cattle-vaccinated-form')
+    var summary = document.getElementById('error-summary')
+    var group = document.getElementById('all-cattle-vaccinated-group')
+    var message = document.getElementById('all-cattle-vaccinated-error')
+    var fieldset = group.querySelector('.govuk-fieldset')
+    var baseTitle = document.title.replace(/^Error: /, '')
+
+    form.addEventListener('submit', function (event) {
+      if (event.submitter && event.submitter.hasAttribute('data-save-later')) return
+      if (form.querySelector('input[name="all-cattle-vaccinated"]:checked')) return
+      event.preventDefault()
+      group.classList.add('govuk-form-group--error')
+      message.hidden = false
+      fieldset.setAttribute('aria-describedby', 'all-cattle-vaccinated-hint all-cattle-vaccinated-error')
+      summary.hidden = false
+      document.title = 'Error: ' + baseTitle
+      summary.focus()
+      window.scrollTo(0, 0)
+    })
+  })()
+</script>
+{% endblock %}
