@@ -73,7 +73,7 @@
           <tr class="govuk-table__row">
             <th scope="row" class="govuk-table__header">{{ list.date }}</th>
             <td class="govuk-table__cell">
-              <a class="govuk-link" href="/vax/vaccination-list?cph=12/385/6809&amp;list={{ n }}" target="_blank" rel="noopener noreferrer">bTB vaccination list Tarbh Farm {{ list.date }} (opens in a new tab)</a>
+              <a class="govuk-link"{% if n == lists | length %} id="latest-list"{% endif %} href="/vax/vaccination-list?cph=12/385/6809&amp;list={{ n }}" target="_blank" rel="noopener noreferrer">bTB vaccination list Tarbh Farm {{ list.date }} (opens in a new tab)</a>
             </td>
           </tr>
         {% endfor %}
@@ -124,10 +124,10 @@
 </div>
 
 <script>
-  // "Create vaccination list" reloads the page: keep the vet where they were
-  // rather than back at the top. The scroll position is remembered as the
-  // form is sent and put back on the next page; focus returns to the button,
-  // or to the "still up to date" message when one is shown.
+  // "Create vaccination list" reloads the page at #latest-list, the new
+  // list's download link (the first in the table, newest first): the page
+  // scrolls to it and focuses it. When no new list was made, the "still up
+  // to date" message is scrolled to and focused instead.
   ;(function () {
     var form = document.querySelector('form[action="/vax/v1-6/create-vaccination-list"]')
     if (!form) return
@@ -140,10 +140,10 @@
     window.addEventListener('load', function () {
       setTimeout(function () {
         var banner = document.querySelector('.govuk-notification-banner')
-        var target = banner || form.querySelector('button')
+        var target = banner || document.getElementById('latest-list') || form.querySelector('button')
         if (banner) banner.setAttribute('tabindex', '-1')
         target.focus({ preventScroll: true })
-        window.scrollTo(0, Number(saved))
+        target.scrollIntoView({ block: 'center' })
       }, 0)
     })
   })()

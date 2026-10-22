@@ -12496,15 +12496,17 @@ router.post(['/vax/v1-6/create-vaccination-list', '/vax/dec26/create-vaccination
     const keys = Object.keys(a)
     return keys.length === Object.keys(b).length && keys.every(function (k) { return a[k] === b[k] })
   }
+  let anchor = '#latest-list'
   if (latest && latest.notes && same(latest.notes, notes)) {
     req.session.vaxListMessage = 'up-to-date'
+    anchor = '#vaccination-lists'
   } else {
     data['vax-lists'] = lists.concat({ date: today, notes: notes })
   }
-  // Back at the lists section (the page script restores the exact scroll
-  // position when it can).
-  // Back to the same prototype version's task list (v1-6 or dec26).
-  res.redirect(req.path.replace('create-vaccination-list', '2-cphtasklist2') + '#vaccination-lists')
+  // Back to the same prototype version's task list (v1-6 or dec26), at the
+  // new list's download link – or the lists section, with the "still up to
+  // date" message, when no new list was made.
+  res.redirect(req.path.replace('create-vaccination-list', '2-cphtasklist2') + anchor)
 })
 
 // Show the "still up to date" message once, then let the kit render the page.
@@ -13258,6 +13260,9 @@ router.post(['/vax/v1-6/12-submitted', '/vax/dec26/12-submitted'], function (req
   data['vax-reports'] = reports.concat({
     number: reports.length + 1,
     date: data['vax-report-date'],
+    // When it was submitted – also when the next task was created, so the
+    // task list names that task with it.
+    submittedOn: new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date()),
     vaccinated: data['vax-report-vaccinated'],
     complete: data['vax-report-complete'],
     toReport: data['vax-report-to-report'],
