@@ -20,6 +20,19 @@
 {% endblock %}
 
 {% block content %}
+<style>
+  /* Label and value side by side, half each, from tablet width up. On
+     small screens (and zoomed in) the value stacks under its label. */
+  @media (min-width: 40.0625em) {
+    .app-table-pairs__key { width: 50%; }
+  }
+  @media (max-width: 40.0525em) {
+    .app-table-pairs, .app-table-pairs tbody { display: block; }
+    .app-table-pairs .govuk-table__row { display: block; padding: 10px 0; border-bottom: 1px solid #b1b4b6; }
+    .app-table-pairs .govuk-table__header,
+    .app-table-pairs .govuk-table__cell { display: block; padding: 0; border: 0; }
+  }
+</style>
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 
@@ -27,10 +40,10 @@
 
     <p class="govuk-body">This information comes from the <a class="govuk-link" href="https://www.gov.uk/cattle-tracing-online" target="_blank" rel="noopener noreferrer">Cattle Tracing System (opens in a new tab)</a>. It may not be up to date.</p>
 
-    <table class="govuk-table govuk-!-margin-bottom-8">
+    <table class="govuk-table govuk-!-margin-bottom-8 app-table-pairs">
       <tbody class="govuk-table__body">
         <tr class="govuk-table__row">
-          <th scope="row" class="govuk-table__header govuk-!-width-one-half">Address</th>
+          <th scope="row" class="govuk-table__header app-table-pairs__key">Address</th>
           <td class="govuk-table__cell">Tarbh Farm, Helmsley, YO62 7TB</td>
         </tr>
         <tr class="govuk-table__row">
@@ -49,10 +62,10 @@
     </table>
 
     <h2 class="govuk-heading-m">Holding details</h2>
-    <table class="govuk-table">
+    <table class="govuk-table app-table-pairs">
       <tbody class="govuk-table__body">
         <tr class="govuk-table__row">
-          <th scope="row" class="govuk-table__header govuk-!-width-one-half">Risk area</th>
+          <th scope="row" class="govuk-table__header app-table-pairs__key">Risk area</th>
           <td class="govuk-table__cell">High</td>
         </tr>
         <tr class="govuk-table__row">

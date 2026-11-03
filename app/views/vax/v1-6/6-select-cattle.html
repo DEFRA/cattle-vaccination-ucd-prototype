@@ -108,6 +108,25 @@
   /* Already picked under another reason: greyed out, ticked and locked. */
   .app-row--taken .govuk-table__cell { background: #f3f2f1; color: #505a5f; }
   .app-row--taken .govuk-checkboxes__label { color: #505a5f; }
+  /* Small screens (and zoomed in): each animal stacks as a block – No. and
+     the ear tag checkbox together on the first line, then comments, date
+     of birth, sex and breed, each on its own line with its label. The column headings are hidden then; the labels are
+     only shown when stacked. */
+  .app-select-table__label { display: none; }
+  @media (max-width: 40.0525em) {
+    .app-select-table thead { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
+    .app-select-table, .app-select-table tbody { display: block; }
+    .app-select-table .govuk-table__row { display: flex; flex-wrap: wrap; align-items: center; padding: 15px 10px; border-bottom: 1px solid #b1b4b6; }
+    .app-select-table .govuk-table__cell { display: block; flex: 0 0 100%; width: auto; padding: 0 0 5px; border: 0; text-align: left; background: none; }
+    .app-select-table .app-row-number { flex: 0 0 auto; min-width: 30px; padding: 0 10px 10px 0; }
+    .app-select-table .app-cell--tag { flex: 1 1 0; padding-bottom: 10px; }
+    /* "No." is read out but not shown: the bold number sits by the ear tag. */
+    .app-select-table .app-row-number .app-select-table__label { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
+    .app-select-table .app-cell--empty { display: none; }
+    .app-select-table__label { display: inline; font-weight: 700; }
+    .app-row--found { background: #fff7bf; }
+    .app-row--taken { background: #f3f2f1; color: #505a5f; }
+  }
 </style>
 
 <div class="govuk-grid-row">
@@ -227,8 +246,8 @@
       <tbody class="govuk-table__body">
         {% for row in rows %}
           <tr class="govuk-table__row{% if row.locked %} app-row--taken{% endif %}">
-            <td class="govuk-table__cell app-row-number">{{ row.number }}</td>
-            <td class="govuk-table__cell">
+            <td class="govuk-table__cell app-row-number"><span class="app-select-table__label">No. </span>{{ row.number }}</td>
+            <td class="govuk-table__cell app-cell--tag">
               <div class="govuk-checkboxes" data-module="govuk-checkboxes">
                 <div class="govuk-checkboxes__item">
                   <input class="govuk-checkboxes__input js-cattle" id="cattle-{{ row.officialId }}" name="cattle" type="checkbox" value="{{ row.officialId }}"{% if row.checked %} checked{% endif %}{% if row.locked %} disabled{% if row.takenFor %} aria-describedby="cattle-{{ row.officialId }}-taken"{% endif %}{% endif %}>
@@ -238,13 +257,13 @@
                 </div>
               </div>
             </td>
-            <td class="govuk-table__cell">
-              {% if row.takenFor %}<span id="cattle-{{ row.officialId }}-taken">{{ row.takenFor }}</span>{% if row.note and row.note != row.takenFor %}<br>{% endif %}{% endif %}
+            <td class="govuk-table__cell{% if not row.takenFor and not row.note %} app-cell--empty{% endif %}">
+              <span class="app-select-table__label">Comments: </span>{% if row.takenFor %}<span id="cattle-{{ row.officialId }}-taken">{{ row.takenFor }}</span>{% if row.note and row.note != row.takenFor %}<br>{% endif %}{% endif %}
               {% if row.note != row.takenFor %}{{ row.note }}{% endif %}
             </td>
-            <td class="govuk-table__cell">{{ row.dobShort }}</td>
-            <td class="govuk-table__cell">{{ row.sexLabel }}</td>
-            <td class="govuk-table__cell">{{ row.breed }}</td>
+            <td class="govuk-table__cell"><span class="app-select-table__label">Date of birth: </span>{{ row.dobShort }}</td>
+            <td class="govuk-table__cell"><span class="app-select-table__label">Sex: </span>{{ row.sexLabel }}</td>
+            <td class="govuk-table__cell"><span class="app-select-table__label">Breed: </span>{{ row.breed }}</td>
           </tr>
         {% endfor %}
       </tbody>

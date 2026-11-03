@@ -60,10 +60,29 @@
       </div>
     {% endif %}
 
-    <table class="govuk-table govuk-!-margin-bottom-8">
+    {# On small screens (and when zoomed in) the table stacks: each list
+       shows "List date: …" then "Download link" above its link. The labels
+       are only shown when stacked; the column headers are hidden then. #}
+    <style>
+      @media (min-width: 40.0625em) {
+        .app-table-stacked__date { width: 25%; }
+      }
+      @media (max-width: 40.0525em) {
+        .app-table-stacked thead { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
+        .app-table-stacked tr { display: block; padding: 10px 0; border-bottom: 1px solid #b1b4b6; }
+        .app-table-stacked th, .app-table-stacked td { display: block; padding: 0; border: 0; }
+        .app-table-stacked tbody th { margin-bottom: 10px; }
+      }
+      .app-table-stacked__label { display: none; }
+      @media (max-width: 40.0525em) {
+        .app-table-stacked__label { display: inline; }
+        .app-table-stacked__label--block { display: block; }
+      }
+    </style>
+    <table class="govuk-table govuk-!-margin-bottom-8 app-table-stacked">
       <thead class="govuk-table__head">
         <tr class="govuk-table__row">
-          <th scope="col" class="govuk-table__header govuk-!-width-one-quarter">List date</th>
+          <th scope="col" class="govuk-table__header app-table-stacked__date">List date</th>
           <th scope="col" class="govuk-table__header">Download link</th>
         </tr>
       </thead>
@@ -74,8 +93,9 @@
         {% for n in range(lists | length, 0, -1) %}
           {% set list = lists[n - 1] %}
           <tr class="govuk-table__row">
-            <th scope="row" class="govuk-table__header">{{ list.date }}</th>
+            <th scope="row" class="govuk-table__header"><span class="app-table-stacked__label">List date: </span>{{ list.date }}</th>
             <td class="govuk-table__cell">
+              <span class="app-table-stacked__label app-table-stacked__label--block govuk-!-font-weight-bold">Download link</span>
               <a class="govuk-link"{% if n == lists | length %} id="latest-list"{% endif %} href="/vax/vaccination-list?cph=12/385/6809&amp;list={{ n }}" target="_blank" rel="noopener noreferrer">bTB vaccination list Tarbh Farm {{ list.date }} (opens in a new tab)</a>
             </td>
           </tr>
