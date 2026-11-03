@@ -64,12 +64,20 @@
   .govuk-pagination__item--current .app-pagination-button { color: #ffffff; text-decoration: none; }
   .app-pagination-button:focus { color: #0b0c0c; text-decoration: none; }
   .app-search { display: flex; align-items: flex-end; gap: 10px; }
-  .app-search .govuk-form-group { margin-bottom: 0; flex: 0 0 auto; }
+  /* Allowed to shrink (min-width: 0) so the search box never runs past
+     the edge of a narrow or zoomed-in screen (400% zoom is ~320px). */
+  .app-search .govuk-form-group { margin-bottom: 0; flex: 0 1 auto; min-width: 0; }
   .app-select-table .govuk-table__cell,
   .app-select-table .govuk-table__header { vertical-align: middle; }
   .app-select-table .govuk-checkboxes__item { margin-bottom: 0; }
   /* Ear tags never wrap, even when the error border narrows the table. */
   .app-select-table .govuk-checkboxes__label { white-space: nowrap; }
+  /* GOV.UK caps the label at a percentage of its box, which lets the
+     table squeeze the ear tag column narrower than the ear tag, so the
+     tag ran into the comments. Lift the cap so the column always fits
+     the whole ear tag and the other columns wrap instead. */
+  .app-select-table .govuk-checkboxes__item { flex-wrap: nowrap; }
+  .app-select-table .govuk-checkboxes__label { max-width: none; }
   .app-row-number { width: 40px; text-align: center; font-weight: 700; }
   /* Shared last 4 digits – a bar above and below, as on the printed list. */
   .app-last4--duplicate {
@@ -108,12 +116,13 @@
   /* Already picked under another reason: greyed out, ticked and locked. */
   .app-row--taken .govuk-table__cell { background: #f3f2f1; color: #505a5f; }
   .app-row--taken .govuk-checkboxes__label { color: #505a5f; }
-  /* Small screens (and zoomed in): each animal stacks as a block – No. and
+  /* Below 768px (phones, tablets, zoomed in) – the full table needs about
+     675px, so it is stacked before it gets squeezed: each animal stacks as a block – No. and
      the ear tag checkbox together on the first line, then comments, date
      of birth, sex and breed, each on its own line with its label. The column headings are hidden then; the labels are
      only shown when stacked. */
   .app-select-table__label { display: none; }
-  @media (max-width: 40.0525em) {
+  @media (max-width: 47.9375em) {
     .app-select-table thead { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
     .app-select-table, .app-select-table tbody { display: block; }
     .app-select-table .govuk-table__row { display: flex; flex-wrap: wrap; align-items: center; padding: 15px 10px; border-bottom: 1px solid #b1b4b6; }
