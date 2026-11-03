@@ -54,17 +54,10 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-weight: 400;
-    font-size: 1rem;
-    line-height: 1.25;
-  }
-  @media (min-width: 40.0625em) {
-    .autocomplete__input,
-    .autocomplete__hint,
-    .autocomplete__menu,
-    .autocomplete__option {
-      font-size: 1.1875rem;
-      line-height: 1.31579;
-    }
+    /* 19px on all screen sizes (the new GOV.UK type scale, see
+       app/assets/sass/settings.scss). */
+    font-size: 1.1875rem;
+    line-height: 1.31579;
   }
   /* White like every other input, whatever it is sitting on. */
   .autocomplete__input { background-color: #ffffff; }

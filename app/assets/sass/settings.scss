@@ -1,0 +1,7 @@
+// Sass settings, loaded by the Prototype Kit before GOV.UK Frontend.
+//
+// Use the new GOV.UK type scale: body text (and labels, inputs, hints) is
+// 19px on all screen sizes, not 16px on mobile. This is the default in
+// GOV.UK Frontend v6 and what the Design System documents:
+// https://design-system.service.gov.uk/styles/type-scale/
+$govuk-new-typography-scale: true;
