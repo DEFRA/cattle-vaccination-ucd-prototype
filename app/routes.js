@@ -12529,10 +12529,28 @@ router.get(['/vax/v1-6/2-cphtasklist2', '/vax/dec26/2-cphtasklist2'], function (
 //   version  which herd data to use (defaults to v1-3)
 // -----------------------------------------------------------------------------
 router.get('/vax/vaccination-list', function (req, res) {
+  renderVaxList(req, res, { template: 'vax/vaccination-list', firstPageSize: 20, perPage: 25 })
+})
+
+// Version 2 – /vax/vaccination-listv2: a tick-box column after No., 5 more
+// cattle on every sheet (25 on page 1, 30 after), and cattle under 21 days
+// old show their age ("12 days old") instead of "Not eligible: too young".
+router.get('/vax/vaccination-listv2', function (req, res) {
+  renderVaxList(req, res, { template: 'vax/vaccination-listv2', firstPageSize: 25, perPage: 30, daysOldNote: true })
+})
+
+// Version 3 – /vax/vaccination-listv3: as v2, with 5 more cattle on every
+// sheet (30 on page 1, 35 after). Pages 2 onwards have no header – the
+// farm and CPH move to the footer – and print margins are tighter.
+router.get('/vax/vaccination-listv3', function (req, res) {
+  renderVaxList(req, res, { template: 'vax/vaccination-listv3', firstPageSize: 30, perPage: 35, daysOldNote: true })
+})
+
+function renderVaxList (req, res, opts) {
   const query = req.query || {}
   const cph = [query.cph, TARBH_CPH]
     .find(function (c) { return c && herdData[c] })
-  const perPage = [20, 25, 40].includes(Number(query.perPage)) ? Number(query.perPage) : 25
+  const perPage = [20, 25, 40].includes(Number(query.perPage)) ? Number(query.perPage) : opts.perPage
   const version = ['v1-2', 'v1-3', 'v1-4', 'v1-5'].includes(query.version) ? query.version : 'v1-3'
 
   const rows = buildVaxListRows(cph, version)
@@ -12548,9 +12566,23 @@ router.get('/vax/vaccination-list', function (req, res) {
   } else if (cph === TARBH_CPH) {
     vaxApplyReportNotes(rows, data)
   }
-  // Page 1 also carries the date and batch boxes, so it only has room
-  // for 20 cattle; every later sheet takes the full perPage.
-  const firstPageSize = Math.min(perPage, 20)
+  // v2: "Not eligible: too young" becomes the animal's age in days, as at
+  // the day the list was made (or today for a live list).
+  if (opts.daysOldNote) {
+    const listDate = listRecord && listRecord.date ? new Date(listRecord.date) : new Date()
+    const asAt = isNaN(listDate) ? new Date() : listDate
+    rows.forEach(function (row) {
+      if (row.note !== 'Not eligible: too young') return
+      const dobCell = (row.cells || []).find(function (c) { return c.key === 'DOB' })
+      const p = String((dobCell && dobCell.value) || '').split('/').map(Number)
+      if (p.length !== 3 || !p.every(Boolean)) return
+      const days = Math.floor((asAt - new Date(p[2], p[1] - 1, p[0])) / (24 * 60 * 60 * 1000))
+      row.note = days + (days === 1 ? ' day old' : ' days old')
+    })
+  }
+  // Page 1 also carries the date and batch boxes, so it has room for
+  // fewer cattle; every later sheet takes the full perPage.
+  const firstPageSize = Math.min(perPage, opts.firstPageSize)
   const sheets = []
   const sheetStarts = [] // row number before each sheet's first animal
   for (let i = 0; i < rows.length; i += (i === 0 ? firstPageSize : perPage)) {
@@ -12558,16 +12590,20 @@ router.get('/vax/vaccination-list', function (req, res) {
     sheets.push(rows.slice(i, i + (i === 0 ? firstPageSize : perPage)))
   }
 
-  res.render('vax/vaccination-list', {
+  res.render(opts.template, {
     farm: herdData[cph].farm,
     cph: cph,
     rows: rows,
     sheets: sheets,
     sheetStarts: sheetStarts,
     totalPages: sheets.length + 1, // data sheets + blank sheet
-    compact: perPage === 40
+    compact: perPage === 40,
+    // A saved list (?list=N) shows the day it was made, e.g. "08 Nov 2026".
+    listDate: listRecord && listRecord.date
+      ? String(listRecord.date).replace(/^(\d)\s/, '0$1 ')
+      : null
   })
-})
+}
 
 // -----------------------------------------------------------------------------
 // Select cattle for each reason they were not vaccinated –
