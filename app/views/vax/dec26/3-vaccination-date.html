@@ -10,7 +10,7 @@
    in the session by the prototype kit when the form is sent, as:
      vaccination-date-day, vaccination-date-month, vaccination-date-year
    so a check your answers page can read them from data[...].
-   "Continue and save" always goes on to 4-cattle-cannot-be-vaccinated.
+   "Continue and save" always goes on to 4-vaccine-batch.
    The error summary and every error message are written out below and
    hidden; the script at the bottom checks the answers when "Continue and
    save" is pressed and shows only the errors that apply, so the wording
@@ -62,7 +62,7 @@
       </div>
     </div>
 
-    <form id="vaccination-date-form" action="/vax/dec26/6b-all-cattle-vaccinated" method="post" novalidate>
+    <form id="vaccination-date-form" action="/vax/dec26/4-vaccine-batch" method="post" novalidate>
 
       <div class="govuk-form-group" id="vaccination-date-group">
         <fieldset class="govuk-fieldset" role="group" aria-describedby="vaccination-date-hint">

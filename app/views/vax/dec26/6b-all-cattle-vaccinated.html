@@ -6,8 +6,9 @@
    vaccinated when none were). The route in routes.js (search for
    6b-all-cattle-vaccinated) acts on the answer:
      Yes → every animal without a reason is marked vaccinated, then
-           8-vaccine-batch (page 7 is skipped)
+           10-check-answers (page 7 is skipped)
      No  → 7-vaccinated-cattle, to pick the vaccinated cattle
+   dec26 asks it after the vaccine batch (4-vaccine-batch).
 
    Plain HTML. The only Nunjucks is the layout, the includes, the Back link,
    the date being reported on (page 3) and the saved answer ticked again. Saved as all-cattle-vaccinated
@@ -22,7 +23,7 @@
 {% endblock %}
 
 {% block beforeContent %}
-  <a href="{{ backHref or '/vax/dec26/3-vaccination-date' }}" class="govuk-back-link">Back</a>
+  <a href="{{ backHref or '/vax/dec26/4-vaccine-batch' }}" class="govuk-back-link">Back</a>
 {% endblock %}
 
 {% block content %}

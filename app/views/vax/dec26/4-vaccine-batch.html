@@ -1,9 +1,13 @@
 {% extends "layouts/main.html" %}
 
-{# 8 – Enter vaccine batch details. Figma "Vaccination batch" (node
-   541:15834). One batch only – no "add another". The batch needs a batch
-   number, a diluent batch number and both expiry dates before the vet can
-   continue.
+{# 4 – Enter vaccine batch details. Figma "Vaccination batch" (node
+   541:15834). Straight after the vaccination date (3), before "Was all
+   cattle vaccinated?" (6b). One batch only – no "add another". The batch
+   needs a batch number, a diluent batch number and both expiry dates
+   before the vet can continue.
+
+   Opened from Change on check answers (?from=check, fromCheck), Back and
+   Continue and save go back to check answers instead.
 
    Answers are saved by the kit as data['vaccine-batches'], a list with
    the one batch in it (so the rest of the journey reads it as before):
@@ -23,8 +27,7 @@
 {% endblock %}
 
 {% block beforeContent %}
-  {# Back to the screen that led here – set by the route in routes.js. #}
-  <a href="{{ backHref or '/vax/dec26/7-vaccinated-cattle' }}" class="govuk-back-link">Back</a>
+  <a href="{{ '/vax/dec26/10-check-answers' if fromCheck else '/vax/dec26/3-vaccination-date' }}" class="govuk-back-link">Back</a>
 {% endblock %}
 
 
@@ -139,7 +142,7 @@
     <span class="govuk-caption-l">Report bTB vaccination for Tarbh Farm</span>
     <h1 class="govuk-heading-l">Enter vaccine batch details</h1>
 
-    <form id="batch-form" action="/vax/dec26/10-check-answers" method="post" novalidate>
+    <form id="batch-form" action="{{ '/vax/dec26/10-check-answers' if fromCheck else '/vax/dec26/6b-all-cattle-vaccinated' }}" method="post" novalidate>
 
       <div id="batches">
         {% set saved = data['vaccine-batches'] if data['vaccine-batches'] and data['vaccine-batches'].length else [{}] %}

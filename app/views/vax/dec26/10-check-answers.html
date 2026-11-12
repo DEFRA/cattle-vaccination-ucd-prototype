@@ -8,7 +8,8 @@
 
    Each Change link goes back to the screen the answer came from; an
    animal's Change opens 7-vaccinated-cattle focused on it, and saving
-   there comes back here.
+   there comes back here. Every animal on the holding is listed, reported
+   or not ("—"), each with Change only.
 
    Also used read-only (readOnly) for 13-submitted-report, opened from the
    completed task on the task list: no Change links and no submit. #}
@@ -29,29 +30,10 @@
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
 
-    {% if removed %}
-      <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" aria-labelledby="removed-title" data-module="govuk-notification-banner">
-        <div class="govuk-notification-banner__header">
-          <h2 class="govuk-notification-banner__title" id="removed-title">Success</h2>
-        </div>
-        <div class="govuk-notification-banner__content">
-          <p class="govuk-notification-banner__heading">{{ removed.tag }} has been removed from this report</p>
-          {% if removed.nowPart %}
-            {# Removing it means not every animal is accounted for. #}
-            <p class="govuk-body">Not all cattle are now marked as vaccinated or ineligible, so this is now a part vaccination report. The work order will remain open until the job is complete.</p>
-          {% endif %}
-        </div>
-      </div>
-    {% endif %}
-
     <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
     <h1 class="govuk-heading-l">{{ "Submitted vaccination report" if readOnly else "Check your answers before submitting vaccination details" }}</h1>
 
-  </div>
-</div>
-
-<div class="govuk-grid-row">
-  <div class="govuk-grid-column-full">
+    {# Everything sits in the two-thirds column (GOV.UK 2/3 – 1/3 layout). #}
 
     <h2 class="govuk-heading-m">Vaccine details</h2>
     <dl class="govuk-summary-list govuk-!-margin-bottom-9">
@@ -68,24 +50,25 @@
         <dt class="govuk-summary-list__key">Is the job complete?</dt>
         <dd class="govuk-summary-list__value">{{ jobComplete }}</dd>
       </div>
+      {# dec26 has one batch only (page 4), so its rows are not numbered. #}
       {% for batch in batches %}
         <div class="govuk-summary-list__row govuk-summary-list__row--no-border">
-          <dt class="govuk-summary-list__key">Vaccine batch number {{ batch.number }}</dt>
+          <dt class="govuk-summary-list__key">Vaccine batch number</dt>
           <dd class="govuk-summary-list__value">{{ batch.batchNumber }}</dd>
           {% if not readOnly %}<dd class="govuk-summary-list__actions">
-            <a class="govuk-link" href="/vax/dec26/8-vaccine-batch">Change<span class="govuk-visually-hidden"> vaccine batch {{ batch.number }}</span></a>
+            <a class="govuk-link" href="/vax/dec26/4-vaccine-batch?from=check">Change<span class="govuk-visually-hidden"> vaccine batch</span></a>
           </dd>{% endif %}
         </div>
         <div class="govuk-summary-list__row govuk-summary-list__row--no-border govuk-summary-list__row--no-actions">
-          <dt class="govuk-summary-list__key">Batch {{ batch.number }} expiry date</dt>
+          <dt class="govuk-summary-list__key">Batch expiry date</dt>
           <dd class="govuk-summary-list__value">{{ batch.expiry }}</dd>
         </div>
         <div class="govuk-summary-list__row govuk-summary-list__row--no-border govuk-summary-list__row--no-actions">
-          <dt class="govuk-summary-list__key">Diluent {{ batch.number }} number</dt>
+          <dt class="govuk-summary-list__key">Diluent number</dt>
           <dd class="govuk-summary-list__value">{{ batch.diluentNumber }}</dd>
         </div>
         <div class="govuk-summary-list__row govuk-summary-list__row--no-actions">
-          <dt class="govuk-summary-list__key">Diluent {{ batch.number }} expiry date</dt>
+          <dt class="govuk-summary-list__key">Diluent expiry date</dt>
           <dd class="govuk-summary-list__value">{{ batch.diluentExpiry }}</dd>
         </div>
       {% endfor %}
@@ -94,36 +77,35 @@
     <h2 class="govuk-heading-m">Vaccinated cattle</h2>
     <dl class="govuk-summary-list govuk-!-margin-bottom-9">
       <div class="govuk-summary-list__row">
-        <dt class="govuk-summary-list__key">Cattle vaccinated</dt>
+        <dt class="govuk-summary-list__key">Vaccinated cattle</dt>
         <dd class="govuk-summary-list__value">{{ vaccinatedCount }}</dd>
         {% if not readOnly %}<dd class="govuk-summary-list__actions">
-          <a class="govuk-link" href="/vax/dec26/7-vaccinated-cattle">Change<span class="govuk-visually-hidden"> cattle vaccinated</span></a>
+          <a class="govuk-link" href="/vax/dec26/7-vaccinated-cattle">Change<span class="govuk-visually-hidden"> vaccinated cattle</span></a>
+        </dd>{% endif %}
+      </div>
+      {# Not vaccinated and not eligible – too young, recently vaccinated,
+         or done in an earlier report (worked out in routes.js). Change
+         opens the vaccinated cattle screen, where the vet can override an
+         animal marked "Not eligible" on its record. #}
+      <div class="govuk-summary-list__row">
+        <dt class="govuk-summary-list__key">Ineligible cattle</dt>
+        <dd class="govuk-summary-list__value">{{ ineligibleCount }}</dd>
+        {% if not readOnly %}<dd class="govuk-summary-list__actions">
+          <a class="govuk-link" href="/vax/dec26/7-vaccinated-cattle">Change<span class="govuk-visually-hidden"> ineligible cattle</span></a>
         </dd>{% endif %}
       </div>
     </dl>
 
     {% for p in cattlePages %}
       <h2 class="govuk-heading-m">Page {{ p.page }} of {{ totalPages }} - cattle range {{ p.range }}</h2>
-      <dl class="govuk-summary-list govuk-!-margin-bottom-9 app-summary-list--two-actions">
+      <dl class="govuk-summary-list govuk-!-margin-bottom-9 app-cattle-list">
         {% for animal in p.cattle %}
           <div class="govuk-summary-list__row{% if animal.earlier or readOnly %} govuk-summary-list__row--no-actions{% endif %}" id="animal-{{ animal.id }}">
-            <dt class="govuk-summary-list__key">{{ animal.tag }}</dt>
+            <dt class="govuk-summary-list__key"><span class="app-row-number">{{ animal.number }}</span>{{ animal.tag }}</dt>
             <dd class="govuk-summary-list__value">{{ animal.value }}</dd>
             {# Reported in an earlier report: done, so no actions. #}
             {% if not readOnly and not animal.earlier %}<dd class="govuk-summary-list__actions">
-              <ul class="govuk-summary-list__actions-list">
-                {% if not animal.fromRecord %}
-                <li class="govuk-summary-list__actions-list-item">
-                  {# Removing changes the report, so it is a form button styled as a link. #}
-                  <form method="post" action="/vax/v1-6/11-edit-animal/{{ animal.id }}/remove" class="app-inline-form">
-                    <button type="submit" class="govuk-link app-link-button">Remove<span class="govuk-visually-hidden"> {{ animal.tag }}</span></button>
-                  </form>
-                </li>
-                {% endif %}
-                <li class="govuk-summary-list__actions-list-item">
-                  <a class="govuk-link" href="{{ animal.href }}">Change<span class="govuk-visually-hidden"> {{ animal.tag }}</span></a>
-                </li>
-              </ul>
+              <a class="govuk-link" href="{{ animal.href }}">Change<span class="govuk-visually-hidden"> {{ animal.tag }}</span></a>
             </dd>{% endif %}
           </div>
         {% endfor %}
@@ -150,26 +132,25 @@
 </div>
 
 <style>
-  /* Remove is a button (it changes the report) that looks like the
-     Change link next to it. */
-  .app-inline-form { display: inline; margin: 0; }
-  /* Remove | Change side by side, as in the design. */
+  /* Cattle rows: the list's row number before the ear tag, and a heavy
+     line after every 5th animal so the vet can count down in fives, as on
+     the paper chart (Figma 362:13592). */
+  .app-cattle-list .app-row-number {
+    display: inline-block;
+    min-width: 2.5em;
+    padding-right: 10px;
+    text-align: right;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+  .app-cattle-list .govuk-summary-list__row:nth-child(5n):not(:last-child) { border-bottom: 3px solid #0b0c0c; }
+  /* Number and ear tag stay on one line; the note column wraps instead. */
+  .app-cattle-list .govuk-summary-list__key { white-space: nowrap; }
   @media (min-width: 40.0625em) {
-    .app-summary-list--two-actions .govuk-summary-list__actions { width: 10.5em; white-space: nowrap; }
+    /* The summary list is a fixed table: 30% is too narrow for the number
+       and the whole ear tag, so the key takes 40%. */
+    .app-cattle-list .govuk-summary-list__key { width: 40%; }
   }
-  .app-link-button {
-    font: inherit;
-    color: #1d70b8;
-    background: none;
-    border: 0;
-    padding: 0;
-    cursor: pointer;
-    text-decoration: underline;
-    text-decoration-thickness: max(1px, .0625rem);
-    text-underline-offset: .1578em;
-  }
-  .app-link-button:hover { color: #003078; text-decoration-thickness: max(3px, .1875rem); }
-  .app-link-button:focus { color: #0b0c0c; text-decoration: none; }
   /* The row just edited, until focus moves on. */
   .app-row--found { background: #fff7bf; }
 </style>
