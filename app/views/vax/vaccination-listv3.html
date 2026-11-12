@@ -108,7 +108,16 @@
     .meta-table__line { flex: 1; height: 7mm; border-bottom: 1px solid #0b0c0c; }
     /* Label and value on one line; the vaccination date box takes the rest. */
     .meta-table { table-layout: auto; }
-    .meta-table__item { width: 1%; padding-right: 16px !important; white-space: nowrap; }
+    .meta-table__item { white-space: nowrap; }
+    /* Top line, inside the batch table: no boxes, text inset like the
+       column headings so it lines up with them. */
+    .entry-table .meta-row td {
+      height: auto;
+      border: 0;
+      padding: 2px 4px 4px;
+      vertical-align: bottom;
+    }
+    .entry-table .meta-row td:first-child { padding-right: 16px; }
     .entry-table { margin: 4px 0 8px; }
     .entry-table th { text-align: left; padding: 4px 6px; line-height: 1.2; }
     .entry-table td { height: 2.1em; border: 1px solid #0b0c0c; }
@@ -239,19 +248,18 @@
       {% endif %}
 
       {% if pageNumber == 1 %}
-        <table class="meta-table">
-          <tr>
-            <td class="meta-table__item"><strong>Cattle on this list:</strong> {{ rows.length }}</td>
-            <td class="meta-table__item"><strong>List created on:</strong>
-              {% if listDate %}{{ listDate }}{% else %}<span class="js-date-printed"></span>{% endif %}</td>
-            {# Box to write the vaccination date in, on the same row to save space. #}
-            <td><div class="meta-table__write"><strong>Vaccination date:</strong><span class="meta-table__line"></span></div></td>
-          </tr>
-        </table>
-
-        {# One row for the vaccine / diluent batch. #}
+        {# One table, so the top line shares the batch table's columns:
+           the vaccination date line spans the two vaccine columns, and
+           "Cattle on this list" lines up with "Diluent batch number".
+           Then one row for the vaccine / diluent batch. #}
         <table class="entry-table">
           <thead>
+            <tr class="meta-row">
+              <td colspan="2"><div class="meta-table__write"><strong>Vaccination date:</strong><span class="meta-table__line"></span></div></td>
+              <td class="meta-table__item"><strong>Cattle on this list:</strong> {{ rows.length }}</td>
+              <td class="meta-table__item"><strong>List created on:</strong>
+                {% if listDate %}{{ listDate }}{% else %}<span class="js-date-printed"></span>{% endif %}</td>
+            </tr>
             <tr>
               <th scope="col">Vaccine batch number</th>
               <th scope="col">Vaccine expiry date</th>

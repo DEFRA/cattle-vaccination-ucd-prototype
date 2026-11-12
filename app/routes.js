@@ -12501,7 +12501,13 @@ router.post(['/vax/v1-6/create-vaccination-list', '/vax/dec26/create-vaccination
     req.session.vaxListMessage = 'up-to-date'
     anchor = '#vaccination-lists'
   } else {
-    data['vax-lists'] = lists.concat({ date: today, notes: notes })
+    // How many cattle the new list leaves to report: what the last
+    // submitted report left, or every eligible animal before any report.
+    // (Not worked out from the live answers, which may be a report still
+    // under way.)
+    const reports = data['vax-reports'] || []
+    const toReport = reports.length ? reports[reports.length - 1].toReport : vaxEligibleToReport({})
+    data['vax-lists'] = lists.concat({ date: today, notes: notes, toReport: toReport })
   }
   // Back to the same prototype version's task list (v1-6 or dec26), at the
   // new list's download link – or the lists section, with the "still up to
@@ -12513,6 +12519,10 @@ router.post(['/vax/v1-6/create-vaccination-list', '/vax/dec26/create-vaccination
 router.get(['/vax/v1-6/2-cphtasklist2', '/vax/dec26/2-cphtasklist2'], function (req, res, next) {
   res.locals.listUpToDate = req.session.vaxListMessage === 'up-to-date'
   delete req.session.vaxListMessage
+  // dec26 "Cattle to vaccinate": what the last submitted report left, or
+  // every eligible animal before any report.
+  const reports = req.session.data['vax-reports'] || []
+  res.locals.cattleToVaccinate = reports.length ? reports[reports.length - 1].toReport : vaxEligibleToReport({})
   next()
 })
 
@@ -12543,7 +12553,7 @@ router.get('/vax/vaccination-listv2', function (req, res) {
 // sheet (30 on page 1, 35 after). Pages 2 onwards have no header – the
 // farm and CPH move to the footer – and print margins are tighter.
 router.get('/vax/vaccination-listv3', function (req, res) {
-  renderVaxList(req, res, { template: 'vax/vaccination-listv3', firstPageSize: 30, perPage: 35, daysOldNote: true })
+  renderVaxList(req, res, { template: 'vax/vaccination-listv3', firstPageSize: 30, perPage: 35, daysOldNote: true, revaccinationNote: true })
 })
 
 function renderVaxList (req, res, opts) {
@@ -12578,6 +12588,32 @@ function renderVaxList (req, res, opts) {
       if (p.length !== 3 || !p.every(Boolean)) return
       const days = Math.floor((asAt - new Date(p[2], p[1] - 1, p[0])) / (24 * 60 * 60 * 1000))
       row.note = days + (days === 1 ? ' day old' : ' days old')
+    })
+  }
+  // v3: cattle already vaccinated ("Not eligible: vaccinated DATE") show,
+  // as at the day the list was made (or today for a live list):
+  //   under 8 months since vaccination – "Not eligible: earliest
+  //     vaccination DATE", the day 8 months after it
+  //   8 to 12 months – "Vaccinated on DATE"
+  // Only the printed list changes: the report screens still work from the
+  // "Not eligible: vaccinated" note.
+  if (opts.revaccinationNote) {
+    const listDate = listRecord && listRecord.date ? new Date(listRecord.date) : new Date()
+    const asAt = isNaN(listDate) ? new Date() : listDate
+    const pad = function (n) { return String(n).padStart(2, '0') }
+    rows.forEach(function (row) {
+      const m = /^Not eligible: vaccinated (?:(\d{1,2})\/)?(\d{1,2})\/(\d{4})$/.exec(row.note || '')
+      if (!m) return
+      const shown = row.note.replace('Not eligible: vaccinated ', '')
+      const day = m[1] ? Number(m[1]) : 1
+      const month = Number(m[2]) - 1
+      const year = Number(m[3])
+      // 8 months on, kept in its month (31 Aug -> 30 Apr, not 1 May).
+      const lastDay = new Date(year, month + 9, 0).getDate()
+      const earliest = new Date(year, month + 8, Math.min(day, lastDay))
+      row.note = asAt < earliest
+        ? 'Not eligible: earliest vaccination ' + (m[1] ? pad(earliest.getDate()) + '/' : '') + pad(earliest.getMonth() + 1) + '/' + earliest.getFullYear()
+        : 'Vaccinated on ' + shown
     })
   }
   // Page 1 also carries the date and batch boxes, so it has room for
@@ -13304,6 +13340,21 @@ router.post(['/vax/v1-6/12-submitted', '/vax/dec26/12-submitted'], function (req
     toReport: data['vax-report-to-report'],
     data: snapshot
   })
+  // dec26: the report belongs to the latest vaccination list. The task
+  // list shows it under that list (Completed, with the vaccinated cattle
+  // report), and a new list is needed before the next report.
+  if (vaxBase(req) === '/vax/dec26') {
+    const previous = vaxPreviouslyReported(data)
+    const reported = {}
+    ;(data['vax-vaccinated-cattle'] || []).concat(Object.keys(vaxCurrentReasons(data))).forEach(function (id) {
+      if (!previous[id]) reported[id] = true
+    })
+    const added = data['vax-reports'][data['vax-reports'].length - 1]
+    added.reported = Object.keys(reported).length
+    const lists = data['vax-lists'] || []
+    const latestList = lists[lists.length - 1]
+    if (latestList && !latestList.report) latestList.report = added.number
+  }
   delete data['vax-report-in-progress']
   res.redirect(req.path)
 })
