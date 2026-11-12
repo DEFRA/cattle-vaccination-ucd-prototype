@@ -26,6 +26,12 @@
 {% endblock %}
 
 {% block content %}
+<style>
+  /* Keep a status tag on one line next to a long task name. The tag
+     component caps width at 160px, which wraps "Ready to view", so lift
+     the cap here. */
+  .app-tag--nowrap { white-space: nowrap; max-width: none; }
+</style>
 {% set lists = data['vax-lists'] or [] %}
 {% set reports = data['vax-reports'] or [] %}
 <div class="govuk-grid-row">
@@ -47,6 +53,8 @@
 
     <p class="govuk-body">Before heading to the farm, create an up-to-date vaccination list and respective report form.</p>
 
+        <p class="govuk-body">Create a vaccination list to confirm the number of cattle to vaccinate.</p>
+        
     <form method="post" action="/vax/dec26/create-vaccination-list">
       <button type="submit" class="govuk-button" data-module="govuk-button">Create vaccination list</button>
     </form>
@@ -97,7 +105,7 @@
               <div id="list-{{ n }}-cattle-report-hint" class="govuk-task-list__hint">The keeper was sent a copy via email</div>
             </div>
             <div class="govuk-task-list__status" id="list-{{ n }}-cattle-report-status">
-              <strong class="govuk-tag govuk-tag--green">Ready to view</strong>
+              <strong class="govuk-tag govuk-tag--green app-tag--nowrap">Ready to view</strong>
             </div>
           </li>
         {% else %}
