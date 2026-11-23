@@ -12556,6 +12556,12 @@ router.get('/vax/vaccination-listv3', function (req, res) {
   renderVaxList(req, res, { template: 'vax/vaccination-listv3', firstPageSize: 30, perPage: 35, daysOldNote: true, revaccinationNote: true })
 })
 
+// Version 4 – /vax/vaccination-listv4: as v3, plus a last sheet the vet
+// fills in by hand with the vaccine, batch and cattle details.
+router.get('/vax/vaccination-listv4', function (req, res) {
+  renderVaxList(req, res, { template: 'vax/vaccination-listv4', firstPageSize: 30, perPage: 35, daysOldNote: true, revaccinationNote: true })
+})
+
 // A note as the printed list shows it. The journey works from the stored
 // notes ("Not eligible: too young", "Not eligible: vaccinated DATE"),
 // which decide what is eligible; this only changes the wording shown:
