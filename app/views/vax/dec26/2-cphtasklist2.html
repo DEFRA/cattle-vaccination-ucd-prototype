@@ -98,8 +98,7 @@
           </li>
           <li class="govuk-task-list__item govuk-task-list__item--with-link">
             <div class="govuk-task-list__name-and-hint">
-              {# Not linked anywhere yet. #}
-              <a class="govuk-link govuk-task-list__link" href="#" onclick="return false" aria-describedby="list-{{ n }}-cattle-report-hint list-{{ n }}-cattle-report-status">
+              <a class="govuk-link govuk-task-list__link" href="/vax/vaxreport_v1?report={{ report.number }}" target="_blank" rel="noopener noreferrer" aria-describedby="list-{{ n }}-cattle-report-hint list-{{ n }}-cattle-report-status">
                 Vaccinated cattle report 12/385/6809 {{ report.date }} (opens in a new tab)
               </a>
               <div id="list-{{ n }}-cattle-report-hint" class="govuk-task-list__hint">The keeper was sent a copy via email</div>

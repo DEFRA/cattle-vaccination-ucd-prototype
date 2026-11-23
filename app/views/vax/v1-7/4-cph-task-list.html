@@ -1,0 +1,171 @@
+{% extends "layouts/main.html" %}
+
+{# v1-7 screen 4, CPH task list – copied from dec26/2-cphtasklist2. To be reused for each work order (screen 3). #}
+
+{# dec26 CPH task list, after "Create vaccination list".
+   Figma "CPH dashboard - 2" (node 658:14416): one list, ready to download
+   and report on. "CPH dashboard - 5" (node 674:5092): that list's report
+   submitted. "CPH dashboard - 3" (node 658:14669): a newer list made after
+   the report. "Important" banner (node 658:14965): "Create vaccination
+   list" found nothing had changed, so no new list was made.
+
+   Each list made is its own section, newest first. Until a report is
+   submitted against it, a list offers its download and a To do report
+   task (only the newest list can be reported on). Once reported, the
+   report shows as Completed with the vaccinated cattle report, which does
+   not link anywhere yet. #}
+
+{% block pageTitle %}
+  Tarbh Farm task list – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="#" class="govuk-back-link" onclick="history.back(-1)">Back</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Keep a status tag on one line next to a long task name. The tag
+     component caps width at 160px, which wraps "Ready to view", so lift
+     the cap here. */
+  .app-tag--nowrap { white-space: nowrap; max-width: none; }
+</style>
+{% set lists = data['vax-lists'] or [] %}
+{% set reports = data['vax-reports'] or [] %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <span class="govuk-caption-l">Tarbh Farm</span>
+    <h1 class="govuk-heading-l">bTB vaccination: issue date 6 October 2026</h1>
+
+    <h2 class="govuk-heading-m">CPH information</h2>
+    <p class="govuk-body govuk-!-margin-bottom-7">
+      CPH number: 12/385/6809<br>
+      Keeper contact: Ewan Tarbet<br>
+      Contact number: 07416 330 982<br>
+      Email address: ewan.tarbet@example.com<br>
+      Address: Tarbh Farm, Helmsley, YO62 7TB
+    </p>
+
+    <h2 class="govuk-heading-m" id="vaccination-lists">Prepare for the farm visit</h2>
+
+    <p class="govuk-body">Before heading to the farm, create an up-to-date vaccination list and respective report form.</p>
+
+        <p class="govuk-body">Create a vaccination list to confirm the number of cattle to vaccinate.</p>
+        
+    <form method="post" action="/vax/v1-7/create-vaccination-list">
+      <button type="submit" class="govuk-button" data-module="govuk-button">Create vaccination list</button>
+    </form>
+
+    {# Shown when "Create vaccination list" found nothing has changed since
+       the latest list, so no new list was made. #}
+    {% if listUpToDate %}
+      <div class="govuk-notification-banner" role="region" aria-labelledby="list-up-to-date-title" data-module="govuk-notification-banner">
+        <div class="govuk-notification-banner__header">
+          <h2 class="govuk-notification-banner__title" id="list-up-to-date-title">Important</h2>
+        </div>
+        <div class="govuk-notification-banner__content">
+          <p class="govuk-notification-banner__heading">The latest vaccination list is still up to date</p>
+          <p class="govuk-body">Nothing has changed since it was made, so a new list was not created. Download the list dated {{ (lists | last).date }}.</p>
+        </div>
+      </div>
+    {% endif %}
+
+    {% for n in range(lists | length, 0, -1) %}
+      {% set list = lists[n - 1] %}
+      {% set isLatest = n == lists | length %}
+      {% set report = reports[list.report - 1] if list.report else null %}
+
+      <h2 class="govuk-heading-m govuk-!-margin-top-6" id="list-{{ n }}">Vaccination list: {{ list.date }}</h2>
+
+      <ul class="govuk-task-list govuk-!-margin-bottom-8">
+        {% if report %}
+          {# Reported: the report is done, and the vaccinated cattle report
+             (sent to the keeper) is ready. #}
+          <li class="govuk-task-list__item">
+            <div class="govuk-task-list__name-and-hint">
+              <div>Report vaccination status</div>
+              {# Second line: cattle the report left still to report (none
+                 once every eligible animal is reported). #}
+              <div id="list-{{ n }}-report-hint" class="govuk-task-list__hint">
+                {{ report.reported }} cattle reported, view report for details
+                {%- if report.toReport %}<br>{{ report.toReport }} cattle still needs reporting{% endif %}
+              </div>
+            </div>
+            <div class="govuk-task-list__status" id="list-{{ n }}-report-status">Completed</div>
+          </li>
+          <li class="govuk-task-list__item govuk-task-list__item--with-link">
+            <div class="govuk-task-list__name-and-hint">
+              <a class="govuk-link govuk-task-list__link" href="/vax/vaxreport_v1?report={{ report.number }}" target="_blank" rel="noopener noreferrer" aria-describedby="list-{{ n }}-cattle-report-hint list-{{ n }}-cattle-report-status">
+                Vaccinated cattle report 12/385/6809 {{ report.date }} (opens in a new tab)
+              </a>
+              <div id="list-{{ n }}-cattle-report-hint" class="govuk-task-list__hint">The keeper was sent a copy via email</div>
+            </div>
+            <div class="govuk-task-list__status" id="list-{{ n }}-cattle-report-status">
+              <strong class="govuk-tag govuk-tag--green app-tag--nowrap">Ready to view</strong>
+            </div>
+          </li>
+        {% else %}
+          <li class="govuk-task-list__item govuk-task-list__item--with-link">
+            <div class="govuk-task-list__name-and-hint">
+              <a class="govuk-link govuk-task-list__link"{% if isLatest %} id="latest-list"{% endif %} href="/vax/vaccination-listv3?cph=12/385/6809&amp;list={{ n }}" target="_blank" rel="noopener noreferrer" aria-describedby="list-{{ n }}-download-status">
+                Download vaccination list (opens in a new tab)
+              </a>
+            </div>
+            <div class="govuk-task-list__status" id="list-{{ n }}-download-status">
+              <strong class="govuk-tag govuk-tag--grey">Ready</strong>
+            </div>
+          </li>
+          {% if isLatest %}
+            <li class="govuk-task-list__item govuk-task-list__item--with-link">
+              <div class="govuk-task-list__name-and-hint">
+                <a class="govuk-link govuk-task-list__link" href="{{ '/vax/v1-7/start-report' if reports | length else '/vax/v1-7/5-vaccination-date' }}" aria-describedby="list-{{ n }}-report-hint list-{{ n }}-report-status">
+                  Report vaccination status
+                </a>
+                <div id="list-{{ n }}-report-hint" class="govuk-task-list__hint">{{ list.toReport if list.toReport is defined else cattleToVaccinate }} cattle to report</div>
+              </div>
+              <div class="govuk-task-list__status" id="list-{{ n }}-report-status">
+                <strong class="govuk-tag govuk-tag--blue">To do</strong>
+              </div>
+            </li>
+          {% endif %}
+        {% endif %}
+      </ul>
+    {% endfor %}
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+
+<script>
+  // "Create vaccination list" reloads the page. When a new list was made
+  // the page goes to #latest-list, its download link: that link is
+  // scrolled to and focused. When nothing had changed, the "still up to
+  // date" message is scrolled to and focused instead.
+  ;(function () {
+    var form = document.querySelector('form[action="/vax/v1-7/create-vaccination-list"]')
+    if (!form) return
+    form.addEventListener('submit', function () {
+      try { sessionStorage.setItem('vax-list-created', '1') } catch (e) {}
+    })
+    var created = null
+    try { created = sessionStorage.getItem('vax-list-created'); sessionStorage.removeItem('vax-list-created') } catch (e) {}
+    // Also when arriving from page 1, whose form posts to the same route.
+    if (created === null && window.location.hash !== '#latest-list' && !document.querySelector('.govuk-notification-banner')) return
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        var banner = document.querySelector('.govuk-notification-banner')
+        var target = banner || document.getElementById('latest-list') || form.querySelector('button')
+        if (banner) banner.setAttribute('tabindex', '-1')
+        target.focus({ preventScroll: true })
+        target.scrollIntoView({ block: 'center' })
+      }, 0)
+    })
+  })()
+</script>
+{% endblock %}

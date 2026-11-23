@@ -1,0 +1,24 @@
+{% extends "layouts/main.html" %}
+
+{# v1-7 screen 10, Unexpected cattle – new. Blank until the design is added. #}
+
+{% block pageTitle %}
+  Unexpected cattle – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="/vax/v1-7/9b-vaccinated-cattle" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    <h1 class="govuk-heading-l">Unexpected cattle</h1>
+    <a href="/vax/v1-7/11-enter-unexpected-cattle" role="button" draggable="false" class="govuk-button" data-module="govuk-button">Continue</a>
+  </div>
+</div>
+{% endblock %}

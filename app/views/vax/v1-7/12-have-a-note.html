@@ -1,0 +1,24 @@
+{% extends "layouts/main.html" %}
+
+{# v1-7 screen 12, Have a note – new. Blank until the design is added. #}
+
+{% block pageTitle %}
+  Have a note – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="/vax/v1-7/11-enter-unexpected-cattle" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    <h1 class="govuk-heading-l">Have a note</h1>
+    <a href="/vax/v1-7/13-add-note" role="button" draggable="false" class="govuk-button" data-module="govuk-button">Continue</a>
+  </div>
+</div>
+{% endblock %}
