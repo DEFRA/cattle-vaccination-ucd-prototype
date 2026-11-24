@@ -1,6 +1,8 @@
 {% extends "layouts/main.html" %}
 
-{# v1-7 screen 2, Log in – new. Blank until the design is added. #}
+{# v1-7 screen 2, Log in. Only the name is used: it is saved as
+   vaccinator-name, which the vaccinated cattle report shows as the
+   name of the vaccinator. Email and password can be left empty. #}
 
 {% block pageTitle %}
   Log in – GOV.UK
@@ -18,7 +20,25 @@
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
     <h1 class="govuk-heading-l">Log in</h1>
-    <a href="/vax/v1-7/3-work-orders" role="button" draggable="false" class="govuk-button" data-module="govuk-button">Continue</a>
+
+    <form method="post" action="/vax/v1-7/3-my-tasks" novalidate>
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--s" for="vaccinator-name">Your name</label>
+        <input class="govuk-input govuk-!-width-two-thirds" id="vaccinator-name" name="vaccinator-name" type="text" autocomplete="name" spellcheck="false" value="{{ data['vaccinator-name'] }}">
+      </div>
+
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--s" for="email">Email address</label>
+        <input class="govuk-input govuk-!-width-two-thirds" id="email" name="email" type="email" autocomplete="email" spellcheck="false">
+      </div>
+
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--s" for="password">Password</label>
+        <input class="govuk-input govuk-!-width-two-thirds" id="password" name="password" type="password" autocomplete="current-password">
+      </div>
+
+      <button type="submit" class="govuk-button" data-module="govuk-button">Log in</button>
+    </form>
   </div>
 </div>
 {% endblock %}

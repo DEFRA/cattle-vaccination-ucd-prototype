@@ -78,6 +78,17 @@
   .app-select-table .govuk-checkboxes__item { flex-wrap: nowrap; }
   .app-select-table .govuk-checkboxes__label { max-width: none; }
   .app-row-number { width: 40px; text-align: center; font-weight: 700; }
+  /* Column widths as in Figma (node 796:27682), so Notes starts right
+     after the ear tag rather than wherever the browser puts it. */
+  @media (min-width: 48em) {
+    .app-select-table { table-layout: fixed; }
+    .app-select-table .app-row-number { width: 6%; }
+    .app-select-table .app-col-tag { width: 29%; }
+    .app-select-table .app-col-notes { width: 29%; }
+    .app-select-table .app-col-dob { width: 14.5%; }
+    .app-select-table .app-col-sex { width: 10.5%; }
+    .app-select-table .app-col-breed { width: 11%; }
+  }
   /* Shared last 4 digits – a bar above and below, as on the printed list. */
   .app-last4--duplicate {
     border-top: 3px solid #0b0c0c;
@@ -140,6 +151,20 @@
     .app-row--found { background: #fff7bf; }
     .app-row--taken { background: #f3f2f1; color: #505a5f; }
   }
+  /* Search pinned to the top of the window as the list scrolls. */
+  .app-search-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding-top: 15px;
+    background: #ffffff;
+  }
+  /* Once it is pinned (scrolled past its place): tighter, with a thin
+     line under it instead of the section break. Label and box stay
+     stacked, so it works on a phone too. */
+  .app-search-bar--stuck { padding-top: 8px; box-shadow: 0 2px 0 #b1b4b6; }
+  .app-search-bar--stuck hr { display: none; }
+  .app-search-bar--stuck .app-search { padding-bottom: 10px; }
 </style>
 
 <div class="govuk-grid-row">
@@ -176,20 +201,30 @@
         </dl>
       </div>
       <p class="govuk-body govuk-!-margin-bottom-7">Selected cattle are saved automatically as you progress.</p>
+    </div>
+  </div>
 
+  {# The search stays at the top of the window while the vet scrolls
+     through the cattle (sticky inside the form, which holds the table). #}
+  {# The heading scrolls away; only the box below stays pinned. #}
+  <h2 class="govuk-heading-m govuk-!-margin-bottom-0">Search for an animal</h2>
+  <div class="app-search-bar-sentinel" aria-hidden="true"></div>
+  <div class="app-search-bar">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
       <div class="app-search">
         <div class="govuk-form-group">
-          <label class="govuk-label govuk-label--m" for="search">Search for animals</label>
-          <div id="search-hint" class="govuk-hint">Enter the last 4 digits of the official ear tag</div>
+          <label class="govuk-label" for="search">Enter the last 4 digits of the official ear tag</label>
           <div id="search-autocomplete"></div>
-          <input class="govuk-input govuk-input--width-5 js-search-fallback" id="search" name="search" type="text" inputmode="numeric" maxlength="4" value="{{ search }}" aria-describedby="search-hint">
+          <input class="govuk-input govuk-input--width-5 js-search-fallback" id="search" name="search" type="text" inputmode="numeric" maxlength="4" value="{{ search }}">
         </div>
         <button type="submit" name="action" value="search" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0 js-search-fallback" data-module="govuk-button">Search</button>
         <input type="hidden" name="pick" value="" id="pick">
       </div>
 
-      <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible">
+      <hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible">
     </div>
+  </div>
   </div>
 
   {# Built once, shown above and below the table. #}
@@ -274,11 +309,11 @@
         <thead class="govuk-table__head">
           <tr class="govuk-table__row">
             <th scope="col" class="govuk-table__header app-row-number">No.</th>
-            <th scope="col" class="govuk-table__header">Select ear tag number</th>
-            <th scope="col" class="govuk-table__header">Notes</th>
-            <th scope="col" class="govuk-table__header">Date of birth</th>
-            <th scope="col" class="govuk-table__header">Sex</th>
-            <th scope="col" class="govuk-table__header">Breed</th>
+            <th scope="col" class="govuk-table__header app-col-tag">Select ear tag number</th>
+            <th scope="col" class="govuk-table__header app-col-notes">Notes</th>
+            <th scope="col" class="govuk-table__header app-col-dob">Date of birth</th>
+            <th scope="col" class="govuk-table__header app-col-sex">Sex</th>
+            <th scope="col" class="govuk-table__header app-col-breed">Breed</th>
           </tr>
         </thead>
         <tbody class="govuk-table__body">
@@ -296,8 +331,8 @@
                 </div>
               </td>
               <td class="govuk-table__cell{% if not row.takenFor and not row.note %} app-cell--empty{% endif %}">
-                <span class="app-select-table__label">Notes: </span>{% if row.takenFor %}<span id="cattle-{{ row.officialId }}-taken">{{ row.takenFor }}</span>{% if row.note and row.note != row.takenFor %}<br>{% endif %}{% endif %}
-                {% if row.note != row.takenFor %}{{ row.note }}{% endif %}
+                {# Selected under a reason: only that reason, not the list's note too. #}
+                <span class="app-select-table__label">Notes: </span>{% if row.takenFor %}<span id="cattle-{{ row.officialId }}-taken">{{ row.takenFor }}</span>{% else %}{{ row.note }}{% endif %}
               </td>
               <td class="govuk-table__cell"><span class="app-select-table__label">Date of birth: </span>{{ row.dobShort }}</td>
               <td class="govuk-table__cell"><span class="app-select-table__label">Sex: </span>{{ row.sexLabel }}</td>
@@ -399,6 +434,18 @@
   })()
 </script>
 
+<script>
+  // Compact search bar once it is pinned to the top: the sentinel just
+  // above it has scrolled out of view.
+  ;(function () {
+    var sentinel = document.querySelector('.app-search-bar-sentinel')
+    var bar = document.querySelector('.app-search-bar')
+    if (!sentinel || !bar || !('IntersectionObserver' in window)) return
+    new IntersectionObserver(function (entries) {
+      bar.classList.toggle('app-search-bar--stuck', !entries[0].isIntersecting)
+    }).observe(sentinel)
+  })()
+</script>
 <script src="/public/javascripts/vendor/accessible-autocomplete.min.js"></script>
 <script>
   // Ear tag autocomplete. Matches the last 4 digits of every animal on
@@ -453,7 +500,6 @@
     })
 
     var input = document.getElementById('search')
-    input.setAttribute('aria-describedby', 'search-hint')
     input.setAttribute('inputmode', 'numeric')
     // Enter only ever chooses from the list - never sends the form via
     // the first button on the page (a page number).

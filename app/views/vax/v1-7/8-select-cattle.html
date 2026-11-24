@@ -1,30 +1,27 @@
 {% extends "layouts/main.html" %}
 
-{# v1-7 screen 9, select cattle – copied from v1-6/6-select-cattle. One screen for each reason ticked on screen 8 (9-select-cattle/<reason>). #}
+{# v1-7 screen 8, select cattle – one screen for each reason ticked on screen 7 (8-select-cattle/<reason>). Same layout as 9b (Figma node 796:27682): three pages of the list on each screen. #}
 
-{# The cattle table screens, all from this one template:
-     6-select-cattle/<reason>  Figma "For slaughter" (node 551:17641) –
-                               once for every reason ticked on
-                               5-why-not-vaccinated, with its own heading
-     7-vaccinated-cattle       Figma "Vaccinated cattle" (node 362:4962)
-   The routes are in routes.js (search for 6-select-cattle), which also
-   list the headings. Cattle that can't be picked on a screen are greyed
-   out, ticked and locked: on the reason screens, cattle picked for
-   another reason; on the vaccinated screen, cattle given a reason.
+{# 7 – Select all vaccinated cattle, dec26. Figma "For slaughter" layout
+   (node 551:17641), used for the vaccinated cattle:
+     - a running tally at the top ("Selected animals  12 of 104") instead
+       of a count per page at the bottom
+     - three pages of the list on each screen, each with its "Page N of 6 –
+       cattle range" heading, its own "Select all cattle on page N" and
+       table; the pagination (above and below) moves three pages at a time
+   The route is in routes.js (search for 7-vaccinated-cattle and
+   vaxRenderSelect, groupSize). v1-6 and the reason screens still use
+   vax/v1-6/6-select-cattle.html.
 
-   The cattle, page and heading change from screen to screen, so this
-   page uses Nunjucks loops; everything else is plain GOV.UK HTML.
-
-   Every button and page number sends the form, so the ticks on screen
-   are saved before moving on (see "Selected animals will be saved as you
-   progress").
+   Every button and page number sends the form, so the ticks on screen are
+   saved before moving on; ticks are also saved in the background as they
+   change.
 
    Ear tag search: an autocomplete over every animal on the holding,
-   matching the last 4 digits only. Picking an animal ticks it for this
-   reason, goes to its page and focuses its row. Without JavaScript the
-   plain search box and Search button below are used instead; the Search
-   button comes first in the form so pressing Enter searches rather than
-   continuing. #}
+   matching the last 4 digits only. Picking an animal ticks it, goes to
+   the screen it is on and focuses its row. Without JavaScript the plain
+   search box and Search button are used instead; the Search button comes
+   first in the form so pressing Enter searches rather than continuing. #}
 
 {% block pageTitle %}
   {% if errorMessage %}Error: {% endif %}{{ heading }} – GOV.UK
@@ -81,12 +78,35 @@
   .app-select-table .govuk-checkboxes__item { flex-wrap: nowrap; }
   .app-select-table .govuk-checkboxes__label { max-width: none; }
   .app-row-number { width: 40px; text-align: center; font-weight: 700; }
+  /* Column widths as in Figma (node 796:27682), so Notes starts right
+     after the ear tag rather than wherever the browser puts it. */
+  @media (min-width: 48em) {
+    .app-select-table { table-layout: fixed; }
+    .app-select-table .app-row-number { width: 6%; }
+    .app-select-table .app-col-tag { width: 29%; }
+    .app-select-table .app-col-notes { width: 29%; }
+    .app-select-table .app-col-dob { width: 14.5%; }
+    .app-select-table .app-col-sex { width: 10.5%; }
+    .app-select-table .app-col-breed { width: 11%; }
+  }
   /* Shared last 4 digits – a bar above and below, as on the printed list. */
   .app-last4--duplicate {
     border-top: 3px solid #0b0c0c;
     border-bottom: 3px solid #0b0c0c;
   }
   .app-select-all[hidden] { display: none; }
+  /* Last 4 digits of the ear tag in bold, and a heavy line after every
+     5th animal so the vet can count down the page in fives (as on the
+     printed list). */
+  .app-last4 { font-weight: 700; }
+  .app-select-table tbody .govuk-table__row:nth-child(5n):not(:last-child) .govuk-table__cell { border-bottom: 3px solid #0b0c0c; }
+  @media (max-width: 47.9375em) {
+    .app-select-table tbody .govuk-table__row:nth-child(5n):not(:last-child) { border-bottom: 3px solid #0b0c0c; }
+  }
+  /* Running tally: label and count side by side, as in the design. */
+  .app-tally { display: flex; flex-wrap: wrap; gap: 0 30px; margin-bottom: 10px; }
+  .app-tally dt { min-width: 7.5em; }
+  .app-tally dd { margin: 0; }
   .app-search .autocomplete__wrapper { width: 20em; max-width: 100%; }
   .app-search .autocomplete__option strong { font-weight: 700; }
   /* The autocomplete sits outside GOV.UK's typography, so give the box
@@ -131,6 +151,20 @@
     .app-row--found { background: #fff7bf; }
     .app-row--taken { background: #f3f2f1; color: #505a5f; }
   }
+  /* Search pinned to the top of the window as the list scrolls. */
+  .app-search-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding-top: 15px;
+    background: #ffffff;
+  }
+  /* Once it is pinned (scrolled past its place): tighter, with a thin
+     line under it instead of the section break. Label and box stay
+     stacked, so it works on a phone too. */
+  .app-search-bar--stuck { padding-top: 8px; box-shadow: 0 2px 0 #b1b4b6; }
+  .app-search-bar--stuck hr { display: none; }
+  .app-search-bar--stuck .app-search { padding-bottom: 10px; }
 </style>
 
 <div class="govuk-grid-row">
@@ -158,19 +192,39 @@
 
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
+      {# Running tally across every page. A status, so changes are read
+         out ("Selected animals 13 of 104"); the line below is static. #}
+      <div id="selected-status" role="status" aria-live="polite" aria-atomic="true">
+        <dl class="govuk-body app-tally">
+          <dt>Selected animals</dt>
+          <dd><span id="selected-count">{{ tallyOffScreen + selectedOnPage }}</span> of {{ tallyTotal }}</dd>
+        </dl>
+      </div>
+      <p class="govuk-body govuk-!-margin-bottom-7">Selected cattle are saved automatically as you progress.</p>
+    </div>
+  </div>
+
+  {# The search stays at the top of the window while the vet scrolls
+     through the cattle (sticky inside the form, which holds the table). #}
+  {# The heading scrolls away; only the box below stays pinned. #}
+  <h2 class="govuk-heading-m govuk-!-margin-bottom-0">Search for an animal</h2>
+  <div class="app-search-bar-sentinel" aria-hidden="true"></div>
+  <div class="app-search-bar">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
       <div class="app-search">
         <div class="govuk-form-group">
-          <label class="govuk-label" for="search">Search for an official ear tag number</label>
-          <div id="search-hint" class="govuk-hint">Enter the last 4 digits</div>
+          <label class="govuk-label" for="search">Enter the last 4 digits of the official ear tag</label>
           <div id="search-autocomplete"></div>
-          <input class="govuk-input govuk-input--width-5 js-search-fallback" id="search" name="search" type="text" inputmode="numeric" maxlength="4" value="{{ search }}" aria-describedby="search-hint">
+          <input class="govuk-input govuk-input--width-5 js-search-fallback" id="search" name="search" type="text" inputmode="numeric" maxlength="4" value="{{ search }}">
         </div>
         <button type="submit" name="action" value="search" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0 js-search-fallback" data-module="govuk-button">Search</button>
         <input type="hidden" name="pick" value="" id="pick">
       </div>
 
-      <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible">
+      <hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible">
     </div>
+  </div>
   </div>
 
   {# Built once, shown above and below the table. #}
@@ -215,8 +269,6 @@
     <p class="govuk-body">
       <button type="submit" name="action" value="clear-search" class="govuk-link app-pagination-button">Clear search and show all cattle</button>
     </p>
-  {% else %}
-    <h2 class="govuk-heading-m">Page {{ pageNumber }} - cattle range {{ rangeLabel }}</h2>
   {% endif %}
 
   {# At least one animal is needed (batch screens): shown after Continue. #}
@@ -227,67 +279,72 @@
     </p>
   {% endif %}
   {% if rows | length %}
-    <div class="govuk-checkboxes app-select-all" data-module="govuk-checkboxes" hidden>
-      <div class="govuk-checkboxes__item">
-        <input class="govuk-checkboxes__input" id="select-all" type="checkbox">
-        <label class="govuk-label govuk-checkboxes__label" for="select-all">
-          Select all cattle {{ "in these results" if search else "on page " + pageNumber }}
-        </label>
-      </div>
-    </div>
+    {# One section per list page on this screen (search results: one
+       section). Built from the rows, which know their list page. #}
+    {% set sections = [] %}
+    {% for row in rows %}
+      {% set key = "results" if search else row.listPage %}
+      {% if not sections.length or (sections | last).key != key %}
+        {% set _ = sections.push({ key: key, rows: [] }) %}
+      {% endif %}
+      {% set _ = (sections | last).rows.push(row) %}
+    {% endfor %}
 
-    <table class="govuk-table app-select-table">
-      <thead class="govuk-table__head">
-        <tr class="govuk-table__row">
-          <th scope="col" class="govuk-table__header app-row-number">No.</th>
-          <th scope="col" class="govuk-table__header">Select ear tag number</th>
-          <th scope="col" class="govuk-table__header">Comments</th>
-          <th scope="col" class="govuk-table__header">Date of birth</th>
-          <th scope="col" class="govuk-table__header">Sex</th>
-          <th scope="col" class="govuk-table__header">Breed</th>
-        </tr>
-      </thead>
-      <tbody class="govuk-table__body">
-        {% for row in rows %}
-          <tr class="govuk-table__row{% if row.locked %} app-row--taken{% endif %}">
-            <td class="govuk-table__cell app-row-number"><span class="app-select-table__label">No. </span>{{ row.number }}</td>
-            <td class="govuk-table__cell app-cell--tag">
-              <div class="govuk-checkboxes" data-module="govuk-checkboxes">
-                <div class="govuk-checkboxes__item">
-                  <input class="govuk-checkboxes__input js-cattle" id="cattle-{{ row.officialId }}" name="cattle" type="checkbox" value="{{ row.officialId }}"{% if row.checked %} checked{% endif %}{% if row.locked %} disabled{% if row.takenFor %} aria-describedby="cattle-{{ row.officialId }}-taken"{% endif %}{% endif %}>
-                  <label class="govuk-label govuk-checkboxes__label" for="cattle-{{ row.officialId }}">
-                    UK {{ row.earTagParts.herd }}{{ row.earTagParts.check }}{{ row.earTagParts.individualStart }}<span class="{% if row.isDuplicate %}app-last4--duplicate{% endif %}"{% if row.isDuplicate %} title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
-                  </label>
-                </div>
-              </div>
-            </td>
-            <td class="govuk-table__cell{% if not row.takenFor and not row.note %} app-cell--empty{% endif %}">
-              <span class="app-select-table__label">Comments: </span>{% if row.takenFor %}<span id="cattle-{{ row.officialId }}-taken">{{ row.takenFor }}</span>{% if row.note and row.note != row.takenFor %}<br>{% endif %}{% endif %}
-              {% if row.note != row.takenFor %}{{ row.note }}{% endif %}
-            </td>
-            <td class="govuk-table__cell"><span class="app-select-table__label">Date of birth: </span>{{ row.dobShort }}</td>
-            <td class="govuk-table__cell"><span class="app-select-table__label">Sex: </span>{{ row.sexLabel }}</td>
-            <td class="govuk-table__cell"><span class="app-select-table__label">Breed: </span>{{ row.breed }}</td>
+    {% for section in sections %}
+      {% set sid = "results" if search else "page-" + section.key %}
+      {% if not search %}
+        <h2 class="govuk-heading-m" id="{{ sid }}-heading">Page {{ section.key }} of {{ listPageCount }} — cattle range {{ (section.rows | first).earTagParts.last4 }} - {{ (section.rows | last).earTagParts.last4 }}</h2>
+      {% endif %}
+
+      <div class="govuk-checkboxes app-select-all" data-module="govuk-checkboxes" hidden>
+        <div class="govuk-checkboxes__item">
+          <input class="govuk-checkboxes__input js-select-all" id="select-all-{{ sid }}" type="checkbox" data-section="{{ sid }}">
+          <label class="govuk-label govuk-checkboxes__label" for="select-all-{{ sid }}">
+            Select all cattle {{ "in these results" if search else "on page " + section.key }}
+          </label>
+        </div>
+      </div>
+
+      <table class="govuk-table app-select-table govuk-!-margin-bottom-9" data-section="{{ sid }}">
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header app-row-number">No.</th>
+            <th scope="col" class="govuk-table__header app-col-tag">Select ear tag number</th>
+            <th scope="col" class="govuk-table__header app-col-notes">Notes</th>
+            <th scope="col" class="govuk-table__header app-col-dob">Date of birth</th>
+            <th scope="col" class="govuk-table__header app-col-sex">Sex</th>
+            <th scope="col" class="govuk-table__header app-col-breed">Breed</th>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for row in section.rows %}
+            <tr class="govuk-table__row{% if row.locked %} app-row--taken{% endif %}">
+              <td class="govuk-table__cell app-row-number"><span class="app-select-table__label">No. </span>{{ row.number }}</td>
+              <td class="govuk-table__cell app-cell--tag">
+                <div class="govuk-checkboxes" data-module="govuk-checkboxes">
+                  <div class="govuk-checkboxes__item">
+                    <input class="govuk-checkboxes__input js-cattle" id="cattle-{{ row.officialId }}" name="cattle" type="checkbox" value="{{ row.officialId }}" data-section="{{ sid }}"{% if row.checked %} checked{% endif %}{% if row.locked %} disabled{% if row.takenFor %} aria-describedby="cattle-{{ row.officialId }}-taken"{% endif %}{% endif %}>
+                    <label class="govuk-label govuk-checkboxes__label" for="cattle-{{ row.officialId }}">
+                      UK {{ row.earTagParts.herd }}{{ row.earTagParts.check }}{{ row.earTagParts.individualStart }}<span class="app-last4{% if row.isDuplicate %} app-last4--duplicate{% endif %}"{% if row.isDuplicate %} title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
+                    </label>
+                  </div>
+                </div>
+              </td>
+              <td class="govuk-table__cell{% if not row.takenFor and not row.note %} app-cell--empty{% endif %}">
+                {# Selected under a reason: only that reason, not the list's note too. #}
+                <span class="app-select-table__label">Notes: </span>{% if row.takenFor %}<span id="cattle-{{ row.officialId }}-taken">{{ row.takenFor }}</span>{% else %}{{ row.note }}{% endif %}
+              </td>
+              <td class="govuk-table__cell"><span class="app-select-table__label">Date of birth: </span>{{ row.dobShort }}</td>
+              <td class="govuk-table__cell"><span class="app-select-table__label">Sex: </span>{{ row.sexLabel }}</td>
+              <td class="govuk-table__cell"><span class="app-select-table__label">Breed: </span>{{ row.breed }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endfor %}
   {% else %}
     <p class="govuk-body">No cattle on this farm have an ear tag containing ‘{{ search }}’.</p>
   {% endif %}
-  </div>
-
-  <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
-      {# Live feedback: updates as boxes are ticked and is announced in full
-         ("Number of cattle selected on page 1: 3"), so it is a status
-         message styled as a heading, not a heading. The line below it is a
-         static instruction and sits outside the live region. #}
-      <p class="govuk-heading-m govuk-!-margin-bottom-2" id="selected-status" role="status" aria-live="polite" aria-atomic="true">
-        Number of cattle selected {{ "in these results" if search else "on page " + pageNumber }}: <span id="selected-count">{{ selectedOnPage }}</span>
-      </p>
-      <p class="govuk-body-s">Selected animals will be saved as you progress.</p>
-    </div>
   </div>
 
   {{ paginationHtml | safe }}
@@ -305,28 +362,39 @@
 </div>
 
 <script>
-  // Live count of ticked cattle, and a "select all" box for the cattle on
-  // screen (only shown when this script runs).
+  // Running tally (ticks off this screen + ticks on it) and a "select
+  // all" box for each page of the list on screen (only shown when this
+  // script runs).
   (function () {
-    // Cattle already picked for another reason are locked, so they are
-    // left out of the count and of "select all".
+    // Locked cattle are left out of the tally and of "select all".
     var boxes = Array.prototype.slice.call(document.querySelectorAll('.js-cattle:not(:disabled)'))
     var count = document.getElementById('selected-count')
-    var selectAllWrap = document.querySelector('.app-select-all')
-    var selectAll = document.getElementById('select-all')
+    var offScreen = {{ tallyOffScreen }}
     if (!boxes.length) return
 
+    var selectAlls = Array.prototype.slice.call(document.querySelectorAll('.js-select-all'))
+    function inSection (id) {
+      return boxes.filter(function (b) { return b.getAttribute('data-section') === id })
+    }
     function update () {
-      var ticked = boxes.filter(function (b) { return b.checked }).length
+      var ticked = offScreen + boxes.filter(function (b) { return b.checked }).length
       // Only touch the live region when the number changes, so nothing is
       // announced when the page first loads.
       if (count.textContent !== String(ticked)) count.textContent = ticked
-      selectAll.checked = ticked === boxes.length
+      selectAlls.forEach(function (all) {
+        var own = inSection(all.getAttribute('data-section'))
+        all.checked = own.length > 0 && own.every(function (b) { return b.checked })
+      })
     }
-    selectAllWrap.hidden = false
-    selectAll.addEventListener('change', function () {
-      boxes.forEach(function (b) { b.checked = selectAll.checked })
-      update()
+    selectAlls.forEach(function (all) {
+      var own = inSection(all.getAttribute('data-section'))
+      // A page where every animal is locked has nothing to select.
+      if (!own.length) return
+      all.closest('.app-select-all').hidden = false
+      all.addEventListener('change', function () {
+        own.forEach(function (b) { b.checked = all.checked })
+        update()
+      })
     })
     boxes.forEach(function (b) { b.addEventListener('change', update) })
     update()
@@ -345,7 +413,7 @@
     }
     var pending = null
     form.addEventListener('change', function (event) {
-      if (!event.target.classList.contains('js-cattle') && event.target.id !== 'select-all') return
+      if (!event.target.classList.contains('js-cattle') && !event.target.classList.contains('js-select-all')) return
       // "Select all" changes many boxes at once – send once, after they settle.
       clearTimeout(pending)
       pending = setTimeout(function () { send('autosave', true) }, 150)
@@ -366,6 +434,18 @@
   })()
 </script>
 
+<script>
+  // Compact search bar once it is pinned to the top: the sentinel just
+  // above it has scrolled out of view.
+  ;(function () {
+    var sentinel = document.querySelector('.app-search-bar-sentinel')
+    var bar = document.querySelector('.app-search-bar')
+    if (!sentinel || !bar || !('IntersectionObserver' in window)) return
+    new IntersectionObserver(function (entries) {
+      bar.classList.toggle('app-search-bar--stuck', !entries[0].isIntersecting)
+    }).observe(sentinel)
+  })()
+</script>
 <script src="/public/javascripts/vendor/accessible-autocomplete.min.js"></script>
 <script>
   // Ear tag autocomplete. Matches the last 4 digits of every animal on
@@ -420,7 +500,6 @@
     })
 
     var input = document.getElementById('search')
-    input.setAttribute('aria-describedby', 'search-hint')
     input.setAttribute('inputmode', 'numeric')
     // Enter only ever chooses from the list - never sends the form via
     // the first button on the page (a page number).

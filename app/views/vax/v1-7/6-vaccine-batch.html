@@ -141,10 +141,10 @@
       </div>
     </div>
 
-    <span class="govuk-caption-l">Report bTB vaccination for Tarbh Farm</span>
+    <span class="govuk-caption-l">Report bTB vaccination for Pinecone Grove Farm</span>
     <h1 class="govuk-heading-l">Enter vaccine batch details</h1>
 
-    <form id="batch-form" action="{{ '/vax/v1-7/14-check-answers' if fromCheck else '/vax/v1-7/7-all-cattle-vaccinated' }}" method="post" novalidate>
+    <form id="batch-form" action="{{ '/vax/v1-7/14-check-answers' if fromCheck else '/vax/v1-7/7-why-not-vaccinated' }}" method="post" novalidate>
 
       <div id="batches">
         {% set saved = data['vaccine-batches'] if data['vaccine-batches'] and data['vaccine-batches'].length else [{}] %}

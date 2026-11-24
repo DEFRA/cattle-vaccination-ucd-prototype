@@ -456,7 +456,10 @@ const herdData = {
   '12/352/6808-02': { cph: '12/352/6808-02', farm: 'Riverside Farm', address: 'Riverside Beef Finishing Unit, Tadcaster, LS24 9UV', cattle: '82',  holdingLabel: 'Beef finishing unit' },
   // Tarbh Farm – 122 cattle aged up to 15 years, 5% of them calves under
   // 21 days old (see the Tarbh Farm block after v11AnimalsByCph).
-  '12/385/6809': { cph: '12/385/6809', farm: 'Tarbh Farm', address: 'Tarbh Farm, Helmsley, YO62 7TB', cattle: '122' }
+  '12/385/6809': { cph: '12/385/6809', farm: 'Tarbh Farm', address: 'Tarbh Farm, Helmsley, YO62 7TB', cattle: '122' },
+  // Pinecone Grove Farm – 407-cow dairy herd for the v1-7 journey (see
+  // the Pinecone Grove block after the Tarbh Farm one).
+  '12/390/6810': { cph: '12/390/6810', farm: 'Pinecone Grove Farm', address: 'Pinecone Grove Farm, Thirsk, YO7 4PG', cattle: '407' }
 }
  
 function searchResultsForTerm(search) {
@@ -859,7 +862,8 @@ const v11HerdMarks = {
   '12/355/6806': { mark: '579135', check: '6' },
   '12/370/6807': { mark: '813579', check: '9' },
   '12/352/6808': { mark: '183483', check: '7' },
-  '12/385/6809': { mark: '518273', check: '4' }
+  '12/385/6809': { mark: '518273', check: '4' },
+  '12/390/6810': { mark: '624813', check: '1' }
 }
 
 const v11Breeds = ['HF', 'BF', 'AAX', 'LIM', 'CH', 'SIM', 'HER', 'BB', 'BALX', 'DS']
@@ -1104,6 +1108,14 @@ const v12FarmDetails = {
     riskArea: 'High', testInterval: 'Annual',
     nextSkinTest: 'March 2027', nextSkinTestOverdue: false,
     vaccinationStatus: 'Not vaccinated', vaccinationBooster: 'Not due'
+  },
+  // Pinecone Grove Farm – 407 cattle, dairy, part BCG vaccinated
+  '12/390/6810': {
+    bulls: 3, type: 'Dairy', contact: 'Martha Penrose', phone: '07384 512 907',
+    lastTbTestDay2: '18 June 2026', lastTbTestType: 'Whole herd test',
+    riskArea: 'High', testInterval: 'Annual',
+    nextSkinTest: 'June 2027', nextSkinTestOverdue: false,
+    vaccinationStatus: 'Mixed', vaccinationBooster: 'Due December 2026'
   }
 }
 
@@ -1359,6 +1371,119 @@ if (v11AnimalsByCph[TARBH_CPH]) {
     }
     return Object.assign({}, a, changes)
   })
+}
+
+// Pinecone Grove Farm: a 407-cow dairy herd, built on the generator's
+// ear tags but with its own ages, breeds and vaccinations, all placed by
+// where each animal falls in the printed V4 list (sorted by the last 4
+// digits of the ear tag, 35 on page 1 and 40 on every page after):
+//   - 10% (41) calves under 21 days old, at the bottom of the list, as
+//     the newest registrations: home-bred tags, youngest at the very
+//     bottom. No two calves end in the same 4 digits, though a calf can
+//     share them with an older animal.
+//   - 24 BCG vaccinated in the last 12 months on two visits: 18 about 8
+//     months ago and 6 about 6 weeks ago, all on pages 2 and 6. With the
+//     calves on pages 10 and 11, the other 7 pages print no notes.
+// Ages count back from the day the kit starts, so the calves sit at 3–17
+// days and stay under 21 for a while.
+const PINECONE_CPH = '12/390/6810'
+if (v11AnimalsByCph[PINECONE_CPH]) {
+  const rng = v11Mulberry32(v11Hash(PINECONE_CPH + ':herd'))
+  const config = v11HerdMarks[PINECONE_CPH]
+  const sortKey = function (a) {
+    const id = String(a.earTagNumber || '')
+    return id.slice(-4) + ':' + id.slice(-5)
+  }
+  const herd = v11AnimalsByCph[PINECONE_CPH].slice().sort(function (a, b) {
+    return sortKey(a).localeCompare(sortKey(b))
+  })
+  const total = herd.length
+  const youngCount = Math.round(total * 0.10)
+  const vaccinatedCount = 24
+  const recentCount = 6
+  // Calves: the 41 from the bottom of the list up, but no two calves end
+  // in the same 4 digits. An animal whose last 4 match a calf already
+  // picked stays an older animal, so it sits next to that calf.
+  const isCalf = {}
+  const calfLast4 = new Set()
+  for (let i = total - 1, picked = 0; i >= 0 && picked < youngCount; i--) {
+    const last4 = herd[i].officialId.slice(-4)
+    if (calfLast4.has(last4)) continue
+    calfLast4.add(last4)
+    isCalf[i] = true
+    picked++
+  }
+  const calfIndices = Object.keys(isCalf).map(Number).sort(function (a, b) { return a - b })
+  const firstYoung = calfIndices[0]
+
+  // Calves: home-bred tags, keeping each animal's last 5 digits so its
+  // place in the list doesn't move. If that tag is taken, change the
+  // first of the 5 digits, which the sort only uses as a tie-break.
+  const usedTags = new Set(herd.filter(function (a, i) { return !isCalf[i] }).map(function (a) { return a.officialId }))
+  const calfTag = function (individual) {
+    for (let d = 0; d < 10; d++) {
+      const ind = d === 0 ? individual : String((Number(individual[0]) + d) % 10) + individual.slice(1)
+      const id = 'UK' + config.mark + config.check + ind
+      if (!usedTags.has(id)) { usedTags.add(id); return id }
+    }
+    return null
+  }
+
+  // Rows that can hold a vaccinated animal: only pages 2 and 6, so with
+  // the calves on pages 10 and 11, 7 of the 11 pages print no notes.
+  const pageOf = function (i) { return i < 35 ? 1 : 2 + Math.floor((i - 35) / 40) }
+  const NOTE_PAGES = [2, 6]
+  const candidates = []
+  for (let i = 0; i < firstYoung; i++) {
+    if (NOTE_PAGES.indexOf(pageOf(i)) !== -1) candidates.push(i)
+  }
+  // Seeded shuffle, then take the first 24; the first 6 of those are the
+  // recent ones, so they land at random on the two pages.
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    const t = candidates[i]; candidates[i] = candidates[j]; candidates[j] = t
+  }
+  const vaccinatedAt = {}
+  candidates.slice(0, vaccinatedCount).forEach(function (rowIndex, n) {
+    vaccinatedAt[rowIndex] = n < recentCount ? 'recent' : 'year'
+  })
+
+  const DAIRY_BREEDS = ['HF', 'HF', 'HF', 'HF', 'HF', 'HF', 'BF', 'FR', 'JE', 'AY']
+  const MAX_DAYS = 10 * 365
+  const byOrder = herd.map(function (a, i) {
+    const isYoung = !!isCalf[i]
+    const changes = {
+      breed: DAIRY_BREEDS[Math.floor(rng() * DAIRY_BREEDS.length)],
+      // A dairy herd: cows and heifers, a few bulls, and bull calves.
+      sex: isYoung ? (rng() < 0.5 ? 'F' : 'M') : (rng() < 0.97 ? 'F' : 'M'),
+      vaccinationStatus: 'Not vaccinated',
+      vaccinationDate: ''
+    }
+    let daysOld
+    if (isYoung) {
+      // Youngest at the bottom: 17 days at the first calf down to 3.
+      daysOld = 17 - Math.round(calfIndices.indexOf(i) * 14 / Math.max(calfIndices.length - 1, 1))
+      const id = calfTag(a.officialId.slice(-5))
+      if (id) changes.officialId = changes.earTagNumber = changes.barcode = id
+    } else {
+      // Milking cows mostly 2–7 years old, some heifers and older cows.
+      daysOld = 120 + Math.floor(Math.pow(rng(), 1.3) * (MAX_DAYS - 120))
+    }
+    if (vaccinatedAt[i]) {
+      // Two vaccination days, as a vet would do the herd in one or two
+      // visits: about 6 weeks ago, and about 8 months ago.
+      const vaxDaysAgo = vaccinatedAt[i] === 'recent' ? 45 : 250
+      if (daysOld < vaxDaysAgo + 60) daysOld = vaxDaysAgo + 60 + Math.floor(rng() * 700)
+      const vaccinatedOn = v5DaysAgo(vaxDaysAgo)
+      changes.vaccinationStatus = 'Vaccinated'
+      changes.vaccinatedOn = vaccinatedOn
+      changes.vaccinationDate = vaccinatedOn.slice(3, 5) + '/' + vaccinatedOn.slice(8, 10)
+    }
+    changes.dob = v5DaysAgo(daysOld)
+    changes.age = Math.floor(daysOld / 30.44)
+    return Object.assign({}, a, changes)
+  })
+  v11AnimalsByCph[PINECONE_CPH] = byOrder
 }
 
 // v1-2 dataset: same as v1-1 except for per-farm overrides where v1-2
@@ -12480,11 +12605,41 @@ function vaxApplyReportNotes (rows, data) {
 // Saved as data['vax-lists'], e.g.
 //   [{ date: '8 Oct 2026', notes: { UK518273400084: 'Not eligible: too young', … } }, …]
 // -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Which farm a /vax journey runs on: v1-7 is Pinecone Grove Farm (407
+// cattle), dec26 and v1-6 are Tarbh Farm (122). Saved as data['vax-cph']
+// on every page of the journey, so the shared helpers below – and the
+// printed list and report opened in a new tab – use the same farm.
+// Moving to a journey on a different farm clears the vaccination answers,
+// lists and reports, which belong to the other farm's cattle.
+// -----------------------------------------------------------------------------
+// The bTB vaccination task each farm's journey belongs to (My tasks).
+const VAX_TASK_NUMBERS = { '12/390/6810': 'bTBV-104523' }
+function vaxCphOf (data) {
+  return (data && herdData[data['vax-cph']] && data['vax-cph']) || TARBH_CPH
+}
+const VAX_ANSWER_KEYS = [
+  'vaccination-date-day', 'vaccination-date-month', 'vaccination-date-year',
+  'vaccine-batches', 'not-vaccinated-reason', 'cannot-be-vaccinated',
+  'all-cattle-vaccinated'
+]
+router.use(['/vax/v1-7', '/vax/dec26', '/vax/v1-6'], function (req, res, next) {
+  const data = req.session.data
+  const cph = req.baseUrl === '/vax/v1-7' ? PINECONE_CPH : TARBH_CPH
+  if (data['vax-cph'] && data['vax-cph'] !== cph) {
+    Object.keys(data).forEach(function (key) {
+      if (/^vax-/.test(key) || VAX_ANSWER_KEYS.indexOf(key) !== -1) delete data[key]
+    })
+  }
+  data['vax-cph'] = cph
+  next()
+})
+
 router.post(['/vax/v1-6/create-vaccination-list', '/vax/dec26/create-vaccination-list', '/vax/v1-7/create-vaccination-list'], function (req, res) {
   const data = req.session.data
   const today = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date())
   const notes = {}
-  vaxApplyReportNotes(buildVaxListRows(TARBH_CPH, 'v1-3'), data).forEach(function (row) {
+  vaxApplyReportNotes(buildVaxListRows(vaxCphOf(data), 'v1-3'), data).forEach(function (row) {
     if (row.note) notes[row.officialId] = row.note
   })
   // Only make a new list if the latest one is out of date – some animal's
@@ -12506,7 +12661,7 @@ router.post(['/vax/v1-6/create-vaccination-list', '/vax/dec26/create-vaccination
     // (Not worked out from the live answers, which may be a report still
     // under way.)
     const reports = data['vax-reports'] || []
-    const toReport = reports.length ? reports[reports.length - 1].toReport : vaxEligibleToReport({})
+    const toReport = reports.length ? reports[reports.length - 1].toReport : vaxEligibleToReport({ 'vax-cph': data['vax-cph'] })
     data['vax-lists'] = lists.concat({ date: today, notes: notes, toReport: toReport })
   }
   // Back to the same prototype version's task list (v1-6 or dec26), at the
@@ -12522,7 +12677,19 @@ router.get(['/vax/v1-6/2-cphtasklist2', '/vax/dec26/2-cphtasklist2', '/vax/v1-7/
   // dec26 "Cattle to vaccinate": what the last submitted report left, or
   // every eligible animal before any report.
   const reports = req.session.data['vax-reports'] || []
-  res.locals.cattleToVaccinate = reports.length ? reports[reports.length - 1].toReport : vaxEligibleToReport({})
+  res.locals.cattleToVaccinate = reports.length ? reports[reports.length - 1].toReport : vaxEligibleToReport({ 'vax-cph': req.session.data['vax-cph'] })
+  // The journey's farm, for the v1-7 task list's heading and CPH details.
+  const cph = vaxCphOf(req.session.data)
+  const details = getV12FarmDetailsForCph(cph) || {}
+  res.locals.vaxFarm = {
+    name: herdData[cph].farm,
+    cph: cph,
+    address: herdData[cph].address,
+    keeper: details.contact || '',
+    phone: details.phone || '',
+    email: details.contact ? details.contact.toLowerCase().replace(/\s+/g, '.') + '@example.com' : '',
+    taskNumber: VAX_TASK_NUMBERS[cph] || ''
+  }
   next()
 })
 
@@ -12559,7 +12726,7 @@ router.get('/vax/vaccination-listv3', function (req, res) {
 // Version 4 – /vax/vaccination-listv4: as v3, plus a last sheet the vet
 // fills in by hand with the vaccine, batch and cattle details.
 router.get('/vax/vaccination-listv4', function (req, res) {
-  renderVaxList(req, res, { template: 'vax/vaccination-listv4', firstPageSize: 30, perPage: 35, daysOldNote: true, revaccinationNote: true })
+  renderVaxList(req, res, { template: 'vax/vaccination-listv4', firstPageSize: 35, perPage: 40, daysOldNote: true, revaccinationNote: true, monthsAgoNote: true })
 })
 
 // Vaccinated cattle report – /vax/vaxreport_v1?report=N: what a submitted
@@ -12587,7 +12754,9 @@ function vaxWithdrawalEnds (data) {
 router.get('/vax/vaxreport_v1', function (req, res) {
   const reports = req.session.data['vax-reports'] || []
   const report = reports[Number((req.query || {}).report) - 1] || reports[reports.length - 1]
-  const allRows = buildVaxListRows(TARBH_CPH, 'v1-3')
+  // The farm the report was made on, or the journey's farm.
+  const cph = vaxCphOf(report && report.data && report.data['vax-cph'] ? report.data : req.session.data)
+  const allRows = buildVaxListRows(cph, 'v1-3')
   let data = report ? report.data : null
   if (!data) {
     // Example report: today, one batch, every animal that can be vaccinated.
@@ -12618,8 +12787,8 @@ router.get('/vax/vaxreport_v1', function (req, res) {
   }
 
   res.render('vax/vaxreport_v1', {
-    farm: herdData[TARBH_CPH].farm,
-    cph: TARBH_CPH,
+    farm: herdData[cph].farm,
+    cph: cph,
     vaccinationDate: vaxFormatDate(data['vaccination-date-day'], data['vaccination-date-month'], data['vaccination-date-year']),
     batches: vaxBatches(data).map(function (b) {
       return {
@@ -12631,7 +12800,7 @@ router.get('/vax/vaxreport_v1', function (req, res) {
     }),
     // The journey doesn't ask who vaccinated yet; until it does, a
     // placeholder for the signed-in vet.
-    vaccinator: data['vaccinator-name'] || 'Alex Morgan',
+    vaccinator: data['vaccinator-name'] || req.session.data['vaccinator-name'] || 'Alex Morgan',
     withdrawalEnds: vaxWithdrawalEnds(data),
     vaccinatedCount: rows.length,
     sheets: sheets,
@@ -12666,6 +12835,14 @@ function vaxPaperNote (row, note, asAt, opts) {
     const day = m[1] ? Number(m[1]) : 1
     const month = Number(m[2]) - 1
     const year = Number(m[3])
+    // v4: how long ago, in whole months – "Vaccinated 1 month ago" up to
+    // "Vaccinated 12 months ago". Under a month still reads as 1 month.
+    if (opts.monthsAgo) {
+      let months = (asAt.getFullYear() - year) * 12 + asAt.getMonth() - month
+      if (asAt.getDate() < day) months -= 1
+      months = Math.min(Math.max(months, 1), 12)
+      return 'Vaccinated ' + months + (months === 1 ? ' month ago' : ' months ago')
+    }
     // 8 months on, kept in its month (31 Aug -> 30 Apr, not 1 May).
     const lastDay = new Date(year, month + 9, 0).getDate()
     const earliest = new Date(year, month + 8, Math.min(day, lastDay))
@@ -12678,7 +12855,8 @@ function vaxPaperNote (row, note, asAt, opts) {
 
 function renderVaxList (req, res, opts) {
   const query = req.query || {}
-  const cph = [query.cph, TARBH_CPH]
+  const data = req.session.data
+  const cph = [query.cph, vaxCphOf(data)]
     .find(function (c) { return c && herdData[c] })
   const perPage = [20, 25, 40].includes(Number(query.perPage)) ? Number(query.perPage) : opts.perPage
   const version = ['v1-2', 'v1-3', 'v1-4', 'v1-5'].includes(query.version) ? query.version : 'v1-3'
@@ -12689,11 +12867,11 @@ function renderVaxList (req, res, opts) {
   // it was created (see create-vaccination-list), so a later report – or
   // a later day – never changes it. Without ?list, the list is built from
   // the answers as they stand now.
-  const data = req.session.data
-  const listRecord = cph === TARBH_CPH ? (data['vax-lists'] || [])[Number(query.list) - 1] : null
+  const journeyFarm = cph === vaxCphOf(data)
+  const listRecord = journeyFarm ? (data['vax-lists'] || [])[Number(query.list) - 1] : null
   if (listRecord && listRecord.notes) {
     rows.forEach(function (row) { row.note = listRecord.notes[row.officialId] || '' })
-  } else if (cph === TARBH_CPH) {
+  } else if (journeyFarm) {
     vaxApplyReportNotes(rows, data)
   }
   // v2 / v3: notes as the vet reads them on paper (see vaxPaperNote), as
@@ -12702,7 +12880,7 @@ function renderVaxList (req, res, opts) {
     const listDate = listRecord && listRecord.date ? new Date(listRecord.date) : new Date()
     const asAt = isNaN(listDate) ? new Date() : listDate
     rows.forEach(function (row) {
-      row.note = vaxPaperNote(row, row.note, asAt, { daysOld: opts.daysOldNote, revaccination: opts.revaccinationNote })
+      row.note = vaxPaperNote(row, row.note, asAt, { daysOld: opts.daysOldNote, revaccination: opts.revaccinationNote, monthsAgo: opts.monthsAgoNote })
     })
   }
   // Page 1 also carries the date and batch boxes, so it has room for
@@ -12754,7 +12932,9 @@ const VAX_NOT_VACCINATED_REASONS = [
   { value: 'keeper-declined', comment: 'Not eligible: keeper declined vaccination', heading: 'Select all cattle the keeper declined to vaccinate' },
   { value: 'clinical-condition', comment: 'Not eligible: clinical condition prevents vaccination', heading: 'Select all cattle whose clinical condition prevents vaccination' },
   { value: 'deceased', comment: 'Not eligible: animal deceased', heading: 'Select all deceased cattle' },
-  { value: 'too-young', comment: 'Not eligible: too young', heading: 'Select all cattle too young to vaccinate' }
+  { value: 'too-young', comment: 'Not eligible: too young', heading: 'Select all cattle too young to vaccinate' },
+  // v1-7 only.
+  { value: 'no-ear-tag', comment: 'Not eligible: no official ear tag', heading: 'Select all cattle with no official ear tag' }
 ]
 const VAX_SELECT_BASE = '/vax/v1-6/6-select-cattle'
 
@@ -12795,6 +12975,10 @@ function vaxSelectPages (rows, sizes) {
   return pages
 }
 const VAX_DEC26_PAGE_SIZES = [30, 35]
+// v1-7 follows the v4 list: 35 cattle on page 1, 40 on every page after,
+// and its notes worded as v4 prints them ("Vaccinated 8 months ago").
+const VAX_V17_PAGE_SIZES = [35, 40]
+const VAX_V17_NOTE_OPTS = { daysOld: true, revaccination: true, monthsAgo: true }
 
 // GOV.UK pagination items: first, last, and the pages either side of the
 // current one, with an ellipsis for any gap.
@@ -12823,7 +13007,7 @@ function vaxPaginationItems (current, total) {
 //   errorMessage  shown when the URL has ?error=1
 //   backHref      where Back goes (the previous screen, from any page)
 function vaxRenderSelect (req, res, screen) {
-  const allRows = buildVaxListRows(TARBH_CPH, 'v1-3').map(function (row, i) {
+  const allRows = buildVaxListRows(vaxCphOf(req.session.data), 'v1-3').map(function (row, i) {
     return Object.assign({}, row, { number: i + 1 })
   })
   const pages = vaxSelectPages(allRows, screen.pageSizes)
@@ -12850,7 +13034,7 @@ function vaxRenderSelect (req, res, screen) {
   const firstFree = allRows.find(function (row) { return !lockFor(row.officialId) })
 
   res.render(screen.template || 'vax/v1-6/6-select-cattle', {
-    farm: herdData[TARBH_CPH].farm,
+    farm: herdData[vaxCphOf(req.session.data)].farm,
     heading: screen.heading,
     formAction: screen.here,
     search: search,
@@ -12903,7 +13087,8 @@ function vaxRenderSelect (req, res, screen) {
       // 12/10/2026") replaces the record note.
       const earlier = vaxPreviouslyReported(req.session.data)[row.officialId]
       // dec26 (screen.paperNotes): worded as on the printed v3 list.
-      const note = screen.paperNotes ? vaxPaperNote(row, earlier || row.note, new Date()) : (earlier || row.note)
+      const noteOpts = screen.paperNotes === true ? undefined : screen.paperNotes
+      const note = screen.paperNotes ? vaxPaperNote(row, earlier || row.note, new Date(), noteOpts) : (earlier || row.note)
       return Object.assign({}, row, {
         // Which page of the list it is on (1-based), for grouped screens.
         listPage: pages.findIndex(function (page) { return page.includes(row) }) + 1,
@@ -12913,7 +13098,11 @@ function vaxRenderSelect (req, res, screen) {
         breed: breed,
         checked: lock ? lock.ticked : selected.includes(row.officialId),
         locked: !!lock,
-        takenFor: lock ? (screen.paperNotes ? vaxPaperNote(row, lock.comment, new Date()) : lock.comment) : ''
+        // v1-7 (noteOpts): cattle given "Too young" on 8 just say so, not
+        // their age in days.
+        takenFor: !lock ? ''
+          : (noteOpts && lock.comment === 'Not eligible: too young') ? 'Too young'
+            : (screen.paperNotes ? vaxPaperNote(row, lock.comment, new Date(), noteOpts) : lock.comment)
       })
     })
   })
@@ -12946,7 +13135,7 @@ function vaxSaveSelect (req, screen) {
     // Picked from the ear tag autocomplete: tick it (unless it can't be
     // picked here) and go to its page, focused on its row.
     const pickId = String(body.pick || '')
-    const pages = vaxSelectPages(buildVaxListRows(TARBH_CPH, 'v1-3'), screen.pageSizes)
+    const pages = vaxSelectPages(buildVaxListRows(vaxCphOf(data), 'v1-3'), screen.pageSizes)
     const pickPage = pages.findIndex(function (page) {
       return page.some(function (row) { return row.officialId === pickId })
     })
@@ -13106,7 +13295,7 @@ function vaxBatchScreen (data, n) {
   const perBatch = data['vax-batch-cattle'] || {}
   const reasonComments = Object.assign({}, vaxPreviouslyReported(data), vaxVaccinatedScreen(data).taken)
   const taken = {}
-  buildVaxListRows(TARBH_CPH, 'v1-3').forEach(function (row) {
+  buildVaxListRows(vaxCphOf(data), 'v1-3').forEach(function (row) {
     const id = row.officialId
     if (!vaccinated.includes(id)) {
       // Not vaccinated: greyed out and unticked, with its reason if it has one.
@@ -13216,7 +13405,7 @@ router.post([VAX_ALL_VACCINATED_URL, '/vax/dec26/6b-all-cattle-vaccinated'], fun
     // the last 12 months on their record, which need no report (the vet can
     // still tick them on page 7 to include them).
     const taken = vaxVaccinatedScreen(data).taken
-    data['vax-vaccinated-cattle'] = buildVaxListRows(TARBH_CPH, 'v1-3')
+    data['vax-vaccinated-cattle'] = buildVaxListRows(vaxCphOf(data), 'v1-3')
       .filter(function (row) { return !taken[row.officialId] && !vaxRecordVaccinated(row) && !vaxPreviouslyReported(data)[row.officialId] })
       .map(function (row) { return row.officialId })
     // Remember the list was filled in by Yes, not picked by the vet.
@@ -13347,7 +13536,7 @@ function vaxAccountedFor (data) {
   ;(data['vax-vaccinated-cattle'] || []).forEach(function (id) { done[id] = true })
   Object.keys(vaxVaccinatedScreen(data).taken).forEach(function (id) { done[id] = true })
   Object.keys(vaxPreviouslyReported(data)).forEach(function (id) { done[id] = true })
-  buildVaxListRows(TARBH_CPH, 'v1-3').forEach(function (row) {
+  buildVaxListRows(vaxCphOf(data), 'v1-3').forEach(function (row) {
     if (vaxRecordVaccinated(row)) done[row.officialId] = true
   })
   return done
@@ -13365,11 +13554,11 @@ function vaxReportedCount (data) {
 // Every animal on the holding has a reason it was not vaccinated (in this
 // report or an earlier one) – none left that could have been vaccinated.
 function vaxAllGivenReasons (data) {
-  return Object.keys(Object.assign({}, vaxPreviouslyReported(data), vaxCurrentReasons(data))).length >= buildVaxListRows(TARBH_CPH, 'v1-3').length
+  return Object.keys(Object.assign({}, vaxPreviouslyReported(data), vaxCurrentReasons(data))).length >= buildVaxListRows(vaxCphOf(data), 'v1-3').length
 }
 
 function vaxReportComplete (data) {
-  return vaxReportedCount(data) >= buildVaxListRows(TARBH_CPH, 'v1-3').length
+  return vaxReportedCount(data) >= buildVaxListRows(vaxCphOf(data), 'v1-3').length
 }
 
 // dec26: cattle still to report that can be vaccinated – not reported in
@@ -13378,7 +13567,7 @@ function vaxReportComplete (data) {
 // new "Report vaccination status" task is added after each report.
 function vaxEligibleToReport (data) {
   const done = vaxAccountedFor(data)
-  return buildVaxListRows(TARBH_CPH, 'v1-3').filter(function (row) {
+  return buildVaxListRows(vaxCphOf(data), 'v1-3').filter(function (row) {
     return !done[row.officialId] && !/^Not eligible/.test(row.note || '')
   }).length
 }
@@ -13463,7 +13652,7 @@ router.post(['/vax/v1-6/12-submitted', '/vax/dec26/12-submitted', '/vax/v1-7/17-
     : ''
   data['vax-report-vaccinated'] = (data['vax-vaccinated-cattle'] || []).length
   data['vax-report-complete'] = vaxReportComplete(data) ? 'yes' : 'no'
-  data['vax-report-to-report'] = Math.max(buildVaxListRows(TARBH_CPH, 'v1-3').length - vaxReportedCount(data), 0)
+  data['vax-report-to-report'] = Math.max(buildVaxListRows(vaxCphOf(data), 'v1-3').length - vaxReportedCount(data), 0)
   // dec26 / v1-7: the task list adds a new task only while eligible cattle
   // are still to report.
   if (vaxDec26Like(vaxBase(req))) {
@@ -13473,7 +13662,8 @@ router.post(['/vax/v1-6/12-submitted', '/vax/dec26/12-submitted', '/vax/v1-7/17-
   // Keep this report's own answers, so the next report can start afresh
   // while this one can still be read back (13-submitted-report?report=N).
   const snapshot = {}
-  VAX_REPORT_KEYS.concat('vax-previously-reported').forEach(function (key) {
+  // Also the farm, so a report read back later uses that farm's cattle.
+  VAX_REPORT_KEYS.concat('vax-previously-reported', 'vax-cph').forEach(function (key) {
     if (data[key] !== undefined) snapshot[key] = JSON.parse(JSON.stringify(data[key]))
   })
   const reports = data['vax-reports'] || []
@@ -13531,7 +13721,7 @@ function vaxRenderCheck (req, res, readOnly, dataOverride) {
     })
   })
 
-  const pages = vaxSelectPages(buildVaxListRows(TARBH_CPH, 'v1-3'), vaxDec26Like(base) ? VAX_DEC26_PAGE_SIZES : null)
+  const pages = vaxSelectPages(buildVaxListRows(vaxCphOf(data), 'v1-3'), base === VAX_V17 ? VAX_V17_PAGE_SIZES : vaxDec26Like(base) ? VAX_DEC26_PAGE_SIZES : null)
   // Cattle already accounted for outside this report are always listed too:
   // those vaccinated in the last 12 months on their record (Change only –
   // the vet can override them) and those reported in an earlier report
@@ -13558,7 +13748,7 @@ function vaxRenderCheck (req, res, readOnly, dataOverride) {
       if (!vaccinated.includes(id) && !reasonFor[id]) {
         value = previous[id] || row.note
         // dec26: worded as on the printed v3 list.
-        if (vaxDec26Like(base)) value = vaxPaperNote(row, value, new Date())
+        if (vaxDec26Like(base)) value = vaxPaperNote(row, value, new Date(), base === VAX_V17 ? VAX_V17_NOTE_OPTS : undefined)
         value = value || '—'
         fromRecord = true
       } else if (vaccinated.includes(id)) {
@@ -13600,7 +13790,7 @@ function vaxRenderCheck (req, res, readOnly, dataOverride) {
   }).filter(function (p) { return p.cattle.length })
 
   res.render(readOnly ? 'vax/v1-6/13-submitted-report' : base.slice(1) + (base === '/vax/v1-7' ? '/14-check-answers' : '/10-check-answers'), {
-    farm: herdData[TARBH_CPH].farm,
+    farm: herdData[vaxCphOf(data)].farm,
     vaccinationDate: vaxFormatDate(data['vaccination-date-day'], data['vaccination-date-month'], data['vaccination-date-year']),
     jobComplete: (vaxDec26Like(base) ? !vaxEligibleToReport(data) : vaxReportComplete(data)) ? 'Yes' : 'No',
     batches: batches.map(function (b, i) {
@@ -13617,7 +13807,7 @@ function vaxRenderCheck (req, res, readOnly, dataOverride) {
     // in an earlier report, or "Not eligible" on the list (too young,
     // vaccinated in the last 12 months). The same rule as "cattle to
     // report" on the task list (vaxEligibleToReport).
-    ineligibleCount: buildVaxListRows(TARBH_CPH, 'v1-3').filter(function (row) {
+    ineligibleCount: buildVaxListRows(vaxCphOf(data), 'v1-3').filter(function (row) {
       const id = row.officialId
       if (vaccinated.includes(id)) return false
       return !!(reasonFor[id] || previous[id] || /^Not eligible/.test(row.note || ''))
@@ -13670,13 +13860,13 @@ const VAX_EDIT_REASON_LABELS = {
   'too-young': 'Too young to vaccinate'
 }
 
-function vaxFindAnimal (id) {
-  return buildVaxListRows(TARBH_CPH, 'v1-3').find(function (row) { return row.officialId === id })
+function vaxFindAnimal (id, data) {
+  return buildVaxListRows(vaxCphOf(data), 'v1-3').find(function (row) { return row.officialId === id })
 }
 
 router.get(VAX_EDIT_PATHS.map(function (p) { return p + '/:id' }), function (req, res) {
   const data = req.session.data
-  const row = vaxFindAnimal(req.params.id)
+  const row = vaxFindAnimal(req.params.id, req.session.data)
   if (!row) return res.redirect(vaxEditPages(req).check)
   const id = row.officialId
   const batches = vaxBatches(data)
@@ -13693,7 +13883,7 @@ router.get(VAX_EDIT_PATHS.map(function (p) { return p + '/:id' }), function (req
   }) || {}).value || ''
 
   res.render(vaxEditPages(req).template, {
-    farm: herdData[TARBH_CPH].farm,
+    farm: herdData[vaxCphOf(data)].farm,
     id: id,
     tag: 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart + row.earTagParts.last4,
     vaccinated: vaccinated ? 'yes' : (reason ? 'no' : ''),
@@ -13713,7 +13903,7 @@ router.get(VAX_EDIT_PATHS.map(function (p) { return p + '/:id' }), function (req
 // was removed.
 router.post(VAX_EDIT_PATHS.map(function (p) { return p + '/:id/remove' }), function (req, res) {
   const data = req.session.data
-  const row = vaxFindAnimal(req.params.id)
+  const row = vaxFindAnimal(req.params.id, req.session.data)
   if (!row) return res.redirect(vaxEditPages(req).check)
   const id = row.officialId
   const wasComplete = vaxReportComplete(data)
@@ -13736,7 +13926,7 @@ router.post(VAX_EDIT_PATHS.map(function (p) { return p + '/:id/remove' }), funct
 router.post(VAX_EDIT_PATHS.map(function (p) { return p + '/:id' }), function (req, res) {
   const data = req.session.data
   const body = req.body || {}
-  const row = vaxFindAnimal(req.params.id)
+  const row = vaxFindAnimal(req.params.id, req.session.data)
   ;['edit-vaccinated', 'edit-batch', 'edit-reason'].forEach(function (key) { delete data[key] })
   if (!row) return res.redirect(vaxEditPages(req).check)
   if (body.action === 'save-later') return res.redirect(vaxEditPages(req).taskList)
@@ -13782,9 +13972,10 @@ router.post(VAX_EDIT_PATHS.map(function (p) { return p + '/:id' }), function (re
 //   4  CPH task list                  from dec26 2-cphtasklist2
 //   5  vaccination date               from dec26 3-vaccination-date
 //   6  vaccine batch                  from dec26 4-vaccine-batch
-//   7  was all cattle vaccinated?     from dec26 6b – Yes → 10, No → 8
-//   8  why not vaccinated             from v1-6 5-why-not-vaccinated
-//   9  select cattle, one per reason  from v1-6 6-select-cattle
+//   7  why not vaccinated             from v1-6 5-why-not-vaccinated
+//   8  select cattle, one per reason  from v1-6 6-select-cattle
+//   9  were all the other cattle      from dec26 6b – Yes → 10, No → 9b
+//      vaccinated?
 //   9b select vaccinated cattle       from dec26 7-vaccinated-cattle
 //   10 unexpected cattle              new – blank for now
 //   11 enter unexpected cattle        new – blank for now
@@ -13798,7 +13989,7 @@ router.post(VAX_EDIT_PATHS.map(function (p) { return p + '/:id' }), function (re
 // routes above are shared, telling the versions apart with vaxBase.
 // =============================================================================
 const VAX_V17 = '/vax/v1-7'
-const VAX_V17_SELECT = VAX_V17 + '/9-select-cattle'
+const VAX_V17_SELECT = VAX_V17 + '/8-select-cattle'
 
 // 6 – the date page posts here (the kit has saved the date). Change on
 // check answers opens it with ?from=check, and it goes back there.
@@ -13810,52 +14001,55 @@ router.get(VAX_V17 + '/6-vaccine-batch', function (req, res, next) {
   next()
 })
 
-// 7 – was all cattle vaccinated? The batch page posts here with no answer:
-// show the question. Yes: every animal that can be vaccinated was, so no
-// reasons and on to unexpected cattle (10). No: why not (8).
-router.get(VAX_V17 + '/7-all-cattle-vaccinated', function (req, res, next) {
+// 9 – after the reasons (7, 8): were all the other cattle vaccinated?
+// Yes: every animal still to report that wasn't given a reason was
+// vaccinated, on to unexpected cattle (10). No: select them (9b).
+router.get(VAX_V17 + '/9-all-cattle-vaccinated', function (req, res, next) {
   const data = req.session.data
-  res.locals.backHref = VAX_V17 + '/6-vaccine-batch'
+  const reasons = vaxChosenReasons(data)
+  res.locals.backHref = reasons.length
+    ? VAX_V17_SELECT + '/' + reasons[reasons.length - 1].value
+    : VAX_V17 + '/7-why-not-vaccinated'
   res.locals.vaccinationDate = vaxFormatDate(data['vaccination-date-day'], data['vaccination-date-month'], data['vaccination-date-year'])
   next()
 })
-router.post(VAX_V17 + '/7-all-cattle-vaccinated', function (req, res) {
+router.post(VAX_V17 + '/9-all-cattle-vaccinated', function (req, res) {
   const data = req.session.data
   const answer = (req.body || {})['all-cattle-vaccinated']
   if (!answer) return res.redirect(req.path)
   if (answer === 'yes') {
-    data['cannot-be-vaccinated'] = 'no'
-    ;['not-vaccinated-reason', 'vax-selected-cattle'].forEach(function (key) { delete data[key] })
     // Every animal that could be vaccinated: not reported in an earlier
-    // report, and not "Not eligible" on the list (too young, or vaccinated
-    // in the last 12 months) – the cattle the task list counts as to report.
+    // report, not "Not eligible" on the list (too young, or vaccinated in
+    // the last 12 months), and not given a reason on 8.
     const previous = vaxPreviouslyReported(data)
-    data['vax-vaccinated-cattle'] = buildVaxListRows(TARBH_CPH, 'v1-3')
-      .filter(function (row) { return !previous[row.officialId] && !/^Not eligible/.test(row.note || '') })
+    const reasoned = vaxCurrentReasons(data)
+    data['vax-vaccinated-cattle'] = buildVaxListRows(vaxCphOf(data), 'v1-3')
+      .filter(function (row) { return !previous[row.officialId] && !reasoned[row.officialId] && !/^Not eligible/.test(row.note || '') })
       .map(function (row) { return row.officialId })
     data['vax-vaccinated-by-yes'] = true
     return res.redirect(VAX_V17 + '/10-unexpected-cattle')
   }
-  data['cannot-be-vaccinated'] = 'yes'
   // No after an earlier Yes: nothing ticked as vaccinated yet.
   if (data['vax-vaccinated-by-yes']) {
     data['vax-vaccinated-cattle'] = []
     delete data['vax-vaccinated-by-yes']
   }
-  res.redirect(VAX_V17 + '/8-why-not-vaccinated')
+  res.redirect(VAX_V17 + '/9b-vaccinated-cattle')
 })
 
-// 9 – one select cattle screen for each reason ticked on 8, in 8's order,
-// paged like the printed v3 list.
+// 8 – one select cattle screen for each reason ticked on 7, in 7's order,
+// paged like the printed v4 list.
 function vaxV17ReasonScreen (data, reasons, index) {
   return Object.assign(vaxReasonScreen(data, reasons, index), {
-    template: 'vax/v1-7/9-select-cattle',
+    template: 'vax/v1-7/8-select-cattle',
     here: VAX_V17_SELECT + '/' + reasons[index].value,
-    pageSizes: VAX_DEC26_PAGE_SIZES,
-    paperNotes: true,
+    // Three pages of the list on each screen, as 9b (Figma node 796:27682).
+    groupSize: 3,
+    pageSizes: VAX_V17_PAGE_SIZES,
+    paperNotes: VAX_V17_NOTE_OPTS,
     backHref: index > 0
       ? VAX_V17_SELECT + '/' + reasons[index - 1].value
-      : VAX_V17 + '/8-why-not-vaccinated'
+      : VAX_V17 + '/7-why-not-vaccinated'
   })
 }
 function vaxV17ReasonIndex (req) {
@@ -13863,48 +14057,63 @@ function vaxV17ReasonIndex (req) {
   return { reasons: reasons, index: reasons.findIndex(function (r) { return r.value === req.params.reason }) }
 }
 
-// From 8 (the kit has saved the reasons): the first reason's screen.
+// From 7 (the kit has saved the reasons): the first reason's screen. "No,
+// all presented cattle were vaccinated": no reasons, on to were all cattle
+// vaccinated (9).
 router.post(VAX_V17_SELECT, function (req, res) {
-  const reasons = vaxChosenReasons(req.session.data)
-  if (!reasons.length) return res.redirect(VAX_V17 + '/8-why-not-vaccinated')
+  const data = req.session.data
+  const raw = data['not-vaccinated-reason']
+  if ((Array.isArray(raw) ? raw : [raw]).includes('none')) {
+    data['not-vaccinated-reason'] = ['none']
+    data['cannot-be-vaccinated'] = 'no'
+    delete data['vax-selected-cattle']
+    return res.redirect(VAX_V17 + '/9-all-cattle-vaccinated')
+  }
+  const reasons = vaxChosenReasons(data)
+  if (!reasons.length) return res.redirect(VAX_V17 + '/7-why-not-vaccinated')
+  data['cannot-be-vaccinated'] = 'yes'
+  // Reasons after an earlier "all vaccinated": nothing ticked as vaccinated yet.
+  if (data['vax-vaccinated-by-yes']) {
+    data['vax-vaccinated-cattle'] = []
+    delete data['vax-vaccinated-by-yes']
+  }
   res.redirect(VAX_V17_SELECT + '/' + reasons[0].value)
 })
 router.get(VAX_V17_SELECT + '/:reason', function (req, res) {
   const r = vaxV17ReasonIndex(req)
-  if (r.index === -1) return res.redirect(VAX_V17 + '/8-why-not-vaccinated')
+  if (r.index === -1) return res.redirect(VAX_V17 + '/7-why-not-vaccinated')
   vaxRenderSelect(req, res, vaxV17ReasonScreen(req.session.data, r.reasons, r.index))
 })
 router.post(VAX_V17_SELECT + '/:reason', function (req, res) {
   const data = req.session.data
   const r = vaxV17ReasonIndex(req)
-  if (r.index === -1) return res.redirect(VAX_V17 + '/8-why-not-vaccinated')
+  if (r.index === -1) return res.redirect(VAX_V17 + '/7-why-not-vaccinated')
   const result = vaxSaveSelect(req, vaxV17ReasonScreen(data, r.reasons, r.index))
   data['vax-selected-cattle'] = Object.assign({}, data['vax-selected-cattle'], { [r.reasons[r.index].value]: result.list })
   if (result.redirect === 'autosave') return res.sendStatus(204)
   if (result.redirect) return res.redirect(result.redirect)
-  // Continue: the next reason, then the vaccinated cattle (9b) – unless the
-  // reasons now cover every animal, when none were vaccinated.
+  // Continue: the next reason, then were the others vaccinated (9) –
+  // unless the reasons now cover every animal, when none were vaccinated.
   if (r.index < r.reasons.length - 1) return res.redirect(VAX_V17_SELECT + '/' + r.reasons[r.index + 1].value)
   if (vaxAllGivenReasons(data)) {
     data['vax-vaccinated-cattle'] = []
     return res.redirect(VAX_V17 + '/10-unexpected-cattle')
   }
-  res.redirect(VAX_V17 + '/9b-vaccinated-cattle')
+  res.redirect(VAX_V17 + '/9-all-cattle-vaccinated')
 })
 
-// 9b – select the vaccinated cattle, as dec26's page 7: three pages of the
-// list on each screen, cattle given a reason on 9 locked.
+// 9b – No on 9: select the vaccinated cattle, as dec26's page 7: three
+// pages of the list on each screen, cattle given a reason on 8 locked.
 function vaxV17VaccinatedScreen (data) {
-  const reasons = data['cannot-be-vaccinated'] === 'yes' ? vaxChosenReasons(data) : []
   return Object.assign(vaxVaccinatedScreen(data, VAX_V17), {
+    // Figma node 551:17641.
+    heading: 'Select all cattle vaccinated on ' + vaxFormatDate(data['vaccination-date-day'], data['vaccination-date-month'], data['vaccination-date-year']),
     template: 'vax/v1-7/9b-vaccinated-cattle',
     here: VAX_V17 + '/9b-vaccinated-cattle',
     groupSize: 3,
-    pageSizes: VAX_DEC26_PAGE_SIZES,
-    paperNotes: true,
-    backHref: reasons.length
-      ? VAX_V17_SELECT + '/' + reasons[reasons.length - 1].value
-      : VAX_V17 + '/7-all-cattle-vaccinated'
+    pageSizes: VAX_V17_PAGE_SIZES,
+    paperNotes: VAX_V17_NOTE_OPTS,
+    backHref: VAX_V17 + '/9-all-cattle-vaccinated'
   })
 }
 router.get(VAX_V17 + '/9b-vaccinated-cattle', function (req, res) {

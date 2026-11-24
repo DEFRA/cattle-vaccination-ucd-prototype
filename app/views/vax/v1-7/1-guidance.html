@@ -1,9 +1,10 @@
 {% extends "layouts/main.html" %}
 
-{# v1-7 screen 1, Guidance – new. Blank until the design is added. #}
+{# v1-7 screen 1, Guidance: who the service is for and what it does,
+   then on to log in. #}
 
 {% block pageTitle %}
-  Guidance – GOV.UK
+  Vaccinate cattle for bovine TB – GOV.UK
 {% endblock %}
 
 {% block header %}
@@ -11,14 +12,31 @@
 {% endblock %}
 
 {% block beforeContent %}
-  
 {% endblock %}
 
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
-    <h1 class="govuk-heading-l">Guidance</h1>
-    <a href="/vax/v1-7/2-log-in" role="button" draggable="false" class="govuk-button" data-module="govuk-button">Continue</a>
+    <h1 class="govuk-heading-l">Vaccinate cattle for bovine TB</h1>
+
+    <p class="govuk-body">This service helps you prepare for bovine TB vaccination visits. You can also report completed vaccinations.</p>
+
+    <h2 class="govuk-heading-m">Use this service if you are:</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li>an Official Veterinarian (OV) or qualified APHA officer</li>
+      <li>an approved tuberculosis vaccinator</li>
+    </ul>
+
+    <h2 class="govuk-heading-m">You can use this service to:</h2>
+    <ul class="govuk-list govuk-list--bullet">
+      <li>access vaccination work assigned to you</li>
+      <li>prepare a list of cattle to vaccinate for bovine TB before the visit</li>
+      <li>report vaccinations you have completed</li>
+    </ul>
+
+    <a href="/vax/v1-7/2-log-in" role="button" draggable="false" class="govuk-button" data-module="govuk-button">Continue to log in</a>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
   </div>
 </div>
 {% endblock %}

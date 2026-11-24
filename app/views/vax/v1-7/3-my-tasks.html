@@ -1,0 +1,110 @@
+{% extends "layouts/main.html" %}
+
+{# v1-7 screen 3, My tasks (Figma node 723:15890): the vet's task list,
+   one summary card per task. The "My tasks" link in the header comes
+   here. Both tasks open the CPH task list. The values marked as dynamic
+   in the design are example values for now. #}
+
+{% set userName = data['vaccinator-name'] or '[user name]' %}
+
+{# Pinecone Grove's task is In progress once work has started on it: a
+   vaccination list made, or a report started or submitted. #}
+{% set pineconeStarted = (data['vax-lists'] | length) or (data['vax-reports'] | length) or data['vaccination-date-day'] %}
+
+{% set tasks = [
+  {
+    farm: 'Pinecone Grove Farm',
+    taskNumber: 'bTBV-104523',
+    cph: '12/390/6810',
+    postcode: 'YO7 4PG',
+    action: 'Continue work' if pineconeStarted else 'Start work',
+    created: '23 days ago',
+    booking: '2 December 2026',
+    due: '16 December 2026',
+    status: 'In progress' if pineconeStarted else 'To do',
+    tagClass: 'govuk-tag--green' if pineconeStarted else 'govuk-tag--blue'
+  },
+  {
+    farm: 'Hill farm',
+    taskNumber: 'bTBV-104871',
+    cph: '12/345/6789',
+    postcode: 'HG3 5QT',
+    action: 'Start work',
+    created: '1 day ago',
+    booking: '-',
+    due: '23 December 2026',
+    status: 'To do',
+    tagClass: 'govuk-tag--blue'
+  }
+] %}
+
+{% block pageTitle %}
+  {{ userName }}’s task list – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Keep "Continue work" / "Start work" on one line; a long card title
+     wraps instead. */
+  .govuk-summary-card__actions { white-space: nowrap; }
+</style>
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+    <h1 class="govuk-heading-l">{{ userName }}’s task list</h1>
+
+    {% for task in tasks %}
+      <div class="govuk-summary-card">
+        <div class="govuk-summary-card__title-wrapper">
+          <h2 class="govuk-summary-card__title">{{ task.farm }}<br>TB task number {{ task.taskNumber }}</h2>
+          <ul class="govuk-summary-card__actions">
+            <li class="govuk-summary-card__action">
+              <a class="govuk-link" href="/vax/v1-7/4-cph-task-list">{{ task.action }}<span class="govuk-visually-hidden"> ({{ task.farm }}, TB task number {{ task.taskNumber }})</span></a>
+            </li>
+          </ul>
+        </div>
+        <div class="govuk-summary-card__content">
+          <dl class="govuk-summary-list">
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Task type</dt>
+              <dd class="govuk-summary-list__value">bTB vaccination</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">CPH number</dt>
+              <dd class="govuk-summary-list__value">{{ task.cph }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Post code</dt>
+              <dd class="govuk-summary-list__value">{{ task.postcode }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Task created</dt>
+              <dd class="govuk-summary-list__value">{{ task.created }}</dd>
+            </div>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Booking date</dt>
+              <dd class="govuk-summary-list__value">{{ task.booking }}</dd>
+            </div>
+            <!-- <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Due date</dt>
+              <dd class="govuk-summary-list__value">{{ task.due }}</dd>
+            </div> -->
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Status</dt>
+              <dd class="govuk-summary-list__value"><strong class="govuk-tag {{ task.tagClass }}">{{ task.status }}</strong></dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    {% endfor %}
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+  </div>
+</div>
+{% endblock %}

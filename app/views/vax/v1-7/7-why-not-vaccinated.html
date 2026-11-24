@@ -16,7 +16,7 @@
    the script at the bottom shows them if no box is ticked. #}
 
 {% block pageTitle %}
-  Why were some cattle not vaccinated? – GOV.UK
+  Were there any reasons why some cattle could not be vaccinated? – GOV.UK
 {% endblock %}
 
 {% block header %}
@@ -24,7 +24,7 @@
 {% endblock %}
 
 {% block beforeContent %}
-  <a href="/vax/v1-7/7-all-cattle-vaccinated" class="govuk-back-link">Back</a>
+  <a href="/vax/v1-7/6-vaccine-batch" class="govuk-back-link">Back</a>
 {% endblock %}
 
 {% block content %}
@@ -42,31 +42,31 @@
         <div class="govuk-error-summary__body">
           <ul class="govuk-list govuk-error-summary__list">
             <li>
-              <a href="#not-vaccinated-reason">You must select at least an option</a>
+              <a href="#not-vaccinated-reason">You must select at least one option</a>
             </li>
           </ul>
         </div>
       </div>
     </div>
 
-    <form id="not-vaccinated-reason-form" action="/vax/v1-7/9-select-cattle" method="post" novalidate>
+    <form id="not-vaccinated-reason-form" action="/vax/v1-7/8-select-cattle" method="post" novalidate>
 
       <div class="govuk-form-group" id="not-vaccinated-reason-group">
         <fieldset class="govuk-fieldset" aria-describedby="not-vaccinated-reason-hint">
           <legend class="govuk-fieldset__legend govuk-fieldset__legend--l">
-            <span class="govuk-caption-l">Report bTB vaccination for Tarbh Farm</span>
-            <h1 class="govuk-fieldset__heading">Why were some cattle not vaccinated?</h1>
+            <span class="govuk-caption-l">Report bTB vaccination for Pinecone Grove Farm</span>
+            <h1 class="govuk-fieldset__heading">Were there any reasons why some cattle could not be vaccinated?</h1>
           </legend>
           <div id="not-vaccinated-reason-hint" class="govuk-hint">Select all that apply</div>
           <p id="not-vaccinated-reason-error" class="govuk-error-message" hidden>
-            <span class="govuk-visually-hidden">Error:</span> You must select at least an option
+            <span class="govuk-visually-hidden">Error:</span> You must select at least one option
           </p>
           {# Tells the kit to clear the saved ticks when every box is unticked. #}
           <input type="hidden" name="not-vaccinated-reason" value="_unchecked">
           <div class="govuk-checkboxes" data-module="govuk-checkboxes">
             <div class="govuk-checkboxes__item">
               <input class="govuk-checkboxes__input" id="not-vaccinated-reason" name="not-vaccinated-reason" type="checkbox" value="slaughter"{% if 'slaughter' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
-              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason">For slaughter in near future</label>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason">For slaughter in the near future</label>
             </div>
             <div class="govuk-checkboxes__item">
               <input class="govuk-checkboxes__input" id="not-vaccinated-reason-2" name="not-vaccinated-reason" type="checkbox" value="export"{% if 'export' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
@@ -78,7 +78,7 @@
             </div>
             <div class="govuk-checkboxes__item">
               <input class="govuk-checkboxes__input" id="not-vaccinated-reason-4" name="not-vaccinated-reason" type="checkbox" value="not-present"{% if 'not-present' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
-              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-4">Not present on CPH</label>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-4">Animal not at the location</label>
             </div>
             <div class="govuk-checkboxes__item">
               <input class="govuk-checkboxes__input" id="not-vaccinated-reason-5" name="not-vaccinated-reason" type="checkbox" value="keeper-declined"{% if 'keeper-declined' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
@@ -90,11 +90,21 @@
             </div>
             <div class="govuk-checkboxes__item">
               <input class="govuk-checkboxes__input" id="not-vaccinated-reason-7" name="not-vaccinated-reason" type="checkbox" value="deceased"{% if 'deceased' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
-              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-7">Animal is deceased</label>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-7">Animal is dead</label>
             </div>
             <div class="govuk-checkboxes__item">
               <input class="govuk-checkboxes__input" id="not-vaccinated-reason-8" name="not-vaccinated-reason" type="checkbox" value="too-young"{% if 'too-young' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
-              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-8">Too young to be vaccinated</label>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-8">Too young to vaccinate</label>
+            </div>
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="not-vaccinated-reason-9" name="not-vaccinated-reason" type="checkbox" value="no-ear-tag"{% if 'no-ear-tag' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-9">No official ear tag</label>
+            </div>
+            <div class="govuk-checkboxes__divider">Or</div>
+            {# Exclusive: ticking it clears the reasons, and a reason clears it. #}
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="not-vaccinated-reason-none" name="not-vaccinated-reason" type="checkbox" value="none" data-behaviour="exclusive"{% if 'none' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-none">No, all presented cattle were vaccinated</label>
             </div>
           </div>
         </fieldset>

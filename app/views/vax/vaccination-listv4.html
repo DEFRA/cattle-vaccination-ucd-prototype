@@ -218,8 +218,9 @@
     .slip__intro { margin-top: 10px; font-size: 12pt; line-height: 1.3; }
     .slip__intro p { margin: 0 0 6px; }
     /* Rule above the page number, like the one under the heading. */
-    .slip__footer { margin-top: 16px; padding-top: 6px; border-top: 1px solid #0b0c0c; }
-    .slip__heading { margin: 16px 0 12px; font-size: 19px; line-height: 1.2; }
+    .slip__heading { margin: 32px 0 12px; font-size: 19px; line-height: 1.2; }
+    /* A grey line under a section, like the one under the slip heading. */
+    .slip-fields--rule { padding-bottom: 20px; border-bottom: 1px solid #b1b4b6; }
     /* Two columns of fields: a bold label above each box to write in. */
     .slip-fields {
       display: grid;
@@ -235,14 +236,10 @@
     /* Already known, so printed rather than left to fill in. */
     .slip-field__value { font-weight: 700; font-size: 12pt; line-height: 11mm; }
     .slip-field__box { height: 11mm; border: 1px solid #0b0c0c; }
-    .slip-notes__list { margin: 0; padding: 6px 8px 6px 28px; }
-    .slip-notes__list li { margin-bottom: 4px; }
-    .slip-notes { min-height: 40mm; border: 1px solid #0b0c0c; }
-    /* The slip fills a whole A4 sheet: the Other information box takes
-       any spare height, so the page number sits at the foot of the page. */
+    /* The slip fills a whole A4 sheet and has no page number: it is
+       handed to the keeper, apart from the list. */
     /* Letter-style margins: 10mm all round (shown on screen too). */
     .slip { display: flex; flex-direction: column; min-height: 297mm; padding: 10mm; }
-    .slip .slip-notes { flex: 1 0 auto; }
 
     @media print {
       body { padding: 0; background: #ffffff; }
@@ -250,18 +247,18 @@
       .sheet { max-width: none; margin: 0; padding: 6px; border: 1px solid #0b0c0c; }
       .sheet + .sheet { break-before: page; page-break-before: always; }
       .record-table thead { display: table-header-group; }
-      /* Shorter rows so 30 cattle (page 1) and 35 (later pages and the
+      /* Shorter rows so 35 cattle (page 1) and 40 (later pages and the
          blank page) fit on one A4 sheet. */
       .record-table th,
       .record-table td,
       .sheet--compact .record-table th,
       .sheet--compact .record-table td {
-        height: 7.5mm;
+        height: 6.5mm;
         padding-top: 0;
         padding-bottom: 0;
         line-height: 1.1;
       }
-      /* Page 1: tighter gaps round the title and batch boxes so 30 cattle fit. */
+      /* Page 1: tighter gaps round the title and batch boxes so 35 cattle fit. */
       .sheet-header { margin-bottom: 3px; padding-bottom: 3px; }
       .meta-table td { padding-top: 0; padding-bottom: 2px; }
       .entry-table { margin: 2px 0 4px; }
@@ -269,7 +266,7 @@
       .entry-table td { height: 7.5mm; }
       .record-table tbody { break-inside: avoid; page-break-inside: avoid; }
       /* Two-line notes ("Not eligible: earliest vaccination DATE") must
-         fit the 7.5mm row, or the rows grow and push the footer onto a
+         fit the 6.5mm row, or the rows grow and push the footer onto a
          sheet of its own. */
       td.col-notes { font-size: 9pt; }
       /* A4 is 297mm; less the 5mm top and bottom page margins, with a
@@ -369,7 +366,7 @@
         <span class="sheet-footer__page">
           {# Page 1 already shows the farm and CPH at the top. #}
           {% if pageNumber > 1 %}<span class="sheet-footer__farm">{{ farm }} - CPH: {{ cph }}</span>{% endif %}
-          Page {{ pageNumber }} of {{ allPages }}
+          Page {{ pageNumber }} of {{ totalPages }}
         </span>
         <span class="range">{{ range }}</span>
       </div>
@@ -407,7 +404,7 @@
       <span></span>
       <span class="sheet-footer__page">
         <span class="sheet-footer__farm">{{ farm }} - CPH: {{ cph }} - Blank page for unexpected cattle</span>
-        Page {{ totalPages }} of {{ allPages }}
+        Page {{ totalPages }} of {{ totalPages }}
       </span>
       <span></span>
     </div>
@@ -451,32 +448,37 @@
         <div class="slip-field__box"></div>
       </div>
     </div>
+    <h2 class="slip__heading">Medicine withdrawal period</h2>
+    <div class="slip-fields slip-fields--rule">
+      <div class="slip-field">
+        <span class="slip-field__label">Meat withdrawal</span>
+        <div class="slip-field__value">90 days</div>
+      </div>
+      <div class="slip-field">
+        <span class="slip-field__label">Dairy withdrawal</span>
+        <div class="slip-field__value">0 days</div>
+      </div>
+    </div>
+
     <h2 class="slip__heading">Cattle details</h2>
     <div class="slip-fields">
       <div class="slip-field">
         <span class="slip-field__label">Number of vaccinated cattle</span>
         <div class="slip-field__box"></div>
       </div>
-      <div class="slip-field">
-        <span class="slip-field__label">Medicine withdrawal period</span>
-        <div class="slip-field__value">3 months</div>
-      </div>
-    </div>
-
-    <h2 class="slip__heading">Other information</h2>
-    {# Placeholder questions for the design team, not final content. #}
-    <div class="slip-notes">
-      <ul class="slip-notes__list">
-        <li>Food chain considerations? What can we tell the keeper? Is there anything we want them to know? Include by default.</li>
-        <li>Quantity administered? Isn't it always the same?</li>
-        <li>Route of administration? Isn't it always injection?</li>
-      </ul>
     </div>
 
     <h2 class="slip__heading">Veterinary surgeon</h2>
     <div class="slip-fields">
       <div class="slip-field">
         <span class="slip-field__label">Name</span>
+        <div class="slip-field__box"></div>
+      </div>
+    </div>
+    {# Telephone beside the practice: it may be the practice's number. #}
+    <div class="slip-fields slip__signature">
+      <div class="slip-field">
+        <span class="slip-field__label">Veterinary practice / APHA office</span>
         <div class="slip-field__box"></div>
       </div>
       <div class="slip-field">
@@ -496,13 +498,6 @@
       <p>Keep this slip with your medicine records. You must keep these details to meet medicine regulations and farm assurance scheme requirements.</p>
     </div>
 
-    <div class="sheet-footer slip__footer">
-      <span></span>
-      <span class="sheet-footer__page">
-        Page {{ allPages }} of {{ allPages }}
-      </span>
-      <span></span>
-    </div>
   </div>
 
   <script>
