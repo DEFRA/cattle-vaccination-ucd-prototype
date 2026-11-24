@@ -201,7 +201,18 @@
 
     /* Vaccination slip: the vet writes the details in by hand. Same
        heading as page 1; labels are plain bold text, boxes to write in. */
-    .slip__header { display: block; }
+    /* APHA logo top left; the heading on the same line, starting a third
+       of the way across and lined up with the bottom of the logo. */
+    .slip__header {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 0;
+      align-items: end;
+    }
+    .slip__logo { display: block; height: 22mm; width: auto; }
+    /* Room between the logo and the line under it (beats the print
+       rule that tightens page 1's header). */
+    .sheet-header.slip__header { padding-bottom: 28px; margin-bottom: 8px; border-bottom: 1px solid #b1b4b6; }
     .slip__title { margin: 0 0 4px; }
     .slip__farm { margin: 0; font-weight: 700; font-size: 12pt; }
     .slip__intro { margin-top: 10px; font-size: 12pt; line-height: 1.3; }
@@ -229,7 +240,8 @@
     .slip-notes { min-height: 40mm; border: 1px solid #0b0c0c; }
     /* The slip fills a whole A4 sheet: the Other information box takes
        any spare height, so the page number sits at the foot of the page. */
-    .slip { display: flex; flex-direction: column; min-height: 297mm; }
+    /* Letter-style margins: 10mm all round (shown on screen too). */
+    .slip { display: flex; flex-direction: column; min-height: 297mm; padding: 10mm; }
     .slip .slip-notes { flex: 1 0 auto; }
 
     @media print {
@@ -262,8 +274,11 @@
       td.col-notes { font-size: 9pt; }
       /* A4 is 297mm; less the 5mm top and bottom page margins, with a
          little to spare so it never spills onto a second sheet. */
-      .slip { min-height: 0; height: 285mm; }
+      /* The slip prints on its own page style with 10mm margins, like a
+         letter: 297mm less 20mm, with a little to spare. */
+      .slip { page: slip; min-height: 0; height: 275mm; padding: 0; border: 0; }
       @page { size: A4 portrait; margin: 5mm 10mm; }
+      @page slip { size: A4 portrait; margin: 10mm; }
     }
   </style>
 </head>
@@ -402,8 +417,11 @@
      details by hand on the day. #}
   <div class="sheet slip">
     <div class="sheet-header slip__header">
-      <h1 class="sheet-header__title slip__title">Bovine TB vaccination</h1>
-      <p class="slip__farm">{{ farm }} &mdash; CPH number: {{ cph }}</p>
+      <img class="slip__logo" src="/public/images/apha-logo.png" alt="Animal and Plant Health Agency">
+      <div>
+        <h1 class="sheet-header__title slip__title">Bovine TB vaccination</h1>
+        <p class="slip__farm">{{ farm }} &mdash; CPH number: {{ cph }}</p>
+      </div>
     </div>
 
     <h2 class="slip__heading">Vaccine details</h2>

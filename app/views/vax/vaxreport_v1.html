@@ -46,17 +46,24 @@
     .sheet {
       max-width: 210mm;
       margin: 0 auto 24px;
-      padding: 18px;
+      /* 10mm either side, as on the slip (vaccination-listv4). */
+      padding: 18px 10mm;
       background: #ffffff;
       border: 2px solid #0b0c0c;
     }
 
     /* Heading, as on the slip. */
+    /* APHA logo top left; the heading on the same line, starting a third
+       of the way across and lined up with the bottom of the logo. */
     .report__header {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      align-items: end;
       margin-bottom: 8px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid #0b0c0c;
+      padding-bottom: 28px;
+      border-bottom: 1px solid #b1b4b6;
     }
+    .report__logo { display: block; height: 22mm; width: auto; }
     .report__title { margin: 0 0 4px; font-weight: 700; font-size: 24px; line-height: 1.2; }
     .report__farm { margin: 0; font-weight: 700; font-size: 12pt; }
     .report__heading { margin: 16px 0 12px; font-size: 19px; line-height: 1.2; }
@@ -107,19 +114,29 @@
     .ear-tag { white-space: nowrap; font-variant-numeric: tabular-nums; }
     .ear-tag__last4 { font-weight: 700; }
 
+    /* Full width: farm and CPH stacked on the left, the page number in
+       the middle, the vaccination date stacked on the right. */
     .sheet-footer {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: end;
+      gap: 12px;
       margin-top: 8px;
       font-weight: 700;
-      font-size: 12pt;
-      text-align: center;
+      font-size: 11pt;
       line-height: 1.2;
     }
-    .sheet-footer__farm { display: block; font-size: 11pt; }
+    .sheet-footer__left  { text-align: left; }
+    .sheet-footer__page  { text-align: center; font-size: 12pt; font-weight: 400; }
+    .sheet-footer__right { text-align: right; }
+    .sheet-footer__left span,
+    .sheet-footer__right span { display: block; }
 
     @media print {
       body { padding: 0; background: #ffffff; }
       .toolbar { display: none; }
-      .sheet { max-width: none; margin: 0; padding: 6px; border: 1px solid #0b0c0c; }
+      /* As the slip: no border, and the page's 10mm side margins. */
+      .sheet { max-width: none; margin: 0; padding: 6px 0; border: 0; }
       .sheet + .sheet { break-before: page; page-break-before: always; }
       .record-table thead { display: table-header-group; }
       .record-table th,
@@ -144,8 +161,11 @@
 
       {% if pageNumber == 1 %}
         <div class="report__header">
-          <h1 class="report__title">Bovine TB vaccination</h1>
-          <p class="report__farm">{{ farm }} &mdash; CPH number: {{ cph }}</p>
+          <img class="report__logo" src="/public/images/apha-logo.png" alt="Animal and Plant Health Agency">
+          <div>
+            <h1 class="report__title">Bovine TB vaccination</h1>
+            <p class="report__farm">{{ farm }} &mdash; CPH number: {{ cph }}</p>
+          </div>
         </div>
 
         <h2 class="report__heading">Vaccine details</h2>
@@ -231,9 +251,14 @@
       {% endif %}
 
       <div class="sheet-footer">
-        {# Page 1 already shows the farm and CPH at the top. #}
-        {% if pageNumber > 1 %}<span class="sheet-footer__farm">{{ farm }} - CPH: {{ cph }}</span>{% endif %}
-        Page {{ pageNumber }} of {{ totalPages }}
+        {# Page 1 already shows the farm, CPH and date at the top. #}
+        <div class="sheet-footer__left">
+          {% if pageNumber > 1 %}<span>{{ farm }}</span><span>CPH: {{ cph }}</span>{% endif %}
+        </div>
+        <div class="sheet-footer__page">Page {{ pageNumber }} of {{ totalPages }}</div>
+        <div class="sheet-footer__right">
+          {% if pageNumber > 1 %}<span>Vaccination date</span><span>{{ vaccinationDate }}</span>{% endif %}
+        </div>
       </div>
     </div>
   {% endfor %}
