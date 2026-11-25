@@ -1,0 +1,72 @@
+{% extends "layouts/main.html" %}
+
+{# v1-7 screen 10, Do you want to add a note about an animal? (Figma node
+   739:16706). Yes: 11 Add a note. No: 12 Unexpected cattle. Saved as
+   vax-add-note (yes/no); the route (VAX_V17 + '/10-have-a-note') shows the
+   error when nothing is chosen. #}
+
+{% block pageTitle %}
+  {% if errorMessage %}Error: {% endif %}Do you want to add a note about an animal? – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header-v1-7.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="/vax/v1-7/9b-vaccinated-cattle" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorMessage %}
+      <div class="govuk-error-summary" data-module="govuk-error-summary">
+        <div role="alert">
+          <h2 class="govuk-error-summary__title">There is a problem</h2>
+          <div class="govuk-error-summary__body">
+            <ul class="govuk-list govuk-error-summary__list">
+              <li><a href="#vax-add-note">{{ errorMessage }}</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <form action="/vax/v1-7/10-have-a-note" method="post" novalidate>
+      <div class="govuk-form-group{% if errorMessage %} govuk-form-group--error{% endif %}">
+        <fieldset class="govuk-fieldset"{% if errorMessage %} aria-describedby="vax-add-note-error"{% endif %}>
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--l">
+            <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
+            <h1 class="govuk-fieldset__heading">Do you want to add a note about an animal?</h1>
+          </legend>
+          {% if errorMessage %}
+            <p id="vax-add-note-error" class="govuk-error-message">
+              <span class="govuk-visually-hidden">Error:</span> {{ errorMessage }}
+            </p>
+          {% endif %}
+          <div class="govuk-radios" data-module="govuk-radios">
+            <div class="govuk-radios__item">
+              <input class="govuk-radios__input" id="vax-add-note" name="vax-add-note" type="radio" value="yes"{% if data['vax-add-note'] == 'yes' %} checked{% endif %}>
+              <label class="govuk-label govuk-radios__label" for="vax-add-note">Yes</label>
+            </div>
+            <div class="govuk-radios__item">
+              <input class="govuk-radios__input" id="vax-add-note-no" name="vax-add-note" type="radio" value="no"{% if data['vax-add-note'] == 'no' %} checked{% endif %}>
+              <label class="govuk-label govuk-radios__label" for="vax-add-note-no">No</label>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="govuk-button-group">
+        <button type="submit" class="govuk-button" data-module="govuk-button">Continue and save</button>
+        <button type="submit" formaction="/vax/v1-7/4-cph-task-list" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and continue later</button>
+      </div>
+    </form>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+{% endblock %}

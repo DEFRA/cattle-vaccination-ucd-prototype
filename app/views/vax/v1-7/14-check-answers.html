@@ -21,7 +21,7 @@
 {% endblock %}
 
 {% block header %}
-  {% include "includes/vax/header.html" %}
+  {% include "includes/vax/header-v1-7.html" %}
 {% endblock %}
 
 {% block beforeContent %}
@@ -99,20 +99,78 @@
     </dl>
 
     {% for p in cattlePages %}
-      <h2 class="govuk-heading-m">Page {{ p.page }} of {{ totalPages }} - cattle range {{ p.range }}</h2>
+      <h2 class="govuk-heading-m">Page {{ p.page }} of {{ totalPages }} — cattle range {{ p.range }}</h2>
       <dl class="govuk-summary-list govuk-!-margin-bottom-9 app-cattle-list">
         {% for animal in p.cattle %}
-          <div class="govuk-summary-list__row{% if animal.earlier or readOnly %} govuk-summary-list__row--no-actions{% endif %}" id="animal-{{ animal.id }}">
+          {% set note = animalNotes[animal.id] %}
+          {% set fifth = loop.index % 5 == 0 and not loop.last %}
+          <div class="govuk-summary-list__row{% if animal.earlier or readOnly %} govuk-summary-list__row--no-actions{% endif %}{% if note %} govuk-summary-list__row--no-border{% elif fifth %} app-row--fifth{% endif %}" id="animal-{{ animal.id }}">
             <dt class="govuk-summary-list__key"><span class="app-row-number">{{ animal.number }}</span>{{ animal.tag }}</dt>
-            <dd class="govuk-summary-list__value">{{ animal.value }}</dd>
+            {# "Animal was not presented" (screen 15) shows as a dash, like an
+               animal with no answer: quicker to scan. #}
+            {# Reasons without "Not eligible: " in front, e.g. "Too young",
+               and "Not at location" for the shared "not present on the CPH". #}
+            {% set shown = animal.value | replace('Not eligible: ', '') %}
+            {% if shown != animal.value %}{% set shown = (shown.charAt(0) | upper) + shown.slice(1) %}{% endif %}
+            {% if animal.value == 'Not eligible: not present on the CPH' %}{% set shown = 'Not at location' %}{% endif %}
+            <dd class="govuk-summary-list__value">{{ '—' if animal.value == 'Animal was not presented' else shown }}</dd>
             {# Reported in an earlier report: done, so no actions. #}
             {% if not readOnly and not animal.earlier %}<dd class="govuk-summary-list__actions">
               <a class="govuk-link" href="{{ animal.href }}">Change<span class="govuk-visually-hidden"> {{ animal.tag }}</span></a>
             </dd>{% endif %}
           </div>
+          {# A note about this animal, from screen 11. #}
+          {% if note %}
+            <div class="govuk-summary-list__row govuk-summary-list__row--no-actions{% if fifth %} app-row--fifth{% endif %}">
+              <dt class="govuk-summary-list__key"><span class="app-row-number"></span>Notes</dt>
+              <dd class="govuk-summary-list__value">{{ note }}</dd>
+            </div>
+          {% endif %}
         {% endfor %}
       </dl>
     {% endfor %}
+
+    {# Cattle that were not on the list (screen 13), each with its note. #}
+    {# Always shown on v1-7, so cattle can be added from here: "Added
+       cattle" opens the add another screen (13). #}
+    {% if unexpectedCattle | length or not readOnly %}
+      <h2 class="govuk-heading-m">Cattle not on the vaccination list</h2>
+      <dl class="govuk-summary-list govuk-!-margin-bottom-9 app-cattle-list app-cattle-list--extra">
+        <div class="govuk-summary-list__row{% if readOnly %} govuk-summary-list__row--no-actions{% endif %}">
+          <dt class="govuk-summary-list__key">Added cattle</dt>
+          <dd class="govuk-summary-list__value">{{ unexpectedCattle | length }}</dd>
+          {% if not readOnly %}<dd class="govuk-summary-list__actions">
+            <a class="govuk-link" href="/vax/v1-7/13-enter-unexpected-cattle">Change<span class="govuk-visually-hidden"> added cattle</span></a>
+          </dd>{% endif %}
+        </div>
+        {# Only when unidentified cattle were reported on 13. #}
+        {% if unidentifiedCount %}
+          <div class="govuk-summary-list__row{% if readOnly %} govuk-summary-list__row--no-actions{% endif %}">
+            <dt class="govuk-summary-list__key">Unidentified cattle</dt>
+            <dd class="govuk-summary-list__value">{{ unidentifiedCount }}</dd>
+            {% if not readOnly %}<dd class="govuk-summary-list__actions">
+              <a class="govuk-link" href="/vax/v1-7/13-enter-unexpected-cattle#vax-unidentified">Change<span class="govuk-visually-hidden"> unidentified cattle</span></a>
+            </dd>{% endif %}
+          </div>
+        {% endif %}
+        {% for animal in unexpectedCattle %}
+          {% set fifth = loop.index % 5 == 0 and not loop.last %}
+          <div class="govuk-summary-list__row{% if readOnly %} govuk-summary-list__row--no-actions{% endif %}{% if animal.note %} govuk-summary-list__row--no-border{% elif fifth %} app-row--fifth{% endif %}">
+            <dt class="govuk-summary-list__key">{{ animal.tag }}</dt>
+            <dd class="govuk-summary-list__value">{{ animal.value }}</dd>
+            {% if not readOnly %}<dd class="govuk-summary-list__actions">
+              <a class="govuk-link" href="/vax/v1-7/13-enter-unexpected-cattle">Change<span class="govuk-visually-hidden"> {{ animal.tag }}</span></a>
+            </dd>{% endif %}
+          </div>
+          {% if animal.note %}
+            <div class="govuk-summary-list__row govuk-summary-list__row--no-actions{% if fifth %} app-row--fifth{% endif %}">
+              <dt class="govuk-summary-list__key">Notes</dt>
+              <dd class="govuk-summary-list__value">{{ animal.note }}</dd>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </dl>
+    {% endif %}
 
     {% if not readOnly %}
     <h2 class="govuk-heading-m">Now submit your vaccination details</h2>
@@ -145,7 +203,8 @@
     font-weight: 400;
     font-variant-numeric: tabular-nums;
   }
-  .app-cattle-list .govuk-summary-list__row:nth-child(5n):not(:last-child) { border-bottom: 3px solid #0b0c0c; }
+  /* Marked in the template rather than nth-child, as a note adds a row. */
+  .app-cattle-list .app-row--fifth { border-bottom: 3px solid #0b0c0c; }
   /* Number and ear tag stay on one line; the note column wraps instead. */
   .app-cattle-list .govuk-summary-list__key { white-space: nowrap; }
   @media (min-width: 40.0625em) {

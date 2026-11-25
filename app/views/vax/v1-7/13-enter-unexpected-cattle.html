@@ -1,0 +1,282 @@
+{% extends "layouts/main.html" %}
+
+{# v1-7 screen 13, enter the cattle that were not on the vaccination list:
+   the "Add an animal" interaction flow (Figma node 739:15244), built on
+   the MoJ Frontend "Add another" component (moj-add-another,
+   @ministryofjustice/frontend 5.2.1), as screen 11 is.
+
+   Each animal is a .moj-add-another__item. "Add another animal" (MoJ)
+   copies the first animal, empties its fields and renumbers them through
+   their data-name / data-id (%index%). The script at the bottom then sets
+   the copy up and renumbers "Animal N of M" / "Remove animal N". Search
+   looks the ear tag up without leaving the page (VAX_V17 +
+   '/look-up-tag'), then shows the animal's details, "Was this animal
+   vaccinated?" (No shows why not) and the optional note. The No reveal is
+   this page's own, as GOV.UK's radios script doesn't start on copies.
+
+   Sent as vax-animal-items[n][tag], [vaccinated], [reason] and [note].
+   Checked and saved by VAX_V17 + '/13-enter-unexpected-cattle' in
+   routes.js (data['vax-unexpected']). Without JavaScript, Search and "Add
+   another animal" send the form instead. #}
+
+{% block pageTitle %}
+  {% if errorList | length %}Error: {% endif %}Add the cattle that were not on the vaccination list – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header-v1-7.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="/vax/v1-7/12-unexpected-cattle" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* The design puts "Remove animal N" under the animal, not MoJ's top right. */
+  .app-animal.moj-add-another__item { margin-top: 0; }
+  /* relative, not static: a GOV.UK button's invisible click area
+     (::before) is sized to its nearest positioned parent, so static
+     made the whole animal click "Remove". */
+  .app-animal .moj-add-another__remove-button { position: relative; top: auto; right: auto; float: none; }
+  .app-animal .moj-add-another__title { float: none; padding: 0; }
+  .app-animal .app-animal__hr { margin: 0 0 30px; }
+  .app-animal__search { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 30px; }
+  .app-animal__search .govuk-form-group { margin-bottom: 0; }
+  .app-animal__details p { margin-bottom: 5px; }
+  .app-animal [hidden] { display: none; }
+</style>
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorList | length %}
+      <div class="govuk-error-summary" data-module="govuk-error-summary">
+        <div role="alert">
+          <h2 class="govuk-error-summary__title">There is a problem</h2>
+          <div class="govuk-error-summary__body">
+            <ul class="govuk-list govuk-error-summary__list">
+              {% for e in errorList %}<li><a href="#{{ e.href }}">{{ e.text }}</a></li>{% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <div data-module="moj-add-another">
+      <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
+      <h1 class="govuk-heading-l moj-add-another__heading" tabindex="-1">Add the cattle that were not on the vaccination list</h1>
+
+      <form action="/vax/v1-7/13-enter-unexpected-cattle" method="post" novalidate id="animal-form">
+
+        {% for animal in animals %}
+          {% set i = loop.index0 %}
+          {% set n = loop.index %}
+          <fieldset class="govuk-fieldset moj-add-another__item app-animal">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--m moj-add-another__title js-animal-title">Animal {{ n }}{% if animals | length > 1 %} of {{ animals | length }}{% endif %}</legend>
+
+            <div class="app-animal__search">
+              <div class="govuk-form-group{% if animal.errors.tag %} govuk-form-group--error{% endif %} js-animal-tag-group">
+                <label class="govuk-label govuk-label--s" for="vax-animal-items-{{ i }}-tag">Search for an animal</label>
+                <div class="govuk-hint">Enter the official ear tag number</div>
+                <p class="govuk-error-message js-animal-tag-error"{% if not animal.errors.tag %} hidden{% endif %}><span class="govuk-visually-hidden">Error:</span> {{ animal.errors.tag or 'You must enter a valid ear tag number' }}</p>
+                <input class="govuk-input govuk-input--width-20 js-animal-tag{% if animal.errors.tag %} govuk-input--error{% endif %}" id="vax-animal-items-{{ i }}-tag" name="vax-animal-items[{{ i }}][tag]" data-name="vax-animal-items[%index%][tag]" data-id="vax-animal-items-%index%-tag" type="text" spellcheck="false" autocomplete="off" value="{{ animal.tag }}">
+              </div>
+              <button type="submit" name="action" value="search-{{ i }}" class="govuk-button govuk-!-margin-bottom-0 js-animal-search" data-module="govuk-button">Search</button>
+            </div>
+
+            <div class="js-animal-more"{% if not animal.found %} hidden{% endif %}>
+              <div class="app-animal__details">
+                <h3 class="govuk-heading-s govuk-!-margin-bottom-2">Animal details</h3>
+                <p class="govuk-body">Date of birth: <span class="js-animal-dob">{{ animal.found.dob }}</span></p>
+                <p class="govuk-body">Sex: <span class="js-animal-sex">{{ animal.found.sex }}</span></p>
+                <p class="govuk-body">Breed: <span class="js-animal-breed">{{ animal.found.breed }}</span></p>
+                <p class="govuk-body">Last vaccination date: <span class="js-animal-lastvax">{{ animal.found.lastVaccinated }}</span></p>
+              </div>
+
+              <div class="govuk-form-group govuk-!-margin-top-6{% if animal.errors.vaccinated %} govuk-form-group--error{% endif %} js-animal-vaccinated-group">
+                <fieldset class="govuk-fieldset">
+                  <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">Was this animal vaccinated?</legend>
+                  {% if animal.errors.vaccinated %}
+                    <p class="govuk-error-message js-animal-error"><span class="govuk-visually-hidden">Error:</span> {{ animal.errors.vaccinated }}</p>
+                  {% endif %}
+                  <div class="govuk-radios">
+                    <div class="govuk-radios__item">
+                      <input class="govuk-radios__input js-animal-vaccinated" id="vax-animal-items-{{ i }}-vaccinated" name="vax-animal-items[{{ i }}][vaccinated]" data-name="vax-animal-items[%index%][vaccinated]" data-id="vax-animal-items-%index%-vaccinated" type="radio" value="yes"{% if animal.vaccinated == 'yes' %} checked{% endif %}>
+                      <label class="govuk-label govuk-radios__label" for="vax-animal-items-{{ i }}-vaccinated">Yes</label>
+                    </div>
+                    <div class="govuk-radios__item">
+                      <input class="govuk-radios__input js-animal-vaccinated" id="vax-animal-items-{{ i }}-vaccinated-no" name="vax-animal-items[{{ i }}][vaccinated]" data-name="vax-animal-items[%index%][vaccinated]" data-id="vax-animal-items-%index%-vaccinated-no" type="radio" value="no"{% if animal.vaccinated == 'no' %} checked{% endif %}>
+                      <label class="govuk-label govuk-radios__label" for="vax-animal-items-{{ i }}-vaccinated-no">No</label>
+                    </div>
+                    <div class="govuk-radios__conditional js-animal-reasons"{% if animal.vaccinated != 'no' %} hidden{% endif %}>
+                      <div class="govuk-form-group">
+                        <fieldset class="govuk-fieldset">
+                          <legend class="govuk-fieldset__legend">Why wasn’t the animal vaccinated?</legend>
+                          <div class="govuk-radios govuk-radios--small">
+                            {% for r in unexpectedReasons %}
+                              <div class="govuk-radios__item">
+                                <input class="govuk-radios__input" id="vax-animal-items-{{ i }}-reason-{{ loop.index }}" name="vax-animal-items[{{ i }}][reason]" data-name="vax-animal-items[%index%][reason]" data-id="vax-animal-items-%index%-reason-{{ loop.index }}" type="radio" value="{{ r.value }}"{% if animal.reason == r.value %} checked{% endif %}>
+                                <label class="govuk-label govuk-radios__label" for="vax-animal-items-{{ i }}-reason-{{ loop.index }}">{{ r.text }}</label>
+                              </div>
+                            {% endfor %}
+                          </div>
+                        </fieldset>
+                      </div>
+                    </div>
+                  </div>
+                </fieldset>
+              </div>
+
+              <div class="govuk-form-group">
+                <label class="govuk-label govuk-label--s" for="vax-animal-items-{{ i }}-note">Enter a note for this animal (optional)</label>
+                <textarea class="govuk-textarea" id="vax-animal-items-{{ i }}-note" name="vax-animal-items[{{ i }}][note]" data-name="vax-animal-items[%index%][note]" data-id="vax-animal-items-%index%-note" rows="4">{{ animal.note }}</textarea>
+              </div>
+            </div>
+
+            {% if animals | length > 1 %}
+              <button type="button" class="govuk-button govuk-button--secondary moj-add-another__remove-button">Remove animal {{ n }}</button>
+            {% endif %}
+            <hr class="govuk-section-break govuk-section-break--visible app-animal__hr js-animal-hr"{% if animals | length < 2 %} hidden{% endif %}>
+          </fieldset>
+        {% endfor %}
+
+        <div class="moj-button-action">
+          <button type="submit" name="action" value="add" class="govuk-button govuk-button--secondary moj-add-another__add-button govuk-!-margin-bottom-4" data-module="govuk-button">Add another animal</button>
+        </div>
+
+        {# Cattle with no ear tag to search for: just how many (Figma
+           "animal could not be identified", node 739:17809). Not part of
+           MoJ "Add another", so GOV.UK's checkbox reveal works here. #}
+        <h2 class="govuk-heading-m govuk-!-margin-top-9">Unidentified cattle</h2>
+        <div class="govuk-form-group">
+          <div class="govuk-checkboxes" data-module="govuk-checkboxes">
+            <div class="govuk-checkboxes__item">
+              <input class="govuk-checkboxes__input" id="vax-unidentified" name="vax-unidentified" type="checkbox" value="yes" data-aria-controls="vax-unidentified-reveal"{% if unidentified.ticked %} checked{% endif %}>
+              <label class="govuk-label govuk-checkboxes__label" for="vax-unidentified">Some cattle could not be identified</label>
+            </div>
+            <div class="govuk-checkboxes__conditional govuk-checkboxes__conditional--hidden" id="vax-unidentified-reveal">
+              <div class="govuk-form-group{% if unidentified.error %} govuk-form-group--error{% endif %}">
+                <label class="govuk-label" for="vax-unidentified-count">How many cattle could not be identified?</label>
+                {% if unidentified.error %}
+                  <p id="vax-unidentified-count-error" class="govuk-error-message"><span class="govuk-visually-hidden">Error:</span> {{ unidentified.error }}</p>
+                {% endif %}
+                <input class="govuk-input govuk-input--width-3{% if unidentified.error %} govuk-input--error{% endif %}" id="vax-unidentified-count" name="vax-unidentified-count" type="text" inputmode="numeric" spellcheck="false" value="{{ unidentified.count }}"{% if unidentified.error %} aria-describedby="vax-unidentified-count-error"{% endif %}>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="govuk-button-group govuk-!-margin-top-6">
+          <button type="submit" name="action" value="continue" class="govuk-button" data-module="govuk-button">Continue and save</button>
+          <button type="submit" name="action" value="save-later" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and continue later</button>
+        </div>
+      </form>
+    </div>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+
+<script>
+  ;(function () {
+    var form = document.getElementById('animal-form')
+    if (!form || !window.fetch) return
+
+    function show (el, on) { if (el) el.hidden = !on }
+    function each (list, fn) { Array.prototype.forEach.call(list, fn) }
+
+    // The tag's error message on or off.
+    function tagError (item, on) {
+      item.querySelector('.js-animal-tag-group').classList.toggle('govuk-form-group--error', on)
+      item.querySelector('.js-animal-tag').classList.toggle('govuk-input--error', on)
+      show(item.querySelector('.js-animal-tag-error'), on)
+    }
+
+    // Look the tag up; found: its details and the questions about it.
+    function search (item) {
+      var tag = item.querySelector('.js-animal-tag').value
+      return fetch('/vax/v1-7/look-up-tag?tag=' + encodeURIComponent(tag), { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json() })
+        .then(function (animal) {
+          tagError(item, !animal.found)
+          if (animal.found) {
+            item.querySelector('.js-animal-dob').textContent = animal.dob
+            item.querySelector('.js-animal-sex').textContent = animal.sex
+            item.querySelector('.js-animal-breed').textContent = animal.breed
+            item.querySelector('.js-animal-lastvax').textContent = animal.lastVaccinated
+          }
+          show(item.querySelector('.js-animal-more'), animal.found)
+          if (!animal.found) item.querySelector('.js-animal-tag').focus()
+        })
+    }
+
+    // "No" shows why not.
+    function reveal (item) {
+      var no = item.querySelector('.js-animal-vaccinated[value="no"]')
+      var reasons = item.querySelector('.js-animal-reasons')
+      reasons.id = no.id + '-reveal'
+      no.setAttribute('aria-controls', reasons.id)
+      no.setAttribute('aria-expanded', no.checked ? 'true' : 'false')
+      show(reasons, no.checked)
+    }
+
+    // Wire one animal up. A copy of the first one also loses its details,
+    // questions and errors.
+    function setUp (item, fresh) {
+      if (fresh) {
+        tagError(item, false)
+        show(item.querySelector('.js-animal-more'), false)
+        each(item.querySelectorAll('.js-animal-error'), function (e) { e.parentNode.removeChild(e) })
+        each(item.querySelectorAll('.govuk-form-group--error'), function (g) { g.classList.remove('govuk-form-group--error') })
+      }
+      reveal(item)
+    }
+
+    // After every add or remove: headings, Remove buttons and lines.
+    function renumber () {
+      var items = form.querySelectorAll('.moj-add-another__item')
+      var many = items.length > 1
+      each(items, function (item, i) {
+        item.querySelector('.js-animal-title').textContent = 'Animal ' + (i + 1) + (many ? ' of ' + items.length : '')
+        var remove = item.querySelector('.moj-add-another__remove-button')
+        if (remove) remove.textContent = 'Remove animal ' + (i + 1)
+        var hr = item.querySelector('.js-animal-hr')
+        show(hr, many)
+        if (remove && hr && remove.nextElementSibling !== hr) item.insertBefore(remove, hr)
+        reveal(item)
+      })
+    }
+
+    // One listener for every animal, copies included.
+    form.addEventListener('click', function (event) {
+      var button = event.target.closest('.js-animal-search')
+      if (!button) return
+      event.preventDefault()
+      search(button.closest('.moj-add-another__item'))
+    })
+    form.addEventListener('keydown', function (event) {
+      // Enter in a tag box searches, rather than sending the form.
+      if (event.key === 'Enter' && event.target.classList.contains('js-animal-tag')) {
+        event.preventDefault()
+        search(event.target.closest('.moj-add-another__item'))
+      }
+    })
+    form.addEventListener('change', function (event) {
+      if (event.target.classList.contains('js-animal-vaccinated')) reveal(event.target.closest('.moj-add-another__item'))
+    })
+
+    each(form.querySelectorAll('.moj-add-another__item'), function (item) { setUp(item, false) })
+
+    // MoJ adds and removes animals in the form: set new ones up, renumber.
+    new MutationObserver(function (changes) {
+      changes.forEach(function (change) {
+        each(change.addedNodes, function (node) {
+          if (node.classList && node.classList.contains('moj-add-another__item')) setUp(node, true)
+        })
+      })
+      renumber()
+    }).observe(form, { childList: true })
+  })()
+</script>
+{% endblock %}

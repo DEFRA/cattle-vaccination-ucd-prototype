@@ -44,46 +44,6 @@
   </div>
 </header>
 
-{# Service navigation: the service name, a link to the work orders and a
-   language toggle (Figma node 100:17650). The toggle is not a GOV.UK
-   component, so it has its own small styles. #}
-<style>
-  .app-language-toggle {
-    margin: 0 0 0 auto;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    align-items: center;
-    font-family: "GDS Transport", arial, sans-serif;
-    font-size: 19px;
-    line-height: 1.3;
-  }
-  .app-language-toggle__item + .app-language-toggle__item::before {
-    content: "|";
-    margin: 0 10px;
-  }
-</style>
-<section class="govuk-service-navigation" aria-label="Service information" data-module="govuk-service-navigation">
-  <div class="govuk-width-container">
-    <div class="govuk-service-navigation__container">
-      <span class="govuk-service-navigation__service-name">
-        <a href="/vax/v1-7/3-my-tasks" class="govuk-service-navigation__link">Bovine TB Vet Portal</a>
-      </span>
-      <nav aria-label="Menu" class="govuk-service-navigation__wrapper">
-        <ul class="govuk-service-navigation__list" id="navigation">
-          <li class="govuk-service-navigation__item">
-            <a class="govuk-service-navigation__link" href="/vax/v1-7/3-my-tasks">My tasks</a>
-          </li>
-        </ul>
-      </nav>
-      <ul class="app-language-toggle govuk-!-padding-top-3 govuk-!-padding-bottom-3">
-        <li class="app-language-toggle__item"><span aria-current="true">English</span></li>
-        <li class="app-language-toggle__item"><a class="govuk-link" href="#" lang="cy" hreflang="cy"><span class="govuk-visually-hidden">Newid yr iaith i'r </span>Cymraeg</a></li>
-      </ul>
-    </div>
-  </div>
-</section>
-
 <div class="govuk-width-container">
   <div class="govuk-phase-banner">
     <p class="govuk-phase-banner__content">

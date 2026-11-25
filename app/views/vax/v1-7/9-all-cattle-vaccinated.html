@@ -17,11 +17,11 @@
    (yes/no). The error is written out below and shown by the script. #}
 
 {% block pageTitle %}
-  Was all cattle vaccinated on {{ vaccinationDate }}? – GOV.UK
+  Were all eligible cattle on the list vaccinated on {{ vaccinationDate }}? – GOV.UK
 {% endblock %}
 
 {% block header %}
-  {% include "includes/vax/header.html" %}
+  {% include "includes/vax/header-v1-7.html" %}
 {% endblock %}
 
 {% block beforeContent %}
@@ -52,12 +52,9 @@
         <fieldset class="govuk-fieldset" aria-describedby="all-cattle-vaccinated-hint">
           <legend class="govuk-fieldset__legend govuk-fieldset__legend--l">
             <span class="govuk-caption-l">Report bTB vaccination for Pinecone Grove Farm</span>
-            <h1 class="govuk-fieldset__heading">Were all cattle vaccinated on {{ vaccinationDate }}?</h1>
+            <h1 class="govuk-fieldset__heading">Were all eligible cattle on the list vaccinated on {{ vaccinationDate }}?</h1>
           </legend>
-          <div id="all-cattle-vaccinated-hint" class="govuk-hint">
-            <p class="govuk-hint govuk-!-margin-bottom-2">Selecting ‘Yes’ will mark all remaining cattle as vaccinated.</p>
-
-          </div>
+          <div id="all-cattle-vaccinated-hint" class="govuk-hint">Selecting ‘Yes’ marks all eligible cattle as vaccinated. You can change this before submitting.</div>
           <p id="all-cattle-vaccinated-error" class="govuk-error-message" hidden>
             <span class="govuk-visually-hidden">Error:</span> Select ‘Yes’ if some cattle still needs to be vaccinated
           </p>
@@ -73,6 +70,15 @@
           </div>
         </fieldset>
       </div>
+
+      <details class="govuk-details">
+        <summary class="govuk-details__summary">
+          <span class="govuk-details__summary-text">Which cattle are eligible?</span>
+        </summary>
+        <div class="govuk-details__text">
+          Cattle are eligible for vaccination if they have never been vaccinated, or were last vaccinated more than 12 months ago.
+        </div>
+      </details>
 
       <div class="govuk-button-group">
         <button type="submit" class="govuk-button" data-module="govuk-button">Continue and save</button>

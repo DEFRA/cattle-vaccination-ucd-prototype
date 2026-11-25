@@ -1,0 +1,274 @@
+{% extends "layouts/main.html" %}
+
+{# v1-7 screen 11, Add a note about an animal (Figma node 739:16995) and
+   its interaction flow (node 740:18578), built on the MoJ Frontend "Add
+   another" component (moj-add-another, @ministryofjustice/frontend 5.2.1).
+
+   Each note is a .moj-add-another__item. "Add another note" (MoJ) copies
+   the first note, empties its fields and renumbers them through their
+   data-name / data-id (%index%). The script at the bottom then sets the
+   copy up: a fresh ear tag autocomplete (type the last 4 digits, pick the
+   animal, the box shows its full tag), the animal's details and note box
+   hidden until an animal is picked, and the "Note N of M" headings and
+   "Remove note N" buttons renumbered after every add or remove.
+
+   Sent as vax-note-items[n][id] (the animal picked), [search] (what is in
+   the box, used without JavaScript) and [text]. Checked and saved by
+   VAX_V17 + '/11-add-note' in routes.js (data['vax-notes']). #}
+
+{% block pageTitle %}
+  {% if errorList | length %}Error: {% endif %}Add a note about an animal – GOV.UK
+{% endblock %}
+
+{% block stylesheets %}
+  {{ super() }}
+  {# GOV.UK accessible autocomplete, vendored into app/assets. #}
+  <link rel="stylesheet" href="/public/stylesheets/vendor/accessible-autocomplete.min.css">
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header-v1-7.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="/vax/v1-7/10-have-a-note" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<style>
+  /* The design puts "Remove note N" under the note, not MoJ's top right. */
+  .app-note.moj-add-another__item { margin-top: 0; }
+  /* relative, not static: a GOV.UK button's invisible click area
+     (::before) is sized to its nearest positioned parent, so static
+     made the whole note click "Remove". */
+  .app-note .moj-add-another__remove-button { position: relative; top: auto; right: auto; float: none; }
+  .app-note .moj-add-another__title { float: none; padding: 0; }
+  .app-note .app-note__hr { margin: 0 0 30px; }
+  .app-note__details p { margin-bottom: 5px; }
+  .app-note .autocomplete__wrapper { width: 15em; max-width: 100%; }
+  .app-note .autocomplete__option strong { font-weight: 700; }
+  .autocomplete__input,
+  .autocomplete__hint,
+  .autocomplete__menu,
+  .autocomplete__option {
+    font-family: "GDS Transport", arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    font-weight: 400;
+    font-size: 1.1875rem;
+    line-height: 1.3;
+  }
+  .autocomplete__input { background-color: #ffffff; }
+  .govuk-form-group--error .autocomplete__input { border-color: #ca3535; }
+</style>
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorList | length %}
+      <div class="govuk-error-summary" data-module="govuk-error-summary">
+        <div role="alert">
+          <h2 class="govuk-error-summary__title">There is a problem</h2>
+          <div class="govuk-error-summary__body">
+            <ul class="govuk-list govuk-error-summary__list">
+              {% for e in errorList %}<li><a href="#{{ e.href }}">{{ e.text }}</a></li>{% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <div data-module="moj-add-another">
+      <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
+      <h1 class="govuk-heading-l moj-add-another__heading" tabindex="-1">Add a note about an animal</h1>
+
+      <form action="/vax/v1-7/11-add-note" method="post" novalidate id="note-form">
+
+        {% for note in notes %}
+          {% set i = loop.index0 %}
+          {% set n = loop.index %}
+          <fieldset class="govuk-fieldset moj-add-another__item app-note">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--m moj-add-another__title js-note-title">Note {{ n }}{% if notes | length > 1 %} of {{ notes | length }}{% endif %}</legend>
+
+            <div class="govuk-form-group{% if note.errors.search %} govuk-form-group--error{% endif %} js-note-search-group">
+              <label class="govuk-label govuk-label--s js-note-search-label" for="vax-note-items-{{ i }}-search">Search for an animal</label>
+              <div class="govuk-hint">Enter the last 4 digits of the ear tag number</div>
+              {% if note.errors.search %}
+                <p class="govuk-error-message js-note-error"><span class="govuk-visually-hidden">Error:</span> {{ note.errors.search }}</p>
+              {% endif %}
+              <div class="js-note-autocomplete" data-value="{{ note.chosen.tag if note.chosen else note.search }}"></div>
+              {# Without JavaScript: a plain box (the autocomplete replaces it). #}
+              <input class="govuk-input govuk-input--width-10 js-note-fallback{% if note.errors.search %} govuk-input--error{% endif %}" id="vax-note-items-{{ i }}-search" name="vax-note-items[{{ i }}][search]" data-name="vax-note-items[%index%][search]" data-id="vax-note-items-%index%-search" type="text" value="{{ note.chosen.tag if note.chosen else note.search }}">
+              <input type="hidden" class="js-note-id" name="vax-note-items[{{ i }}][id]" data-name="vax-note-items[%index%][id]" data-id="vax-note-items-%index%-id" id="vax-note-items-{{ i }}-id" value="{{ note.id }}">
+            </div>
+
+            <div class="app-note__details js-note-details"{% if not note.chosen %} hidden{% endif %}>
+              <h3 class="govuk-heading-s govuk-!-margin-bottom-2">Animal details</h3>
+              <p class="govuk-body">Date of birth: <span class="js-note-dob">{{ note.chosen.dob }}</span></p>
+              <p class="govuk-body">Sex: <span class="js-note-sex">{{ note.chosen.sex | lower }}</span></p>
+              <p class="govuk-body">Breed: <span class="js-note-breed">{{ note.chosen.breed }}</span></p>
+              <p class="govuk-body">Last vaccination date: <span class="js-note-lastvax">{{ note.chosen.lastVaccinated }}</span></p>
+            </div>
+
+            <div class="govuk-form-group govuk-!-margin-top-6{% if note.errors.text %} govuk-form-group--error{% endif %} js-note-text-group"{% if not note.chosen %} hidden{% endif %}>
+              <label class="govuk-label govuk-label--s" for="vax-note-items-{{ i }}-text">Enter a note for this animal</label>
+              {% if note.errors.text %}
+                <p class="govuk-error-message js-note-error"><span class="govuk-visually-hidden">Error:</span> {{ note.errors.text }}</p>
+              {% endif %}
+              <textarea class="govuk-textarea{% if note.errors.text %} govuk-textarea--error{% endif %}" id="vax-note-items-{{ i }}-text" name="vax-note-items[{{ i }}][text]" data-name="vax-note-items[%index%][text]" data-id="vax-note-items-%index%-text" rows="4">{{ note.text }}</textarea>
+            </div>
+
+            {% if notes | length > 1 %}
+              <button type="button" class="govuk-button govuk-button--secondary moj-add-another__remove-button">Remove note {{ n }}</button>
+            {% endif %}
+            <hr class="govuk-section-break govuk-section-break--visible app-note__hr js-note-hr"{% if notes | length < 2 %} hidden{% endif %}>
+          </fieldset>
+        {% endfor %}
+
+        <div class="moj-button-action">
+          <button type="submit" name="action" value="add" class="govuk-button govuk-button--secondary moj-add-another__add-button govuk-!-margin-bottom-4" data-module="govuk-button">Add another note</button>
+        </div>
+
+        <div class="govuk-button-group govuk-!-margin-top-6">
+          <button type="submit" name="action" value="continue" class="govuk-button" data-module="govuk-button">Continue and save</button>
+          <button type="submit" name="action" value="save-later" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and continue later</button>
+        </div>
+      </form>
+    </div>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+
+<script src="/public/javascripts/vendor/accessible-autocomplete.min.js"></script>
+<script>
+  ;(function () {
+    var cattle = {{ noteIndex | dump | safe }}
+    var form = document.getElementById('note-form')
+    if (!form || !window.accessibleAutocomplete) return
+    var ready = typeof WeakSet === 'function' ? new WeakSet() : null
+    var counter = 0
+
+    function show (el, on) { if (el) el.hidden = !on }
+
+    // An animal picked (or cleared): its details, and the note box.
+    function choose (item, animal) {
+      item.querySelector('.js-note-id').value = animal ? animal.id : ''
+      if (animal) {
+        item.querySelector('.js-note-dob').textContent = animal.dob
+        item.querySelector('.js-note-sex').textContent = animal.sex
+        item.querySelector('.js-note-breed').textContent = animal.breed
+        item.querySelector('.js-note-lastvax').textContent = animal.lastVaccinated
+      }
+      show(item.querySelector('.js-note-details'), !!animal)
+      show(item.querySelector('.js-note-text-group'), !!animal)
+    }
+
+    // The ear tag autocomplete for one note. Its id is its own (not the
+    // note's number), so MoJ's renumbering never has to touch it.
+    function mount (item, fresh) {
+      var holder = item.querySelector('.js-note-autocomplete')
+      if (!holder || (ready && ready.has(holder))) return
+      var group = item.querySelector('.js-note-search-group')
+      var label = item.querySelector('.js-note-search-label')
+      // The plain box stays, hidden, holding what is typed in the
+      // autocomplete, so it is still sent with the form.
+      var fallback = item.querySelector('.js-note-fallback')
+      fallback.type = 'hidden'
+      fallback.removeAttribute('id')
+      fallback.removeAttribute('data-id')
+      holder.innerHTML = ''
+      if (fresh) {
+        // A copy of the first note: no animal yet, no errors.
+        holder.setAttribute('data-value', '')
+        group.classList.remove('govuk-form-group--error')
+        Array.prototype.forEach.call(item.querySelectorAll('.js-note-error'), function (e) { e.parentNode.removeChild(e) })
+        Array.prototype.forEach.call(item.querySelectorAll('.govuk-form-group--error'), function (g) { g.classList.remove('govuk-form-group--error') })
+        Array.prototype.forEach.call(item.querySelectorAll('.govuk-textarea--error'), function (t) { t.classList.remove('govuk-textarea--error') })
+        choose(item, null)
+      }
+      var id = (!fresh && label.getAttribute('for')) || ('note-animal-' + (++counter))
+      label.setAttribute('for', id)
+      var current = holder.getAttribute('data-value') || ''
+      window.accessibleAutocomplete({
+        element: holder,
+        id: id,
+        defaultValue: current,
+        minLength: 1,
+        autoselect: false,
+        showNoOptionsFound: true,
+        displayMenu: 'overlay',
+        tNoResults: function () { return 'No cattle on the list match those digits' },
+        // Up to 4 digits: the last 4 of the tag. More (typing a whole tag,
+        // or editing one picked earlier): anywhere in the whole number.
+        source: function (query, populate) {
+          var q = String(query || '').replace(/\D/g, '')
+          if (!q) return populate([])
+          if (q.length <= 4) return populate(cattle.filter(function (animal) { return animal.last4.indexOf(q) === 0 }))
+          populate(cattle.filter(function (animal) { return animal.id.replace(/\D/g, '').indexOf(q) !== -1 }).slice(0, 20))
+        },
+        templates: {
+          inputValue: function (animal) { return animal ? animal.tag : '' },
+          suggestion: function (animal) {
+            if (typeof animal === 'string') return animal
+            return animal.prefix + '<strong>' + animal.last4 + '</strong>'
+          }
+        },
+        onConfirm: function (animal) {
+          if (animal && animal.id) {
+            choose(item, animal)
+            item.querySelector('.js-note-fallback').value = animal.tag
+          }
+        }
+      })
+      var input = document.getElementById(id)
+      fallback.value = input.value
+      // Typing over a picked tag clears the animal.
+      input.addEventListener('input', function () {
+        fallback.value = input.value
+        var picked = item.querySelector('.js-note-id').value
+        var animal = cattle.find(function (a) { return a.id === picked })
+        if (animal && input.value !== animal.tag) choose(item, null)
+      })
+      // Enter chooses from the list, rather than sending the form.
+      input.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') event.preventDefault()
+      })
+      if (ready) ready.add(holder)
+      return input
+    }
+
+    // After every add or remove: headings, Remove buttons and lines.
+    function renumber () {
+      var items = form.querySelectorAll('.moj-add-another__item')
+      var many = items.length > 1
+      Array.prototype.forEach.call(items, function (item, i) {
+        item.querySelector('.js-note-title').textContent = 'Note ' + (i + 1) + (many ? ' of ' + items.length : '')
+        var remove = item.querySelector('.moj-add-another__remove-button')
+        if (remove) remove.textContent = 'Remove note ' + (i + 1)
+        show(item.querySelector('.js-note-hr'), many)
+        // MoJ's renumbering points the label at the hidden fields next to
+        // it: point it back at the search box.
+        var box = item.querySelector('.autocomplete__input')
+        if (box) item.querySelector('.js-note-search-label').htmlFor = box.id
+        // Keep the Remove button above the line.
+        var hr = item.querySelector('.js-note-hr')
+        if (remove && hr && remove.nextElementSibling !== hr) item.insertBefore(remove, hr)
+      })
+    }
+
+    Array.prototype.forEach.call(form.querySelectorAll('.moj-add-another__item'), function (item) { mount(item, false) })
+
+    // MoJ adds and removes notes in the form: set new ones up, renumber.
+    new MutationObserver(function (changes) {
+      var added = null
+      changes.forEach(function (change) {
+        Array.prototype.forEach.call(change.addedNodes, function (node) {
+          if (node.classList && node.classList.contains('moj-add-another__item')) added = mount(node, true) || added
+        })
+      })
+      renumber()
+      if (added) added.focus()
+    }).observe(form, { childList: true })
+  })()
+</script>
+{% endblock %}

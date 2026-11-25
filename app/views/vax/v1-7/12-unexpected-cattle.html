@@ -1,0 +1,73 @@
+{% extends "layouts/main.html" %}
+
+{# v1-7 screen 12, Were there any cattle on the farm that were not on the
+   vaccination list? (Figma node 739:13045). Yes: 13 Enter the unexpected
+   cattle. No: 14 Check your answers. Saved as vax-unexpected-answer
+   (yes/no); the route (VAX_V17 + '/12-unexpected-cattle') shows the error
+   when nothing is chosen. #}
+
+{% block pageTitle %}
+  {% if errorMessage %}Error: {% endif %}Were there any cattle on the farm that were not on the vaccination list? – GOV.UK
+{% endblock %}
+
+{% block header %}
+  {% include "includes/vax/header-v1-7.html" %}
+{% endblock %}
+
+{% block beforeContent %}
+  <a href="{{ backHref }}" class="govuk-back-link">Back</a>
+{% endblock %}
+
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    {% if errorMessage %}
+      <div class="govuk-error-summary" data-module="govuk-error-summary">
+        <div role="alert">
+          <h2 class="govuk-error-summary__title">There is a problem</h2>
+          <div class="govuk-error-summary__body">
+            <ul class="govuk-list govuk-error-summary__list">
+              <li><a href="#vax-unexpected-answer">{{ errorMessage }}</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <form action="/vax/v1-7/12-unexpected-cattle" method="post" novalidate>
+      <div class="govuk-form-group{% if errorMessage %} govuk-form-group--error{% endif %}">
+        <fieldset class="govuk-fieldset"{% if errorMessage %} aria-describedby="vax-unexpected-answer-error"{% endif %}>
+          <legend class="govuk-fieldset__legend govuk-fieldset__legend--l">
+            <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
+            <h1 class="govuk-fieldset__heading">Were there any cattle on the farm that were not on the vaccination list?</h1>
+          </legend>
+          {% if errorMessage %}
+            <p id="vax-unexpected-answer-error" class="govuk-error-message">
+              <span class="govuk-visually-hidden">Error:</span> {{ errorMessage }}
+            </p>
+          {% endif %}
+          <div class="govuk-radios" data-module="govuk-radios">
+            <div class="govuk-radios__item">
+              <input class="govuk-radios__input" id="vax-unexpected-answer" name="vax-unexpected-answer" type="radio" value="yes"{% if data['vax-unexpected-answer'] == 'yes' %} checked{% endif %}>
+              <label class="govuk-label govuk-radios__label" for="vax-unexpected-answer">Yes</label>
+            </div>
+            <div class="govuk-radios__item">
+              <input class="govuk-radios__input" id="vax-unexpected-answer-no" name="vax-unexpected-answer" type="radio" value="no"{% if data['vax-unexpected-answer'] == 'no' %} checked{% endif %}>
+              <label class="govuk-label govuk-radios__label" for="vax-unexpected-answer-no">No</label>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="govuk-button-group">
+        <button type="submit" class="govuk-button" data-module="govuk-button">Continue and save</button>
+        <button type="submit" formaction="/vax/v1-7/4-cph-task-list" class="govuk-button govuk-button--secondary" data-module="govuk-button">Save and continue later</button>
+      </div>
+    </form>
+
+    {% include "includes/vax/contact-us-for-help.html" %}
+
+  </div>
+</div>
+{% endblock %}

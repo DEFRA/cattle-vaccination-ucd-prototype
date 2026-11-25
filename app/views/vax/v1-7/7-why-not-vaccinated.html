@@ -20,7 +20,7 @@
 {% endblock %}
 
 {% block header %}
-  {% include "includes/vax/header.html" %}
+  {% include "includes/vax/header-v1-7.html" %}
 {% endblock %}
 
 {% block beforeContent %}
@@ -78,7 +78,7 @@
             </div>
             <div class="govuk-checkboxes__item">
               <input class="govuk-checkboxes__input" id="not-vaccinated-reason-4" name="not-vaccinated-reason" type="checkbox" value="not-present"{% if 'not-present' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
-              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-4">Animal not at the location</label>
+              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-4">Not at location</label>
             </div>
             <div class="govuk-checkboxes__item">
               <input class="govuk-checkboxes__input" id="not-vaccinated-reason-5" name="not-vaccinated-reason" type="checkbox" value="keeper-declined"{% if 'keeper-declined' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
@@ -95,10 +95,6 @@
             <div class="govuk-checkboxes__item">
               <input class="govuk-checkboxes__input" id="not-vaccinated-reason-8" name="not-vaccinated-reason" type="checkbox" value="too-young"{% if 'too-young' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
               <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-8">Too young to vaccinate</label>
-            </div>
-            <div class="govuk-checkboxes__item">
-              <input class="govuk-checkboxes__input" id="not-vaccinated-reason-9" name="not-vaccinated-reason" type="checkbox" value="no-ear-tag"{% if 'no-ear-tag' in (data['not-vaccinated-reason'] or []) %} checked{% endif %}>
-              <label class="govuk-label govuk-checkboxes__label" for="not-vaccinated-reason-9">No official ear tag</label>
             </div>
             <div class="govuk-checkboxes__divider">Or</div>
             {# Exclusive: ticking it clears the reasons, and a reason clears it. #}

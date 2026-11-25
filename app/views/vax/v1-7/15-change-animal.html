@@ -1,6 +1,9 @@
 {% extends "layouts/main.html" %}
 
-{# v1-7 screen 15, change an animal – copied from v1-6/11-edit-animal. #}
+{# v1-7 screen 15, change an animal – copied from v1-6/11-edit-animal, then
+   updated to Figma "Animal" (node 378:16427) and its reveal (node
+   699:10942): v1-7's own reasons and an optional note for the animal,
+   kept with screen 11's notes (data['vax-notes']). #}
 
 {# 11 – Edit one animal from check your answers. Figma "Animal" (Yes:
    node 378:16427, No: node 483:23097). GOV.UK radios with conditional
@@ -17,7 +20,7 @@
 {% endblock %}
 
 {% block header %}
-  {% include "includes/vax/header.html" %}
+  {% include "includes/vax/header-v1-7.html" %}
 {% endblock %}
 
 {% block beforeContent %}
@@ -113,8 +116,13 @@
         </fieldset>
       </div>
 
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--s" for="edit-note">Enter a note for this animal (optional)</label>
+        <textarea class="govuk-textarea" id="edit-note" name="edit-note" rows="5">{{ note }}</textarea>
+      </div>
+
       <div class="govuk-button-group">
-        <button type="submit" name="action" value="continue" class="govuk-button" data-module="govuk-button">Continue and save</button>
+        <button type="submit" name="action" value="continue" class="govuk-button" data-module="govuk-button">Continue</button>
         <button type="submit" name="action" value="save-later" class="govuk-button govuk-button--secondary" data-module="govuk-button" data-save-later>Save and continue later</button>
       </div>
     </form>
