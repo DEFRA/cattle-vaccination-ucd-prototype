@@ -34,7 +34,7 @@
 {% endblock %}
 
 {% block beforeContent %}
-  <a href="/vax/v1-7/4-cph-task-list" class="govuk-back-link">Back</a>
+  <a href="{{ '/vax/v1-7/14-check-answers' if fromCheck else '/vax/v1-7/4-cph-task-list' }}" class="govuk-back-link">Back</a>
 {% endblock %}
 
 {% block content %}
@@ -64,7 +64,7 @@
       </div>
     </div>
 
-    <form id="vaccination-date-form" action="/vax/v1-7/6-vaccine-batch" method="post" novalidate>
+    <form id="vaccination-date-form" action="{{ '/vax/v1-7/14-check-answers' if fromCheck else '/vax/v1-7/6-vaccine-batch' }}" method="post" novalidate>
 
       <div class="govuk-form-group" id="vaccination-date-group">
         <fieldset class="govuk-fieldset" role="group" aria-describedby="vaccination-date-hint">

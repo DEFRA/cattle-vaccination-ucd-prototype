@@ -1398,20 +1398,34 @@ if (v11AnimalsByCph[PINECONE_CPH]) {
     return sortKey(a).localeCompare(sortKey(b))
   })
   const total = herd.length
-  const youngCount = Math.round(total * 0.10)
+  // For testing: calves fill the list from row 353 – the last 3 rows of
+  // page 9 and all of pages 10 and 11 (35 on page 1, 40 on each after).
+  const youngCount = total - 352
   const vaccinatedCount = 24
   const recentCount = 6
-  // Calves: the 41 from the bottom of the list up, but no two calves end
-  // in the same 4 digits. An animal whose last 4 match a calf already
-  // picked stays an older animal, so it sits next to that calf.
+  // Calves: every row from there down. No two calves end in the same 4
+  // digits: a calf that would repeat the one above gets the next unused
+  // ending instead (still below the row after it, so the order holds).
+  // Only if there is no room does it stay an older animal.
   const isCalf = {}
+  const calfIndividual = {}
+  const allLast4 = new Set(herd.map(function (a) { return a.officialId.slice(-4) }))
   const calfLast4 = new Set()
-  for (let i = total - 1, picked = 0; i >= 0 && picked < youngCount; i--) {
-    const last4 = herd[i].officialId.slice(-4)
-    if (calfLast4.has(last4)) continue
+  for (let i = total - youngCount; i < total; i++) {
+    let last5 = herd[i].officialId.slice(-5)
+    let last4 = last5.slice(1)
+    if (calfLast4.has(last4)) {
+      const next = i + 1 < total ? Number(herd[i + 1].officialId.slice(-4)) : 10000
+      let v = Number(last4) + 1
+      while (v < next && (allLast4.has(String(v).padStart(4, '0')) || calfLast4.has(String(v).padStart(4, '0')))) v++
+      if (v >= next) continue
+      last4 = String(v).padStart(4, '0')
+      last5 = last5[0] + last4
+      allLast4.add(last4)
+    }
     calfLast4.add(last4)
     isCalf[i] = true
-    picked++
+    calfIndividual[i] = last5
   }
   const calfIndices = Object.keys(isCalf).map(Number).sort(function (a, b) { return a - b })
   const firstYoung = calfIndices[0]
@@ -1463,7 +1477,7 @@ if (v11AnimalsByCph[PINECONE_CPH]) {
     if (isYoung) {
       // Youngest at the bottom: 17 days at the first calf down to 3.
       daysOld = 17 - Math.round(calfIndices.indexOf(i) * 14 / Math.max(calfIndices.length - 1, 1))
-      const id = calfTag(a.officialId.slice(-5))
+      const id = calfTag(calfIndividual[i] || a.officialId.slice(-5))
       if (id) changes.officialId = changes.earTagNumber = changes.barcode = id
     } else {
       // Milking cows mostly 2–7 years old, some heifers and older cows.
@@ -12650,7 +12664,13 @@ router.post(['/vax/v1-6/create-vaccination-list', '/vax/dec26/create-vaccination
   const data = req.session.data
   const today = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date())
   const notes = {}
-  vaxApplyReportNotes(buildVaxListRows(vaxCphOf(data), 'v1-3'), data).forEach(function (row) {
+  const listRows = buildVaxListRows(vaxCphOf(data), 'v1-3')
+  const recordNote = {}
+  listRows.forEach(function (row) { recordNote[row.officialId] = row.note || '' })
+  vaxApplyReportNotes(listRows, data).forEach(function (row) {
+    // v1-7: a calf reported "too young" that is now 21 days old or more
+    // is no longer too young – back to its record note (none).
+    if (vaxBase(req) === VAX_V17 && row.note === 'Not eligible: too young' && recordNote[row.officialId] !== row.note) row.note = recordNote[row.officialId]
     if (row.note) notes[row.officialId] = row.note
   })
   // Only make a new list if the latest one is out of date – some animal's
@@ -12663,7 +12683,10 @@ router.post(['/vax/v1-6/create-vaccination-list', '/vax/dec26/create-vaccination
     return keys.length === Object.keys(b).length && keys.every(function (k) { return a[k] === b[k] })
   }
   let anchor = '#latest-list'
-  if (latest && latest.notes && same(latest.notes, notes)) {
+  // v1-7: once the latest list has been reported on it can't be
+  // downloaded any more, so a new one is always made.
+  const reportedOn = vaxBase(req) === VAX_V17 && latest && latest.report
+  if (latest && latest.notes && same(latest.notes, notes) && !reportedOn) {
     req.session.vaxListMessage = 'up-to-date'
     anchor = '#vaccination-lists'
   } else {
@@ -12672,8 +12695,16 @@ router.post(['/vax/v1-6/create-vaccination-list', '/vax/dec26/create-vaccination
     // (Not worked out from the live answers, which may be a report still
     // under way.)
     const reports = data['vax-reports'] || []
-    const toReport = reports.length ? reports[reports.length - 1].toReport : vaxEligibleToReport({ 'vax-cph': data['vax-cph'] })
-    data['vax-lists'] = lists.concat({ date: today, notes: notes, toReport: toReport })
+    // v1-7: before any report, every animal on the list is to report on
+    // (the vet decides about the ineligible ones); after one, what it left.
+    const toReport = reports.length ? reports[reports.length - 1].toReport
+      : vaxBase(req) === VAX_V17 ? buildVaxListRows(vaxCphOf(data), 'v1-3').length
+        : vaxEligibleToReport({ 'vax-cph': data['vax-cph'] })
+    // v1-7: a list made the same day as the latest one, which has no report
+    // yet, replaces it – both would have the same heading. On another day,
+    // or once reported, the older list stays.
+    const replace = vaxBase(req) === VAX_V17 && latest && !latest.report && latest.date === today
+    data['vax-lists'] = (replace ? lists.slice(0, -1) : lists).concat({ date: today, notes: notes, toReport: toReport })
   }
   // Back to the same prototype version's task list (v1-6 or dec26), at the
   // new list's download link – or the lists section, with the "still up to
@@ -12688,7 +12719,9 @@ router.get(['/vax/v1-6/2-cphtasklist2', '/vax/dec26/2-cphtasklist2', '/vax/v1-7/
   // dec26 "Cattle to vaccinate": what the last submitted report left, or
   // every eligible animal before any report.
   const reports = req.session.data['vax-reports'] || []
-  res.locals.cattleToVaccinate = reports.length ? reports[reports.length - 1].toReport : vaxEligibleToReport({ 'vax-cph': req.session.data['vax-cph'] })
+  res.locals.cattleToVaccinate = reports.length ? reports[reports.length - 1].toReport
+    : vaxBase(req) === VAX_V17 ? buildVaxListRows(vaxCphOf(req.session.data), 'v1-3').length
+      : vaxEligibleToReport({ 'vax-cph': req.session.data['vax-cph'] })
   // The journey's farm, for the v1-7 task list's heading and CPH details.
   const cph = vaxCphOf(req.session.data)
   const details = getV12FarmDetailsForCph(cph) || {}
@@ -12746,7 +12779,7 @@ router.get('/vax/vaccination-listv4', function (req, res) {
 // cattle report" link on the dec26 task list. Without ?report it shows the
 // latest report; before any report is submitted it shows example answers
 // so the page can still be looked at.
-const VAX_REPORT_FIRST_PAGE_SIZE = 20 // room left under the report details; pages hold whole fives
+const VAX_REPORT_FIRST_PAGE_SIZE = 15 // room left under the report details; pages hold whole fives
 const VAX_REPORT_PAGE_SIZE = 40
 
 // The 3-month medicine withdrawal period ends 3 months after the
@@ -12757,8 +12790,9 @@ function vaxWithdrawalEnds (data) {
   const m = vaxParseMonth(data['vaccination-date-month'])
   const y = vaxParseYear(data['vaccination-date-year'])
   if (!d || !m || !y) return ''
-  const lastDay = new Date(y, m + 3, 0).getDate()
-  const ends = new Date(y, m + 2, Math.min(d, lastDay))
+  // Meat withdrawal is 90 days, so meat can go into the food chain from the
+  // 91st day after vaccination – the date shown.
+  const ends = new Date(y, m - 1, d + 91)
   return vaxFormatDate(ends.getDate(), ends.getMonth() + 1, ends.getFullYear())
 }
 
@@ -12792,6 +12826,26 @@ router.get('/vax/vaxreport_v1', function (req, res) {
 
   const vaccinated = data['vax-vaccinated-cattle'] || []
   const rows = allRows.filter(function (row) { return vaccinated.includes(row.officialId) })
+  // v1-7: cattle not on the list (screen 13) reported as vaccinated, after
+  // the ones on the list, with their own details.
+  if (data['vax-unexpected-answer'] === 'yes') {
+    ;(data['vax-unexpected'] || []).forEach(function (animal) {
+      if (animal.vaccinated !== 'yes') return
+      const found = vaxV17LookUpTag(animal.tag, data)
+      if (!found) return
+      const tag = vaxV17Tag(animal.tag)
+      const digits = tag.slice(2)
+      rows.push({
+        officialId: tag,
+        earTagParts: { prefix: 'UK', herd: digits.slice(0, 6), check: digits.slice(6, 7), individualStart: digits.slice(7, -4), last4: digits.slice(-4) },
+        cells: [
+          { key: 'DOB', value: found.dob },
+          { key: 'Sex', value: found.sex === 'female' ? 'F' : 'M' },
+          { key: 'Breed', value: found.breed }
+        ]
+      })
+    })
+  }
   const sheets = []
   for (let i = 0; i < rows.length || i === 0; i += (i === 0 ? VAX_REPORT_FIRST_PAGE_SIZE : VAX_REPORT_PAGE_SIZE)) {
     sheets.push({ start: i, rows: rows.slice(i, i + (i === 0 ? VAX_REPORT_FIRST_PAGE_SIZE : VAX_REPORT_PAGE_SIZE)) })
@@ -12848,11 +12902,16 @@ function vaxPaperNote (row, note, asAt, opts) {
     const month = Number(m[2]) - 1
     const year = Number(m[3])
     // v4: how long ago, in whole months – "Vaccinated 1 month ago" up to
-    // "Vaccinated 12 months ago". Under a month still reads as 1 month.
+    // "Vaccinated 12 months ago" – or in days in the first month.
     if (opts.monthsAgo) {
       let months = (asAt.getFullYear() - year) * 12 + asAt.getMonth() - month
       if (asAt.getDate() < day) months -= 1
-      months = Math.min(Math.max(months, 1), 12)
+      // Under a month: in days ("Vaccinated 6 days ago").
+      if (months < 1) {
+        const days = Math.max(0, Math.floor((asAt - new Date(year, month, day)) / (24 * 60 * 60 * 1000)))
+        return days === 0 ? 'Vaccinated today' : 'Vaccinated ' + days + (days === 1 ? ' day ago' : ' days ago')
+      }
+      months = Math.min(months, 12)
       return 'Vaccinated ' + months + (months === 1 ? ' month ago' : ' months ago')
     }
     // 8 months on, kept in its month (31 Aug -> 30 Apr, not 1 May).
@@ -12874,6 +12933,27 @@ function renderVaxList (req, res, opts) {
   const version = ['v1-2', 'v1-3', 'v1-4', 'v1-5'].includes(query.version) ? query.version : 'v1-3'
 
   const rows = buildVaxListRows(cph, version)
+  // Each animal's note from its record, before any report's notes.
+  const recordNote = {}
+  rows.forEach(function (row) { recordNote[row.officialId] = row.note || '' })
+  // Cattle given a reason in a submitted report, and cattle reported as
+  // vaccinated – only those are ticked on v4.
+  const reportedReason = {}
+  const reportedVaccinated = {}
+  // When each calf was reported too young (the report's vaccination date).
+  const reportedTooYoungOn = {}
+  ;(req.session.data['vax-reports'] || []).forEach(function (report) {
+    const d = report.data || {}
+    const reasons = vaxCurrentReasons(d)
+    Object.keys(reasons).forEach(function (id) { reportedReason[id] = true })
+    const m = vaxParseMonth(d['vaccination-date-month'])
+    const y = vaxParseYear(d['vaccination-date-year'])
+    const day = Number(d['vaccination-date-day'])
+    const on = m && y && day ? String(day).padStart(2, '0') + '/' + String(m).padStart(2, '0') + '/' + y : ''
+    Object.keys(reasons).forEach(function (id) { if (reasons[id] === 'Not eligible: too young') reportedTooYoungOn[id] = on })
+    ;((report.data || {})['vax-vaccinated-cattle'] || []).forEach(function (id) { reportedVaccinated[id] = true })
+  })
+  if (opts.monthsAgoNote) rows.forEach(function (row) { row.reported = !!reportedVaccinated[row.officialId] })
 
   // ?list=N opens list N exactly as it was made: its notes were saved when
   // it was created (see create-vaccination-list), so a later report – or
@@ -12892,6 +12972,24 @@ function renderVaxList (req, res, opts) {
     const listDate = listRecord && listRecord.date ? new Date(listRecord.date) : new Date()
     const asAt = isNaN(listDate) ? new Date() : listDate
     rows.forEach(function (row) {
+      // v4 (v1-7): a reason given in a report reads as the reason itself –
+      // "Intended for export", "Too young" – not "Not eligible: …". Not
+      // presented isn't a reason: the animal is still to report, so it
+      // keeps its record note. Reported vaccinations still read "Vaccinated
+      // N months ago" below.
+      if (opts.monthsAgoNote && (reportedReason[row.officialId] || row.note !== recordNote[row.officialId])) {
+        // Not presented, or reported too young but 21 days old by now: the
+        // animal's own note again.
+        if (row.note === 'Animal was not presented' || (row.note === 'Not eligible: too young' && recordNote[row.officialId] !== row.note)) {
+          row.note = recordNote[row.officialId]
+        } else if (!/^Not eligible: vaccinated/.test(row.note || '')) {
+          const reason = row.note === 'Not eligible: not present on the CPH' ? 'Not at location'
+            : row.note === 'Not eligible: too young' ? 'Reported too young' + (reportedTooYoungOn[row.officialId] ? ' (' + reportedTooYoungOn[row.officialId] + ')' : '')
+              : String(row.note || '').replace(/^Not eligible: /, '')
+          row.note = reason.charAt(0).toUpperCase() + reason.slice(1)
+          return
+        }
+      }
       row.note = vaxPaperNote(row, row.note, asAt, { daysOld: opts.daysOldNote, revaccination: opts.revaccinationNote, monthsAgo: opts.monthsAgoNote })
     })
   }
@@ -13117,10 +13215,15 @@ function vaxRenderSelect (req, res, screen) {
         locked: !!lock,
         // v1-7 (noteOpts): cattle given "Too young" on 8 just say so, not
         // their age in days.
-        takenFor: !lock ? ''
+        // v1-7: just the reason, without "Not eligible: " in front.
+        takenFor: (function (text) {
+          if (!noteOpts || !/^Not eligible: /.test(text)) return text
+          const reason = text.replace(/^Not eligible: /, '')
+          return reason.charAt(0).toUpperCase() + reason.slice(1)
+        })(!lock ? ''
           : (noteOpts && lock.comment === 'Not eligible: too young') ? 'Too young'
           : (noteOpts && lock.comment === VAX_V17_NOT_PRESENT) ? 'Not at location'
-            : (screen.paperNotes ? vaxPaperNote(row, lock.comment, new Date(), noteOpts) : lock.comment)
+            : (screen.paperNotes ? vaxPaperNote(row, lock.comment, new Date(), noteOpts) : lock.comment))
       })
     })
   })
@@ -13657,6 +13760,13 @@ router.get(['/vax/v1-6/start-report', '/vax/dec26/start-report', '/vax/v1-7/star
         previous[id] = 'Not eligible: vaccinated' + (date ? ' ' + date : '')
       })
     })
+    // v1-7: a calf reported too young that is 21 days old by now can be
+    // vaccinated, so it is to report again.
+    if (vaxBase(req) === VAX_V17) {
+      buildVaxListRows(vaxCphOf(data), 'v1-3').forEach(function (row) {
+        if (previous[row.officialId] === 'Not eligible: too young' && row.note !== 'Not eligible: too young') delete previous[row.officialId]
+      })
+    }
     VAX_REPORT_KEYS.forEach(function (key) { delete data[key] })
     delete data['vax-report-submitted']
     data['vax-previously-reported'] = previous
@@ -13815,6 +13925,11 @@ function vaxRenderCheck (req, res, readOnly, dataOverride) {
         // Its row number on the list (and on the paper chart).
         number: pages.slice(0, p).reduce(function (n, pg) { return n + pg.length }, 0) + rows.indexOf(row) + 1,
         tag: 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart + row.earTagParts.last4,
+        // The tag in two parts, and whether another animal shares its last
+        // 4 digits (a bar above and below them, as on the printed list).
+        tagStart: 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart,
+        last4: row.earTagParts.last4,
+        isDuplicate: !!row.isDuplicate,
         value: value,
         // From the record, not this report: nothing to remove.
         fromRecord: fromRecord,
@@ -14090,6 +14205,34 @@ router.post(VAX_EDIT_PATHS.map(function (p) { return p + '/:id' }), function (re
 // =============================================================================
 const VAX_V17 = '/vax/v1-7'
 const VAX_V17_SELECT = VAX_V17 + '/8-select-cattle'
+
+// 3 – My tasks: is the Pinecone Grove task complete? Either its latest
+// report was complete, or the vet closed the task (4, "Close task"). The
+// date is when that happened.
+const VAX_LONG_DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+router.get(VAX_V17 + '/3-my-tasks', function (req, res, next) {
+  const data = req.session.data
+  const reports = data['vax-reports'] || []
+  const latest = reports[reports.length - 1]
+  if (data['vax-task-closed']) res.locals.taskCompleteOn = data['vax-task-closed']
+  else if (latest && latest.complete === 'yes') {
+    const on = new Date(latest.submittedOn)
+    res.locals.taskCompleteOn = isNaN(on) ? latest.submittedOn : VAX_LONG_DATE.format(on)
+  }
+  next()
+})
+// 4 – "Close task": the task is complete, back to My tasks.
+router.post(VAX_V17 + '/close-task', function (req, res) {
+  req.session.data['vax-task-closed'] = VAX_LONG_DATE.format(new Date())
+  res.redirect(VAX_V17 + '/3-my-tasks')
+})
+
+// 5 – Change on check answers opens it with ?from=check: it saves straight
+// back to check answers (the kit saves the date on the way).
+router.get(VAX_V17 + '/5-vaccination-date', function (req, res, next) {
+  res.locals.fromCheck = (req.query || {}).from === 'check'
+  next()
+})
 
 // 6 – the date page posts here (the kit has saved the date). Change on
 // check answers opens it with ?from=check, and it goes back there.
@@ -14420,7 +14563,6 @@ const VAX_V17_UNEXPECTED_REASONS = [
   { value: 'keeper-declined', text: 'Keeper declined vaccination' },
   { value: 'clinical-condition', text: 'Clinical condition prevents vaccination' },
   { value: 'deceased', text: 'Animal is deceased' },
-  { value: 'partial-dose', text: 'Partial vaccine administration' },
   { value: 'too-young', text: 'Too young to vaccinate' }
 ]
 // "UK" and 10 to 12 digits (12 on a real tag; the design's example has
@@ -14514,8 +14656,9 @@ router.post(VAX_V17 + '/13-enter-unexpected-cattle', function (req, res) {
     }
   })
   if (!animals.length) animals.push({})
-  // Unidentified cattle: the box (unticked sends nothing) and the number.
-  data['vax-unidentified'] = body['vax-unidentified'] === 'yes' ? 'yes' : ''
+  // Unidentified cattle: the box and the number. The kit's own script sends
+  // a ticked box as ['yes', '_unchecked'], so look for 'yes' in either.
+  data['vax-unidentified'] = [].concat(body['vax-unidentified'] || []).includes('yes') ? 'yes' : ''
   data['vax-unidentified-count'] = data['vax-unidentified'] ? String(body['vax-unidentified-count'] || '').trim() : ''
   const action = String(body.action || 'continue')
   const searchMatch = /^search-(\d+)$/.exec(action)

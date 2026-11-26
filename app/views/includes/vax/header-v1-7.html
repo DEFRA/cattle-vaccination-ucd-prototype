@@ -70,9 +70,13 @@
 <section class="govuk-service-navigation" aria-label="Service information" data-module="govuk-service-navigation">
   <div class="govuk-width-container">
     <div class="govuk-service-navigation__container">
+      {# Before log in (guidance, log in) there are no tasks yet: those pages
+         set hideMyTasks, so no "My tasks" link and the service name goes
+         back to the guidance. #}
       <span class="govuk-service-navigation__service-name">
-        <a href="/vax/v1-7/3-my-tasks" class="govuk-service-navigation__link">Bovine TB Vet Portal</a>
+        <a href="{{ '/vax/v1-7/1-guidance' if hideMyTasks else '/vax/v1-7/3-my-tasks' }}" class="govuk-service-navigation__link">Bovine TB Vet Portal</a>
       </span>
+      {% if not hideMyTasks %}
       <nav aria-label="Menu" class="govuk-service-navigation__wrapper">
         <ul class="govuk-service-navigation__list" id="navigation">
           <li class="govuk-service-navigation__item">
@@ -80,6 +84,7 @@
           </li>
         </ul>
       </nav>
+      {% endif %}
       <ul class="app-language-toggle govuk-!-padding-top-3 govuk-!-padding-bottom-3">
         <li class="app-language-toggle__item"><span aria-current="true">English</span></li>
         <li class="app-language-toggle__item"><a class="govuk-link" href="#" lang="cy" hreflang="cy"><span class="govuk-visually-hidden">Newid yr iaith i'r </span>Cymraeg</a></li>

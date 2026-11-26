@@ -10,6 +10,9 @@
 {# Pinecone Grove's task is In progress once work has started on it: a
    vaccination list made, or a report started or submitted. #}
 {% set pineconeStarted = (data['vax-lists'] | length) or (data['vax-reports'] | length) or data['vaccination-date-day'] %}
+{# Complete (Figma: completed card): its latest report was complete, or the
+   task was closed – taskCompleteOn, from the route. #}
+{% set pineconeComplete = taskCompleteOn %}
 
 {% set tasks = [
   {
@@ -17,7 +20,9 @@
     taskNumber: 'bTBV-104523',
     cph: '12/390/6810',
     postcode: 'YO7 4PG',
-    action: 'Continue work' if pineconeStarted else 'Start work',
+    action: 'View work' if pineconeComplete else ('Continue work' if pineconeStarted else 'Start work'),
+    complete: pineconeComplete,
+    completeOn: taskCompleteOn,
     created: '23 days ago',
     booking: '2 December 2026',
     due: '16 December 2026',
@@ -59,7 +64,9 @@
   <div class="govuk-grid-column-two-thirds">
     <h1 class="govuk-heading-l">{{ userName }}’s task list</h1>
 
-    {% for task in tasks %}
+    {# Completed tasks go to the bottom of the list. #}
+    {% set ordered = (tasks | rejectattr('complete')).concat(tasks | selectattr('complete')) %}
+    {% for task in ordered %}
       <div class="govuk-summary-card">
         <div class="govuk-summary-card__title-wrapper">
           <h2 class="govuk-summary-card__title">{{ task.farm }}<br>TB task number {{ task.taskNumber }}</h2>
@@ -83,6 +90,12 @@
               <dt class="govuk-summary-list__key">Post code</dt>
               <dd class="govuk-summary-list__value">{{ task.postcode }}</dd>
             </div>
+            {% if task.complete %}
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">Complete date</dt>
+              <dd class="govuk-summary-list__value">{{ task.completeOn }}</dd>
+            </div>
+            {% else %}
             <div class="govuk-summary-list__row">
               <dt class="govuk-summary-list__key">Task created</dt>
               <dd class="govuk-summary-list__value">{{ task.created }}</dd>
@@ -91,13 +104,14 @@
               <dt class="govuk-summary-list__key">Booking date</dt>
               <dd class="govuk-summary-list__value">{{ task.booking }}</dd>
             </div>
+            {% endif %}
             <!-- <div class="govuk-summary-list__row">
               <dt class="govuk-summary-list__key">Due date</dt>
               <dd class="govuk-summary-list__value">{{ task.due }}</dd>
             </div> -->
             <div class="govuk-summary-list__row">
               <dt class="govuk-summary-list__key">Status</dt>
-              <dd class="govuk-summary-list__value"><strong class="govuk-tag {{ task.tagClass }}">{{ task.status }}</strong></dd>
+              <dd class="govuk-summary-list__value">{% if task.complete %}Complete{% else %}<strong class="govuk-tag {{ task.tagClass }}">{{ task.status }}</strong>{% endif %}</dd>
             </div>
           </dl>
         </div>

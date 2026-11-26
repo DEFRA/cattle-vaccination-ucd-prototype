@@ -102,6 +102,9 @@
   .app-select-table tbody .govuk-table__row:nth-child(5n):not(:last-child) .govuk-table__cell { border-bottom: 3px solid #0b0c0c; }
   @media (max-width: 47.9375em) {
     .app-select-table tbody .govuk-table__row:nth-child(5n):not(:last-child) { border-bottom: 3px solid #0b0c0c; }
+    /* On a phone each cell is its own line: only the row gets the heavy
+       line, not every cell in it. */
+    .app-select-table tbody .govuk-table__row:nth-child(5n):not(:last-child) .govuk-table__cell { border-bottom: 0; }
   }
   /* Running tally: label and count side by side, as in the design. */
   .app-tally { display: flex; flex-wrap: wrap; gap: 0 30px; margin-bottom: 10px; }

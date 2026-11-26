@@ -159,7 +159,9 @@
       <h2 class="govuk-heading-m">Close work order</h2>
       <p class="govuk-body">You can close this task if there is no need to return to the farm to vaccinate the remaining cattle.</p>
       <p class="govuk-body">If another visit to the farm is needed after this task is closed, an APHA administrator can create a bTB vaccination task.</p>
-      <a href="/vax/v1-7/3-my-tasks" role="button" draggable="false" class="govuk-button govuk-button--secondary" data-module="govuk-button">Close task</a>
+      <form action="/vax/v1-7/close-task" method="post" novalidate>
+        <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Close task</button>
+      </form>
     {% endif %}
 
     {% include "includes/vax/contact-us-for-help.html" %}

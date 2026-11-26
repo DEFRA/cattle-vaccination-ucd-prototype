@@ -112,7 +112,7 @@
                       <div class="govuk-form-group">
                         <fieldset class="govuk-fieldset">
                           <legend class="govuk-fieldset__legend">Why wasn’t the animal vaccinated?</legend>
-                          <div class="govuk-radios govuk-radios--small">
+                          <div class="govuk-radios">
                             {% for r in unexpectedReasons %}
                               <div class="govuk-radios__item">
                                 <input class="govuk-radios__input" id="vax-animal-items-{{ i }}-reason-{{ loop.index }}" name="vax-animal-items[{{ i }}][reason]" data-name="vax-animal-items[%index%][reason]" data-id="vax-animal-items-%index%-reason-{{ loop.index }}" type="radio" value="{{ r.value }}"{% if animal.reason == r.value %} checked{% endif %}>

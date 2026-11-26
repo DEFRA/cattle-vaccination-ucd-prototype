@@ -202,20 +202,31 @@
           </div>
         {% endfor %}
 
-        <h2 class="report__heading report__heading--rule">Cattle details</h2>
+        {# Same order as the slip: vaccine, withdrawal, regulations, then the
+           cattle. Meat withdrawal is 90 days (the date shown is day 91);
+           dairy has none. #}
+        <h2 class="report__heading report__heading--rule">Medicine withdrawal period</h2>
         <div class="report-fields">
           <div>
-            <span class="report-field__label">Number of vaccinated cattle</span>
-            <p class="report-field__value">{{ vaccinatedCount }}</p>
+            <span class="report-field__label">Meat can enter the food chain from</span>
+            <p class="report-field__value">{{ withdrawalEnds or '91 days after the vaccination date' }}</p>
           </div>
           <div>
-            <span class="report-field__label">Medicine withdrawal period ends</span>
-            <p class="report-field__value">{{ withdrawalEnds or '3 months after the vaccination date' }}</p>
+            <span class="report-field__label">Dairy withhold</span>
+            <p class="report-field__value">0 days</p>
           </div>
         </div>
 
-        <h2 class="report__heading report__heading--rule">Veterinary medicine regulations</h2>
+        <h2 class="report__heading">Veterinary medicine regulations</h2>
         <p class="report__text">Keep this report with your medicine records. You must keep these details to meet medicine regulations and farm assurance scheme requirements.</p>
+
+        <h2 class="report__heading report__heading--rule">Cattle details</h2>
+        <div class="report-fields">
+          <div>
+            <span class="report-field__label">Number of cattle vaccinated</span>
+            <p class="report-field__value">{{ vaccinatedCount }}</p>
+          </div>
+        </div>
 
         <h2 class="report__heading">Vaccinated cattle</h2>
       {% endif %}

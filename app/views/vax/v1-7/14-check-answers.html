@@ -43,7 +43,7 @@
         <dt class="govuk-summary-list__key">Date of vaccination</dt>
         <dd class="govuk-summary-list__value">{{ vaccinationDate }}</dd>
         {% if not readOnly %}<dd class="govuk-summary-list__actions">
-          <a class="govuk-link" href="/vax/v1-7/5-vaccination-date">Change<span class="govuk-visually-hidden"> date of vaccination</span></a>
+          <a class="govuk-link" href="/vax/v1-7/5-vaccination-date?from=check">Change<span class="govuk-visually-hidden"> date of vaccination</span></a>
         </dd>{% endif %}
       </div>
       {# Worked out from the report: Yes when every animal on the holding has
@@ -82,7 +82,7 @@
         <dt class="govuk-summary-list__key">Vaccinated cattle</dt>
         <dd class="govuk-summary-list__value">{{ vaccinatedCount }}</dd>
         {% if not readOnly %}<dd class="govuk-summary-list__actions">
-          <a class="govuk-link" href="/vax/v1-7/9b-vaccinated-cattle">Change<span class="govuk-visually-hidden"> vaccinated cattle</span></a>
+          <a class="govuk-link" href="/vax/v1-7/9b-vaccinated-cattle?from=check">Change<span class="govuk-visually-hidden"> vaccinated cattle</span></a>
         </dd>{% endif %}
       </div>
       {# Not vaccinated and not eligible – too young, recently vaccinated,
@@ -93,7 +93,7 @@
         <dt class="govuk-summary-list__key">Ineligible cattle</dt>
         <dd class="govuk-summary-list__value">{{ ineligibleCount }}</dd>
         {% if not readOnly %}<dd class="govuk-summary-list__actions">
-          <a class="govuk-link" href="/vax/v1-7/9b-vaccinated-cattle">Change<span class="govuk-visually-hidden"> ineligible cattle</span></a>
+          <a class="govuk-link" href="/vax/v1-7/9b-vaccinated-cattle?from=check">Change<span class="govuk-visually-hidden"> ineligible cattle</span></a>
         </dd>{% endif %}
       </div>
     </dl>
@@ -105,7 +105,7 @@
           {% set note = animalNotes[animal.id] %}
           {% set fifth = loop.index % 5 == 0 and not loop.last %}
           <div class="govuk-summary-list__row{% if animal.earlier or readOnly %} govuk-summary-list__row--no-actions{% endif %}{% if note %} govuk-summary-list__row--no-border{% elif fifth %} app-row--fifth{% endif %}" id="animal-{{ animal.id }}">
-            <dt class="govuk-summary-list__key"><span class="app-row-number">{{ animal.number }}</span>{{ animal.tag }}</dt>
+            <dt class="govuk-summary-list__key"><span class="app-row-number">{{ animal.number }}</span>{% if animal.isDuplicate %}{{ animal.tagStart }}<span class="app-last4--duplicate" title="Another animal on this farm shares the last 4 digits of this ear tag">{{ animal.last4 }}</span>{% else %}{{ animal.tag }}{% endif %}</dt>
             {# "Animal was not presented" (screen 15) shows as a dash, like an
                animal with no answer: quicker to scan. #}
             {# Reasons without "Not eligible: " in front, e.g. "Too young",
@@ -211,6 +211,12 @@
     /* The summary list is a fixed table: 30% is too narrow for the number
        and the whole ear tag, so the key takes 40%. */
     .app-cattle-list .govuk-summary-list__key { width: 40%; }
+  }
+  /* Shared last 4 digits – a bar above and below, as on the printed list
+     and the select screens. */
+  .app-last4--duplicate {
+    border-top: 3px solid #0b0c0c;
+    border-bottom: 3px solid #0b0c0c;
   }
   /* The row just edited, until focus moves on. */
   .app-row--found { background: #fff7bf; }

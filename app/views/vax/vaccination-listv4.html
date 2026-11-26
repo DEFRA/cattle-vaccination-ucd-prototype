@@ -170,6 +170,19 @@
       border: 1.5px solid #0b0c0c;
       vertical-align: middle;
     }
+    /* Reported as vaccinated in a submitted report: already ticked. */
+    .tick-box--ticked { position: relative; }
+    .tick-box--ticked::after {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 0;
+      width: 4px;
+      height: 8px;
+      border: solid #0b0c0c;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
     .visually-hidden {
       position: absolute !important;
       width: 1px !important;
@@ -345,7 +358,7 @@
           <tbody{% if rowNumber % 5 == 0 %} class="row--fifth"{% endif %}>
             <tr>
               <td class="col-number">{{ rowNumber }}</td>
-              <td class="col-check"><span class="tick-box"></span></td>
+              <td class="col-check"><span class="tick-box{% if row.reported %} tick-box--ticked{% endif %}">{% if row.reported %}<span class="visually-hidden">Vaccinated</span>{% endif %}</span></td>
               <td class="col-ear-tag">
                 <span class="ear-tag">
                   {{ row.earTagParts.prefix }} {{ row.earTagParts.herd }}{{ row.earTagParts.check }}{{ row.earTagParts.individualStart }}<span class="ear-tag__last4{% if row.isDuplicate %} ear-tag__last4--duplicate{% endif %}"
