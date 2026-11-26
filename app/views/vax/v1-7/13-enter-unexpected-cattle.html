@@ -43,6 +43,9 @@
   .app-animal .app-animal__hr { margin: 0 0 30px; }
   .app-animal__search { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 30px; }
   .app-animal__search .govuk-form-group { margin-bottom: 0; }
+  /* The button is 38px plus a 2px shadow, the box 40px: lift it 2px so
+     their tops and bottoms line up. */
+  .app-animal__search .govuk-button { margin-bottom: 2px; }
   .app-animal__details p { margin-bottom: 5px; }
   .app-animal [hidden] { display: none; }
 </style>
@@ -81,7 +84,7 @@
                 <p class="govuk-error-message js-animal-tag-error"{% if not animal.errors.tag %} hidden{% endif %}><span class="govuk-visually-hidden">Error:</span> {{ animal.errors.tag or 'You must enter a valid ear tag number' }}</p>
                 <input class="govuk-input govuk-input--width-20 js-animal-tag{% if animal.errors.tag %} govuk-input--error{% endif %}" id="vax-animal-items-{{ i }}-tag" name="vax-animal-items[{{ i }}][tag]" data-name="vax-animal-items[%index%][tag]" data-id="vax-animal-items-%index%-tag" type="text" spellcheck="false" autocomplete="off" value="{{ animal.tag }}">
               </div>
-              <button type="submit" name="action" value="search-{{ i }}" class="govuk-button govuk-!-margin-bottom-0 js-animal-search" data-module="govuk-button">Search</button>
+              <button type="submit" name="action" value="search-{{ i }}" class="govuk-button js-animal-search" data-module="govuk-button">Search</button>
             </div>
 
             <div class="js-animal-more"{% if not animal.found %} hidden{% endif %}>

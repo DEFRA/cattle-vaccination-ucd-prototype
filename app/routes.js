@@ -14563,6 +14563,7 @@ const VAX_V17_UNEXPECTED_REASONS = [
   { value: 'keeper-declined', text: 'Keeper declined vaccination' },
   { value: 'clinical-condition', text: 'Clinical condition prevents vaccination' },
   { value: 'deceased', text: 'Animal is deceased' },
+  { value: 'vaccinated-recently', text: 'Vaccinated recently' },
   { value: 'too-young', text: 'Too young to vaccinate' }
 ]
 // "UK" and 10 to 12 digits (12 on a real tag; the design's example has
