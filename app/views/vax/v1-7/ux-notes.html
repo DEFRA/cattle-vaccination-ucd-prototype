@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>v1-7 UX notes</title>
+  {# Not linked from anywhere: open /vax/v1-7/ux-notes directly. Plain HTML,
+     no GOV.UK layout. Notes on each v1-7 screen: purpose, elements, where
+     data comes from (to fill in), interaction rules, validation, data
+     saved, accessibility (to work out). "Prototype" boxes mark shortcuts
+     and made-up data, not design decisions. #}
+  <style>
+    :root {
+      --bg: #121417;
+      --panel: #1b1e23;
+      --panel-2: #22262c;
+      --line: #33383f;
+      --text: #e6e8eb;
+      --muted: #a3a9b1;
+      --accent: #7cc4ff;
+      --green: #6fd3a0;
+      --amber: #f2c46d;
+      --pink: #f29bc0;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+    a { color: var(--accent); }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: var(--panel-2); padding: 1px 5px; border-radius: 4px; color: #d7dde4; }
+    .layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+    nav {
+      position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+      padding: 24px 18px; border-right: 1px solid var(--line); background: #0f1114;
+    }
+    nav h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+    nav ol { list-style: none; margin: 0 0 20px; padding: 0; }
+    nav li { margin: 0 0 6px; }
+    nav a { text-decoration: none; color: var(--text); font-size: 14px; }
+    nav a:hover, nav a:focus { color: var(--accent); }
+    nav .num { display: inline-block; min-width: 2.2em; color: var(--muted); }
+    main { padding: 32px 40px 80px; max-width: 980px; }
+    h1 { font-size: 30px; margin: 0 0 6px; }
+    .lede { color: var(--muted); margin: 0 0 28px; }
+    .screen { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 22px 26px; margin: 0 0 28px; scroll-margin-top: 20px; }
+    .screen > h2 { font-size: 22px; margin: 0 0 4px; }
+    .path { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+    .screen h3 { font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin: 22px 0 8px; }
+    .screen ul { margin: 0 0 8px; padding-left: 20px; }
+    .screen li { margin: 0 0 5px; }
+    .screen p { margin: 0 0 8px; }
+    .todo { color: var(--amber); font-style: italic; }
+    .proto { border-left: 3px solid var(--pink); background: rgba(242,155,192,.08); padding: 8px 12px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 14.5px; }
+    .proto strong { color: var(--pink); }
+    .msg { color: var(--green); }
+    table { width: 100%; border-collapse: collapse; margin: 4px 0 10px; font-size: 14.5px; }
+    th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 600; }
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      main { padding: 24px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+<nav aria-label="Screens">
+  <h2>Journey</h2>
+  <ol>
+    <li><a href="#s1"><span class="num">1</span>Guidance</a></li>
+    <li><a href="#s2"><span class="num">2</span>Log in</a></li>
+    <li><a href="#s3"><span class="num">3</span>My tasks</a></li>
+    <li><a href="#s4"><span class="num">4</span>CPH task list</a></li>
+    <li><a href="#s5"><span class="num">5</span>Vaccination date</a></li>
+    <li><a href="#s6"><span class="num">6</span>Vaccine batch</a></li>
+    <li><a href="#s7"><span class="num">7</span>Reasons not vaccinated</a></li>
+    <li><a href="#s8"><span class="num">8</span>Select cattle per reason</a></li>
+    <li><a href="#s9"><span class="num">9</span>All eligible vaccinated?</a></li>
+    <li><a href="#s9b"><span class="num">9b</span>Select vaccinated cattle</a></li>
+    <li><a href="#s10"><span class="num">10</span>Add a note?</a></li>
+    <li><a href="#s11"><span class="num">11</span>Add a note</a></li>
+    <li><a href="#s12"><span class="num">12</span>Cattle not on list?</a></li>
+    <li><a href="#s13"><span class="num">13</span>Add cattle not on list</a></li>
+    <li><a href="#s14"><span class="num">14</span>Check your answers</a></li>
+    <li><a href="#s15"><span class="num">15</span>Change an animal</a></li>
+    <li><a href="#s17"><span class="num">17</span>Report submitted</a></li>
+  </ol>
+  <h2>Documents</h2>
+  <ol>
+    <li><a href="#list"><span class="num">—</span>Vaccination list (V4)</a></li>
+    <li><a href="#slip"><span class="num">—</span>Slip</a></li>
+    <li><a href="#report"><span class="num">—</span>Vaccinated cattle report</a></li>
+  </ol>
+  <h2>Across screens</h2>
+  <ol>
+    <li><a href="#header"><span class="num">—</span>Header and banner</a></li>
+    <li><a href="#farm"><span class="num">—</span>Test farm and data</a></li>
+  </ol>
+</nav>
+
+<main>
+  <h1>v1-7 – UX notes</h1>
+  <p class="lede">Screen by screen: purpose, elements, where data comes from, interaction rules, validation, data saved and accessibility. Pink boxes are prototype shortcuts or made-up data, not design decisions. Amber text is for you to fill in.</p>
+
+  <!-- 1 -->
+  <section class="screen" id="s1">
+    <h2>1 – Guidance</h2>
+    <p class="path"><code>/vax/v1-7/1-guidance</code> · Reached from “Start now” on the prototype home page</p>
+    <h3>Purpose</h3>
+    <p>Tells the vet what the service is for and who should use it, before they log in.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Heading “Vaccinate cattle for bovine TB” and a one-line description of the service.</li>
+      <li>“Use this service if you are:” – who can use it (OV or qualified APHA officer, approved tuberculosis vaccinator).</li>
+      <li>“You can use this service to:” – the three things it does.</li>
+      <li>“Continue to log in” button.</li>
+      <li>“Contact us for help” details.</li>
+    </ul>
+    <h3>Where data comes from</h3>
+    <p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>No Back link – it is the first screen.</li>
+      <li>“Continue to log in” goes to Log in (2).</li>
+      <li>The header has no “My tasks” link here (not logged in yet); the service name goes back to this page.</li>
+    </ul>
+    <h3>Validation</h3><p>None.</p>
+    <h3>Data saved</h3><p>Nothing.</p>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 2 -->
+  <section class="screen" id="s2">
+    <h2>2 – Log in</h2>
+    <p class="path"><code>/vax/v1-7/2-log-in</code></p>
+    <h3>Purpose</h3>
+    <p>Signs the vet in. In the prototype it only captures their name.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Fields: Your name, Email address, Password.</li>
+      <li>“Log in” button.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>“Log in” goes to My tasks (3).</li>
+      <li>The name is filled in again if the vet comes back to this page.</li>
+      <li>The name is used for the My tasks heading (“[name]’s task list”) and as “Name of vaccinator” on the vaccinated cattle report.</li>
+      <li>No “My tasks” link in the header on this page.</li>
+    </ul>
+    <h3>Validation</h3><p>None – all fields can be left empty.</p>
+    <div class="proto"><strong>Prototype:</strong> email and password aren’t checked. With no name, My tasks says “[user name]” and the report uses “Alex Morgan”.</div>
+    <h3>Data saved</h3><ul><li>The vet’s name – <code>vaccinator-name</code>.</li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 3 -->
+  <section class="screen" id="s3">
+    <h2>3 – My tasks</h2>
+    <p class="path"><code>/vax/v1-7/3-my-tasks</code> · Also the “My tasks” link in the header</p>
+    <h3>Purpose</h3>
+    <p>Lists the vaccination tasks assigned to the vet, so they can start, continue or view one.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Heading “[name]’s task list”.</li>
+      <li>One summary card per task. Title: farm name, then “TB task number [number]” underneath.</li>
+      <li>Card action: “Start work”, “Continue work” or “View work”.</li>
+      <li>Card rows: Task type, CPH number, Post code, Task created, Booking date, Status. When complete: Complete date instead of Task created and Booking date.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <table>
+      <tr><th>Task state</th><th>Action</th><th>Status</th><th>When</th></tr>
+      <tr><td>To do</td><td>Start work</td><td>Blue “To do” tag</td><td>Nothing done yet.</td></tr>
+      <tr><td>In progress</td><td>Continue work</td><td>Green “In progress” tag</td><td>A vaccination list made, or a report started or submitted.</td></tr>
+      <tr><td>Complete</td><td>View work</td><td>“Complete” (plain text)</td><td>The latest report was complete, or the vet closed the task. Complete date is the day that happened.</td></tr>
+    </table>
+    <ul>
+      <li>Completed tasks move to the bottom of the list.</li>
+      <li>Every action link goes to the CPH task list (4).</li>
+      <li>The card action stays on one line; long titles wrap instead.</li>
+    </ul>
+    <div class="proto"><strong>Prototype:</strong> two hard-coded tasks. Only Pinecone Grove Farm (VACTB-104523) changes state; Hill farm (VACTB-104871) is always “To do” and also opens Pinecone Grove’s task list. Task created, booking date and post codes are example values.</div>
+    <h3>Validation</h3><p>None.</p>
+    <h3>Data saved</h3><p>Nothing – it reads the state of the task.</p>
+    <h3>Accessibility</h3><p class="todo">To be worked out. (Each action link has hidden text naming its farm and task number.)</p>
+  </section>
+
+  <!-- 4 -->
+  <section class="screen" id="s4">
+    <h2>4 – CPH task list</h2>
+    <p class="path"><code>/vax/v1-7/4-cph-task-list</code></p>
+    <h3>Purpose</h3>
+    <p>The task’s hub: farm details, preparing the vaccination list, reporting, the reports made and closing the task.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Back link “Back to ‘My tasks’”.</li>
+      <li>Caption: farm name. Heading “TB vaccination task number [number]”.</li>
+      <li>CPH information: CPH number, keeper name, contact number, email address, address.</li>
+      <li>Prepare for the farm visit: 4 numbered steps, “You can refresh the vaccination list if needed.”, “Create vaccination list” button.</li>
+      <li>“Important” banner when the list is still up to date.</li>
+      <li>One section per list, newest first, headed “Vaccination list: [date]”.</li>
+      <li>Close work order section with a “Close task” button.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <p><strong>Create vaccination list</strong></p>
+    <ul>
+      <li>Makes a new list dated today, unless nothing on it would change – then no list is made and the “Important – The latest vaccination list is still up to date” banner shows.</li>
+      <li>Exception: once the latest list has been reported on, a new list is always made (a reported list can’t be downloaded).</li>
+      <li>If the latest list was made today and hasn’t been reported on, the new list replaces it (so two lists never share a heading). On another day, both stay.</li>
+      <li>After creating, focus and scroll move to the new list’s download link (or to the banner).</li>
+    </ul>
+    <p><strong>A list not yet reported on</strong></p>
+    <ul>
+      <li>“Download vaccination list (opens in a new tab)” – grey “Ready” tag. Opens the printable list as it was when made.</li>
+      <li>“Report vaccination status” – newest list only. Hint “[N] cattle to report”: before any report, every animal on the list (the vet decides about ineligible ones); after a report, what that report left.</li>
+      <li>Status: blue “To do”, or green “In progress” once the report has started.</li>
+      <li>The first report goes straight to the vaccination date (5). Later reports start afresh: answers cleared, cattle already reported carried as reported.</li>
+    </ul>
+    <p><strong>A list reported on</strong></p>
+    <ul>
+      <li>“Report vaccination status” – “Completed”, hint “[N] cattle reported, view report for details” and, if any are left, “[N] cattle still need reporting”.</li>
+      <li>“View vaccination report [CPH] [date] (opens in a new tab)” – green “Ready to view”, hint “The keeper was sent a copy via email”. Opens the vaccinated cattle report.</li>
+    </ul>
+    <p><strong>Close work order</strong></p>
+    <ul>
+      <li>Shown once a report has been submitted.</li>
+      <li>“Close task” marks the task complete (today’s date) and goes to My tasks.</li>
+    </ul>
+    <div class="proto"><strong>Prototype:</strong> keeper name, phone and email are made up. “View work” on a completed task still shows this page with nothing to say it’s closed.</div>
+    <h3>Validation</h3><p>None.</p>
+    <h3>Data saved</h3>
+    <ul>
+      <li>Each list – date, every animal’s note at that moment, cattle to report, and the report made against it – <code>vax-lists</code>.</li>
+      <li>Task closed date – <code>vax-task-closed</code>.</li>
+    </ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 5 -->
+  <section class="screen" id="s5">
+    <h2>5 – Vaccination date</h2>
+    <p class="path"><code>/vax/v1-7/5-vaccination-date</code></p>
+    <h3>Purpose</h3><p>When the cattle were vaccinated – the date of the visit being reported.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Caption “Report TB vaccination for [farm]”, heading “What was the vaccination date?”.</li>
+      <li>Date input (Day, Month, Year), hint “For example, 20 4 2028”.</li>
+      <li>“Continue and save”, “Save and continue later”.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>Continue goes to Vaccine batch (6). From check your answers (Change), it goes back there, and Back does too.</li>
+      <li>Save and continue later goes to the CPH task list.</li>
+      <li>Accepts a 2-digit year (26 = 2026) and the month as a number or a name (Oct, October, Sept – any case).</li>
+    </ul>
+    <h3>Validation</h3>
+    <ul>
+      <li>Any part empty: <span class="msg">You must enter a date</span></li>
+      <li>Not a real date (31 2 2026, letters, a 3-digit year): <span class="msg">You must enter a valid date, for example 12 4 2027</span></li>
+      <li>After today (today is fine): <span class="msg">The vaccination date must be in the past</span></li>
+    </ul>
+    <h3>Data saved</h3><ul><li><code>vaccination-date-day</code>, <code>-month</code>, <code>-year</code>.</li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 6 -->
+  <section class="screen" id="s6">
+    <h2>6 – Vaccine batch</h2>
+    <p class="path"><code>/vax/v1-7/6-vaccine-batch</code></p>
+    <h3>Purpose</h3><p>The vaccine and diluent used.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Heading “Enter vaccine batch details”.</li>
+      <li>Vaccine batch number (hint “For example, 125007G”), vaccine expiry date (month and year), diluent batch number, diluent expiry date.</li>
+      <li>“Continue and save”, “Save and continue later”.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>One batch only.</li>
+      <li>Continue goes to the reasons screen (7); from check your answers, back there.</li>
+    </ul>
+    <h3>Validation</h3>
+    <ul>
+      <li>Batch number empty: <span class="msg">You must enter a vaccine batch number</span> (and the diluent equivalent).</li>
+      <li>Expiry empty: <span class="msg">You must enter a vaccine expiry date</span></li>
+      <li>Expiry not a real month and year: <span class="msg">You must enter a valid vaccine expiry date, for example 4 2027</span></li>
+      <li>Expiry before this month: <span class="msg">The vaccine expiry date must be in the future</span></li>
+      <li>The same three rules for the diluent expiry date.</li>
+    </ul>
+    <h3>Data saved</h3><ul><li>The batch – <code>vaccine-batches</code> (batch number, expiry month and year, diluent number, diluent month and year).</li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 7 -->
+  <section class="screen" id="s7">
+    <h2>7 – Were there any reasons why some cattle could not be vaccinated?</h2>
+    <p class="path"><code>/vax/v1-7/7-why-not-vaccinated</code></p>
+    <h3>Purpose</h3><p>Which reasons apply this visit, so the vet can then pick the cattle for each.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Checkboxes, hint “Select all that apply”: For slaughter in the near future, Intended for export, Intended for germplasm production, Not at location, Keeper declined vaccination, Clinical condition prevents vaccination, Animal is dead, Too young to vaccinate.</li>
+      <li>“Or”, then “No, all presented cattle were vaccinated”.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>“No, all presented cattle were vaccinated” is exclusive: ticking it clears the reasons, and ticking a reason clears it.</li>
+      <li>With reasons: on to one select screen per reason (8), in this order.</li>
+      <li>With “No, all presented…”: straight to screen 9.</li>
+      <li>Coming back and picking reasons after an earlier “all vaccinated” clears the cattle already marked as vaccinated.</li>
+    </ul>
+    <h3>Validation</h3><ul><li>Nothing ticked: <span class="msg">You must select at least one option</span></li></ul>
+    <h3>Data saved</h3><ul><li>The reasons ticked – <code>not-vaccinated-reason</code>.</li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 8 -->
+  <section class="screen" id="s8">
+    <h2>8 – Select all cattle [reason]</h2>
+    <p class="path"><code>/vax/v1-7/8-select-cattle/[reason]</code> · one screen per reason ticked on 7</p>
+    <h3>Purpose</h3><p>Pick the cattle that weren’t vaccinated for this reason.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Heading from the reason, e.g. “Select all cattle for slaughter in the near future”, “Select all cattle not at location”.</li>
+      <li>“Selected animals [n] of [herd size]”, “Selected cattle are saved automatically as you progress.”</li>
+      <li>“Search for an animal” – “Enter the last 4 digits of the official ear tag” (autocomplete).</li>
+      <li>Pagination (top and bottom). Each screen shows three pages of the printed list: “Page N of M — cattle range 0013 - 0076”, “Select all cattle on page N”, a table (No., Select ear tag number, Notes, Date of birth, Sex, Breed).</li>
+      <li>“Continue and save”, “Save and continue later”.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>Pages match the printed list: 35 cattle on page 1, 40 on each after, in the list’s order (last 4 digits of the ear tag).</li>
+      <li>A heavy line after every 5th animal; shared last 4 digits have a bar above and below.</li>
+      <li>Ticks are saved when moving page, searching, continuing or saving for later.</li>
+      <li>Cattle already given another reason (or reported in an earlier report) are shown ticked, greyed and locked, with that reason in Notes (e.g. “Intended for export”, “Too young”).</li>
+      <li>“Select all cattle on page N” ticks every unlocked animal on that page.</li>
+      <li>The count is out of the whole herd and includes cattle already ticked under any reason.</li>
+      <li>Search: type the last 4 digits, pick from the list – that animal is ticked and its page opens focused on its row.</li>
+      <li>The search label and box stick to the top while scrolling (the “Search for an animal” heading scrolls away).</li>
+      <li>Continue: the next reason’s screen, then 9. If the reasons cover every animal, straight to 10.</li>
+      <li>On a phone each row stacks, with labels.</li>
+    </ul>
+    <h3>Validation</h3><p>None – the vet can continue with no cattle ticked.</p>
+    <h3>Data saved</h3><ul><li>The cattle per reason – <code>vax-selected-cattle</code>.</li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out. (The count is a live region; a locked animal’s reason is linked to its checkbox.)</p>
+  </section>
+
+  <!-- 9 -->
+  <section class="screen" id="s9">
+    <h2>9 – Were all eligible cattle on the list vaccinated on [date]?</h2>
+    <p class="path"><code>/vax/v1-7/9-all-cattle-vaccinated</code></p>
+    <h3>Purpose</h3><p>A quick way to mark everyone else as vaccinated, then adjust.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Hint “Selecting ‘Yes’ marks all eligible cattle as vaccinated. You can change this before submitting.”</li>
+      <li>Yes / No radios.</li>
+      <li>“Which cattle are eligible?” details: never vaccinated, or last vaccinated more than 12 months ago.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>Both answers go to 9b.</li>
+      <li>Yes: every animal not given a reason, not reported earlier and not ineligible on the list (too young, vaccinated in the last 12 months) starts ticked on 9b.</li>
+      <li>No: nothing starts ticked.</li>
+      <li>Back goes to the last reason screen (or 7).</li>
+    </ul>
+    <h3>Validation</h3><ul><li>No answer: <span class="msg">Select ‘Yes’ if some cattle still needs to be vaccinated</span></li></ul>
+    <div class="proto"><strong>Prototype:</strong> that error wording is left over from an earlier version – worth rewriting.</div>
+    <h3>Data saved</h3><ul><li><code>all-cattle-vaccinated</code>; with Yes, the vaccinated cattle – <code>vax-vaccinated-cattle</code>.</li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 9b -->
+  <section class="screen" id="s9b">
+    <h2>9b – Select all cattle vaccinated on [date]</h2>
+    <p class="path"><code>/vax/v1-7/9b-vaccinated-cattle</code></p>
+    <h3>Purpose</h3><p>Confirm exactly which cattle were vaccinated.</p>
+    <h3>Elements</h3><p>As screen 8, with the heading “Select all cattle vaccinated on [date]”.</p>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>Same paging, search, sticky search, count and saving as 8.</li>
+      <li>Cattle given a reason on 8, or reported earlier, are locked with their reason.</li>
+      <li>Pre-ticked cattle (after Yes on 9) aren’t locked – the vet can untick them. Cattle vaccinated in the last 12 months aren’t pre-ticked but can be ticked.</li>
+      <li>Continue goes to 10; from check your answers, back there.</li>
+    </ul>
+    <h3>Validation</h3><p>None.</p>
+    <h3>Data saved</h3><ul><li>The vaccinated cattle – <code>vax-vaccinated-cattle</code>.</li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 10 -->
+  <section class="screen" id="s10">
+    <h2>10 – Do you want to add a note about an animal?</h2>
+    <p class="path"><code>/vax/v1-7/10-have-a-note</code></p>
+    <h3>Purpose</h3><p>Whether the vet wants to record notes about any animals on the list.</p>
+    <h3>Elements</h3><ul><li>Yes / No radios, “Continue and save”, “Save and continue later”.</li></ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul><li>Yes: Add a note (11). No: Cattle not on the list? (12) – any notes already added are removed.</li><li>Back goes to 9b.</li></ul>
+    <h3>Validation</h3><ul><li>No answer: <span class="msg">Select yes if you want to add a note about an animal</span></li></ul>
+    <h3>Data saved</h3><ul><li><code>vax-add-note</code></li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 11 -->
+  <section class="screen" id="s11">
+    <h2>11 – Add a note about an animal</h2>
+    <p class="path"><code>/vax/v1-7/11-add-note</code> · MoJ “Add another” component</p>
+    <h3>Purpose</h3><p>Record a note against one or more animals on the list.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Per note: “Note 1” (or “Note 1 of 2”), “Search for an animal” – “Enter the last 4 digits of the ear tag number” (autocomplete).</li>
+      <li>Once an animal is picked: Animal details (Date of birth, Sex, Breed, Last vaccination date) and “Enter a note for this animal”.</li>
+      <li>“Remove note N” under each note when there is more than one, with a line after it.</li>
+      <li>“Add another note”, “Continue and save”, “Save and continue later”.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>Search: up to 4 digits matches the last 4 of the tag; more digits match anywhere in the whole number (e.g. editing a picked tag). Picking fills the box with the full tag and shows the details and note box.</li>
+      <li>Typing over a picked tag clears the animal until another is picked.</li>
+      <li>Last vaccination date: this report’s date if the animal is reported vaccinated in it, else an earlier report’s, else its record, else “Not vaccinated”.</li>
+      <li>Add another note copies the first note, empty. Remove takes that note away and renumbers the rest; focus then moves to the page heading (MoJ’s behaviour).</li>
+      <li>Continue goes to 12.</li>
+    </ul>
+    <h3>Validation</h3>
+    <ul>
+      <li>Search empty or under 4 digits: <span class="msg">Search for an animal by entering the 4 last digits of the official ear tag</span></li>
+      <li>Digits match no animal: <span class="msg">No animal on the list has an ear tag ending in [digits]</span></li>
+      <li>Digits match more than one and none picked: <span class="msg">More than one animal ends in [digits] – choose one from the list</span></li>
+      <li>Note empty: <span class="msg">You must enter a note</span></li>
+    </ul>
+    <h3>Data saved</h3><ul><li>The notes – <code>vax-notes</code> (animal, note).</li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 12 -->
+  <section class="screen" id="s12">
+    <h2>12 – Were there other cattle on the farm that were not on the list?</h2>
+    <p class="path"><code>/vax/v1-7/12-unexpected-cattle</code></p>
+    <h3>Purpose</h3><p>Whether any cattle were found that aren’t on the vaccination list.</p>
+    <h3>Elements</h3><ul><li>Yes / No radios, “Continue and save”, “Save and continue later”.</li></ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul><li>Yes: 13. No: check your answers (14) – cattle already added are removed.</li><li>Back goes to 11 (if adding notes) or 10.</li></ul>
+    <h3>Validation</h3><ul><li>No answer: <span class="msg">Select yes if there were cattle on the farm that were not on the vaccination list</span></li></ul>
+    <h3>Data saved</h3><ul><li><code>vax-unexpected-answer</code></li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 13 -->
+  <section class="screen" id="s13">
+    <h2>13 – Add the cattle that were not on the vaccination list</h2>
+    <p class="path"><code>/vax/v1-7/13-enter-unexpected-cattle</code> · MoJ “Add another” component</p>
+    <h3>Purpose</h3><p>Record each animal found that wasn’t on the list, and any that couldn’t be identified.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Per animal: “Animal 1” (or “Animal 1 of 2”), “Search for an animal” – “Enter the official ear tag number” and a Search button.</li>
+      <li>Once found: Animal details (Date of birth, Sex, Breed, Last vaccination date), “Was this animal vaccinated?” Yes / No. No reveals “Why wasn’t the animal vaccinated?”: For slaughter in the near future, Intended for export, Intended for germplasm production, Keeper declined vaccination, Clinical condition prevents vaccination, Animal is deceased, Vaccinated recently, Too young to vaccinate.</li>
+      <li>“Enter a note for this animal (optional)”.</li>
+      <li>“Remove animal N”, “Add another animal”.</li>
+      <li>Unidentified cattle: “Some cattle could not be identified” checkbox, revealing “How many cattle could not be identified?”.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>Search (or Enter in the box) looks the tag up without leaving the page. Spaces don’t matter; “UK” is added if left off.</li>
+      <li>Add another animal copies the first animal, empty; Remove takes one away and renumbers; focus moves to the page heading after a Remove (MoJ).</li>
+      <li>With unidentified cattle ticked and a number, the vet can continue without entering any animal.</li>
+      <li>Continue goes to check your answers; saving here also records Yes on 12.</li>
+    </ul>
+    <div class="proto"><strong>Prototype:</strong> a tag is “found” if it belongs to an animal on one of the prototype’s other farms (Tarbh, Hill, Mill House…), with that animal’s details. Pinecone Grove’s own tags aren’t found (they’re on the list). Some farms record “Date not recorded” for the last vaccination.</div>
+    <h3>Validation</h3>
+    <ul>
+      <li>Tag empty or not found: <span class="msg">You must enter a valid ear tag number</span></li>
+      <li>Found but no answer to “Was this animal vaccinated?”: <span class="msg">Select ‘Yes’ if the animal was vaccinated</span></li>
+      <li>Unidentified ticked without a whole number of 1 or more: <span class="msg">You must enter a number</span></li>
+    </ul>
+    <h3>Data saved</h3>
+    <ul>
+      <li>The animals – <code>vax-unexpected</code> (tag, vaccinated, reason, note).</li>
+      <li><code>vax-unidentified</code> and <code>vax-unidentified-count</code>.</li>
+    </ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 14 -->
+  <section class="screen" id="s14">
+    <h2>14 – Check your answers before submitting vaccination details</h2>
+    <p class="path"><code>/vax/v1-7/14-check-answers</code></p>
+    <h3>Purpose</h3><p>Review everything – including cattle with no answer – before submitting.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Vaccine details: Date of vaccination, Is the job complete?, batch number, batch expiry, diluent number, diluent expiry.</li>
+      <li>Vaccinated cattle: Vaccinated cattle [n], Ineligible cattle [n].</li>
+      <li>Every animal on the list, page by page (“Page N of M — cattle range …”), with its row number, ear tag, what was recorded and Change. A “Notes” row under an animal with a note.</li>
+      <li>Cattle not on the vaccination list: Added cattle [n] (always shown), Unidentified cattle [n] (only if reported), each added animal with its result and note.</li>
+      <li>Now submit your vaccination details: declaration, “Submit vaccination details”, “Save and continue later”.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>Every animal is listed, answered or not – no answer is shown as “—”.</li>
+      <li>Values: “Vaccinated”; a reason without “Not eligible:” (e.g. “Too young”, “Not at location”); “Vaccinated N months ago” from the record; a calf too young on the list but not given “Too young” reads “[n] days old, not presented”; “Animal was not presented” shows as “—”.</li>
+      <li>Is the job complete?: Yes when every animal has an answer – see screen 17.</li>
+      <li>Heavy line after every 5th animal (under its note if it has one); shared last 4 digits have a bar above and below.</li>
+      <li>Every Change link returns here after “Continue and save”. An animal’s Change opens screen 15 and comes back focused on its row.</li>
+      <li>Added cattle / Unidentified cattle Change open 13.</li>
+      <li>Back goes to 13 or 12.</li>
+    </ul>
+    <h3>Validation</h3><p>None.</p>
+    <h3>Data saved</h3><p>On submit, a copy of the report’s answers – <code>vax-reports</code> – and the list it was made against is marked as reported.</p>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 15 -->
+  <section class="screen" id="s15">
+    <h2>15 – Animal: [ear tag]</h2>
+    <p class="path"><code>/vax/v1-7/15-change-animal/[tag]</code> · from an animal’s Change on 14</p>
+    <h3>Purpose</h3><p>Change what was recorded for one animal.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>“Was animal [tag] vaccinated?” Yes / No. No reveals “Why wasn’t the animal vaccinated?”: Animal was not presented, For slaughter in the near future, Intended for export, Intended for germplasm production, Not at location, Keeper declined vaccination, Clinical condition prevents vaccination, Animal is dead, Too young to vaccinate.</li>
+      <li>“Enter a note for this animal (optional)”.</li>
+      <li>“Continue”, “Save and continue later”.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>Opens on the animal’s current answer.</li>
+      <li>Default: an animal with no answer (not vaccinated, no reason, not vaccinated in the last 12 months on its record, not reported earlier) opens on No – “Animal was not presented”. That includes a calf too young on the list that wasn’t given “Too young”. Nothing is saved until Continue.</li>
+      <li>The note is the same note as on 11: shown here, changed here, removed if emptied.</li>
+      <li>Picking a reason clears “No, all presented cattle were vaccinated” on 7.</li>
+      <li>Continue returns to 14, focused on the animal’s row.</li>
+    </ul>
+    <h3>Validation</h3>
+    <ul>
+      <li>No answer: <span class="msg">Select yes if animal [tag] was vaccinated</span></li>
+      <li>No without a reason: <span class="msg">Select why the animal wasn’t vaccinated</span></li>
+    </ul>
+    <h3>Data saved</h3><ul><li>Updates <code>vax-vaccinated-cattle</code>, <code>vax-selected-cattle</code>, <code>not-vaccinated-reason</code>, <code>vax-notes</code>.</li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- 17 -->
+  <section class="screen" id="s17">
+    <h2>17 – Report submitted</h2>
+    <p class="path"><code>/vax/v1-7/17-submitted</code></p>
+    <h3>Purpose</h3><p>Confirms the report, and whether the task is finished.</p>
+    <h3>Elements</h3>
+    <table>
+      <tr><th>Version</th><th>Shows</th></tr>
+      <tr><td>Complete</td><td>Panel “Vaccination report complete”; “We’ve emailed the TB vaccination report to the livestock keeper. You can also view it in the CPH task list.”; “Return to the task list”.</td></tr>
+      <tr><td>Part</td><td>Panel “Part vaccination report submitted”; the same email line; “Not all cattle have been vaccinated…”; What happens next (5 steps); how to close the task; “Return to the CPH task list”.</td></tr>
+    </table>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li><strong>Complete</strong> when every animal on the list has an answer: vaccinated, a reason (other than “Animal was not presented”), an answer from an earlier report, or vaccinated in the last 12 months on its record.</li>
+      <li><strong>Part</strong> if any animal is not presented, has no answer, or is too young on the list but wasn’t given “Too young”.</li>
+      <li>A complete report also makes the task Complete on My tasks.</li>
+      <li>Cattle not presented stay to report in the next report. A calf reported too young that is 21 days old by the next report is to report again.</li>
+    </ul>
+    <div class="proto"><strong>Prototype:</strong> assumes we have the keeper’s email address. Unidentified cattle and cattle not on the list don’t affect complete / part.</div>
+    <h3>Validation</h3><p>None.</p>
+    <h3>Data saved</h3><ul><li><code>vax-report-complete</code>, cattle still to report, the report itself in <code>vax-reports</code>.</li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- Documents -->
+  <section class="screen" id="list">
+    <h2>Vaccination list (V4)</h2>
+    <p class="path"><code>/vax/vaccination-listv4?cph=…&amp;list=N</code> · “Download vaccination list” on 4, new tab</p>
+    <h3>Purpose</h3><p>The printable list the vet takes to the farm, with a slip at the end.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>Page 1: farm, CPH, vaccination date line, cattle on this list, list created on, boxes for batch details. Then the table: No., tick box, Ear tag number (last 4 in bold), DOB, Sex, Breed, Notes.</li>
+      <li>Footer on each page: range of last 4 digits, page number.</li>
+      <li>A blank page for extra cattle, then the slip.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>35 cattle on page 1, 40 after. Heavy line every 5th row; shared last 4 digits barred.</li>
+      <li>A saved list always shows what it showed when it was made.</li>
+      <li>Notes: “[n] days old” for calves under 21 days; “Vaccinated [n] days ago” in the first month, then “Vaccinated [n] months ago” (to 12) for cattle vaccinated in the last year.</li>
+      <li>After a report: reasons read plainly (“Intended for export”, “Not at location”); cattle reported too young read “Reported too young ([date])” – dropped once 21 days old; cattle not presented have no note.</li>
+      <li>Cattle reported as vaccinated have their tick box ticked.</li>
+    </ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <section class="screen" id="slip">
+    <h2>Slip</h2>
+    <p class="path">Last page of the V4 list</p>
+    <h3>Purpose</h3><p>Filled in by hand by the vet and left with the keeper.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>APHA logo, “Bovine TB vaccination”, farm and CPH, and “Reference number: VACTB-[number]” (the task’s).</li>
+      <li>Vaccine details: vaccination date; vaccine batch number and expiry; diluent batch number and expiry.</li>
+      <li>Medicine withdrawal period: Meat withhold 90 days, Milk withhold 0 days. Veterinary medicine regulations (line under).</li>
+      <li>Cattle details: number of vaccinated cattle.</li>
+      <li>Veterinary surgeon: name; veterinary practice / APHA office and telephone number; signature.</li>
+    </ul>
+    <h3>Interaction rules</h3><ul><li>Fills one A4 sheet, 10mm margins, no page number.</li></ul>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <section class="screen" id="report">
+    <h2>Vaccinated cattle report</h2>
+    <p class="path"><code>/vax/vaxreport_v1?report=N</code> · “View vaccination report” on 4, new tab</p>
+    <h3>Purpose</h3><p>What the submitted report recorded, for the keeper.</p>
+    <h3>Elements</h3>
+    <ul>
+      <li>As the slip, filled in: vaccination date, name of vaccinator, batch details.</li>
+      <li>Medicine withdrawal period: “Meat can enter the food chain from” [date], “Milk withhold” 0 days.</li>
+      <li>Veterinary medicine regulations; Cattle details – “Number of cattle vaccinated”.</li>
+      <li>Table of vaccinated cattle (No., Ear tag number, DOB, Sex, Breed).</li>
+      <li>Footer: farm and CPH (left), page number (middle), vaccination date (right) – farm and date from page 2.</li>
+    </ul>
+    <h3>Where data comes from</h3><p class="todo">To fill in.</p>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>Meat date: 91 days after the vaccination date (the 90-day withhold runs to the day before).</li>
+      <li>Includes the cattle reported as vaccinated, then cattle not on the list reported as vaccinated.</li>
+      <li>15 cattle on page 1, 40 after.</li>
+    </ul>
+    <div class="proto"><strong>Prototype:</strong> nothing marks which cattle weren’t on the list. Before any report, it shows example data.</div>
+    <h3>Accessibility</h3><p class="todo">To be worked out.</p>
+  </section>
+
+  <!-- Across screens -->
+  <section class="screen" id="header">
+    <h2>Header and banner</h2>
+    <h3>Elements</h3>
+    <ul>
+      <li>GOV.UK header; service navigation: “Bovine TB Vet Portal”, “My tasks”, “English | Cymraeg”; Beta banner.</li>
+    </ul>
+    <h3>Interaction rules</h3>
+    <ul>
+      <li>“My tasks” is hidden on Guidance and Log in; there the service name links to Guidance, elsewhere to My tasks.</li>
+      <li>Every report screen has “Save and continue later”, which returns to the CPH task list.</li>
+      <li>“Contact us for help” is on every screen.</li>
+    </ul>
+    <div class="proto"><strong>Prototype:</strong> Cymraeg doesn’t go anywhere. Contact details are placeholders.</div>
+  </section>
+
+  <section class="screen" id="farm">
+    <h2>Test farm and data</h2>
+    <div class="proto"><strong>Prototype:</strong> v1-7 runs on Pinecone Grove Farm (CPH 12/390/6810) – a made-up 407-cow dairy herd: 24 vaccinated in the last 12 months (on pages 2 and 6), 55 calves under 21 days at the bottom of the list (last 3 of page 9, all of 10 and 11). Pages 1, 3, 4, 5, 7 and 8 have no notes. Ages count back from the day the prototype starts. Moving between v1-7 and dec26 / v1-6 clears the report answers.</div>
+  </section>
+
+</main>
+</div>
+</body>
+</html>

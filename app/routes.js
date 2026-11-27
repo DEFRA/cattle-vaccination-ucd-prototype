@@ -1458,9 +1458,11 @@ if (v11AnimalsByCph[PINECONE_CPH]) {
     const t = candidates[i]; candidates[i] = candidates[j]; candidates[j] = t
   }
   const vaccinatedAt = {}
+  let firstOlderVaccinated = -1
   candidates.slice(0, vaccinatedCount).forEach(function (rowIndex, n) {
     vaccinatedAt[rowIndex] = n < recentCount ? 'recent' : 'year'
   })
+  firstOlderVaccinated = Math.min.apply(null, Object.keys(vaccinatedAt).filter(function (k) { return vaccinatedAt[k] === 'year' }).map(Number))
 
   const DAIRY_BREEDS = ['HF', 'HF', 'HF', 'HF', 'HF', 'HF', 'BF', 'FR', 'JE', 'AY']
   const MAX_DAYS = 10 * 365
@@ -1486,7 +1488,9 @@ if (v11AnimalsByCph[PINECONE_CPH]) {
     if (vaccinatedAt[i]) {
       // Two vaccination days, as a vet would do the herd in one or two
       // visits: about 6 weeks ago, and about 8 months ago.
-      const vaxDaysAgo = vaccinatedAt[i] === 'recent' ? 45 : 250
+      // For testing, the first of the older group a little earlier – 262
+      // days, so it reads "8.5 months ago".
+      const vaxDaysAgo = vaccinatedAt[i] === 'recent' ? 45 : (i === firstOlderVaccinated ? 262 : 250)
       if (daysOld < vaxDaysAgo + 60) daysOld = vaxDaysAgo + 60 + Math.floor(rng() * 700)
       const vaccinatedOn = v5DaysAgo(vaxDaysAgo)
       changes.vaccinationStatus = 'Vaccinated'
@@ -12629,7 +12633,12 @@ function vaxApplyReportNotes (rows, data) {
 // reports when arriving from v1-7, since they don't fit Tarbh's cattle.
 // -----------------------------------------------------------------------------
 // The bTB vaccination task each farm's journey belongs to (My tasks).
-const VAX_TASK_NUMBERS = { '12/390/6810': 'bTBV-104523' }
+const VAX_TASK_NUMBERS = { '12/390/6810': 'VACTB-104523' }
+// v1-7 writes ear tags with a space after the 6th digit: UK 624813 100013.
+function vaxV17FormatTag (tag) {
+  const d = String(tag || '').replace(/^UK/i, '').replace(/\s+/g, '')
+  return 'UK ' + d.slice(0, 6) + ' ' + d.slice(6)
+}
 function vaxCphOf (data) {
   return (data && herdData[data['vax-cph']] && data['vax-cph']) || TARBH_CPH
 }
@@ -12851,7 +12860,57 @@ router.get('/vax/vaxreport_v1', function (req, res) {
     sheets.push({ start: i, rows: rows.slice(i, i + (i === 0 ? VAX_REPORT_FIRST_PAGE_SIZE : VAX_REPORT_PAGE_SIZE)) })
   }
 
+  // v1-7: the cattle not vaccinated in this report, and why. Every animal
+  // on the list not reported earlier and not vaccinated now falls under
+  // the reason it was given, or "Vaccinated in the last 12 months" (its
+  // record), or "Not presented" (marked so, or no answer); then cattle not
+  // on the list that weren't vaccinated, under their reason.
+  const notVaccinated = { total: 0, reasons: [] }
+  if (cph === PINECONE_CPH) {
+    const counts = {}
+    const add = function (label) { counts[label] = (counts[label] || 0) + 1; notVaccinated.total++ }
+    const reasonLabel = function (comment) {
+      if (comment === 'Animal was not presented') return 'Not presented'
+      if (comment === 'Not eligible: not present on the CPH') return 'Not at location'
+      if (comment === 'Not eligible: too young') return 'Too young'
+      const r = String(comment || '').replace(/^Not eligible: /, '')
+      return r.charAt(0).toUpperCase() + r.slice(1)
+    }
+    const given = vaxCurrentReasons(data)
+    const earlier = data['vax-previously-reported'] || {}
+    allRows.forEach(function (row) {
+      const id = row.officialId
+      if (earlier[id] || vaccinated.includes(id)) return
+      if (given[id]) add(reasonLabel(given[id]))
+      else if (/^Not eligible: vaccinated/.test(row.note || '')) add('Vaccinated in the last 12 months')
+      else add('Not presented')
+    })
+    if (data['vax-unexpected-answer'] === 'yes') {
+      ;(data['vax-unexpected'] || []).forEach(function (animal) {
+        if (!animal.tag || animal.vaccinated !== 'no') return
+        const shared = VAX_NOT_VACCINATED_REASONS.find(function (r) { return r.value === animal.reason })
+        const own = VAX_V17_UNEXPECTED_REASONS.find(function (r) { return r.value === animal.reason })
+        add(shared ? reasonLabel(shared.comment) : (own ? own.text : 'Not vaccinated'))
+      })
+    }
+    notVaccinated.reasons = Object.keys(counts)
+      .map(function (label) { return { label: label, count: counts[label] } })
+      .sort(function (a, b) { return b.count - a.count })
+  }
+  // The reasons take room on page 1, so fewer cattle there (still fives).
+  if (notVaccinated.reasons.length) {
+    const first = notVaccinated.reasons.length <= 3 ? 10 : 5
+    sheets.length = 0
+    for (let i = 0; i < rows.length || i === 0; i += (i === 0 ? first : VAX_REPORT_PAGE_SIZE)) {
+      sheets.push({ start: i, rows: rows.slice(i, i + (i === 0 ? first : VAX_REPORT_PAGE_SIZE)) })
+    }
+  }
+
   res.render('vax/vaxreport_v1', {
+    notVaccinated: notVaccinated,
+    // v1-7's farm: ear tags with a space after the 6th digit.
+    spacedTags: cph === PINECONE_CPH,
+    taskNumber: VAX_TASK_NUMBERS[cph] || '',
     farm: herdData[cph].farm,
     cph: cph,
     vaccinationDate: vaxFormatDate(data['vaccination-date-day'], data['vaccination-date-month'], data['vaccination-date-year']),
@@ -12904,15 +12963,16 @@ function vaxPaperNote (row, note, asAt, opts) {
     // v4: how long ago, in whole months – "Vaccinated 1 month ago" up to
     // "Vaccinated 12 months ago" – or in days in the first month.
     if (opts.monthsAgo) {
-      let months = (asAt.getFullYear() - year) * 12 + asAt.getMonth() - month
-      if (asAt.getDate() < day) months -= 1
-      // Under a month: in days ("Vaccinated 6 days ago").
-      if (months < 1) {
-        const days = Math.max(0, Math.floor((asAt - new Date(year, month, day)) / (24 * 60 * 60 * 1000)))
-        return days === 0 ? 'Vaccinated today' : 'Vaccinated ' + days + (days === 1 ? ' day ago' : ' days ago')
-      }
-      months = Math.min(months, 12)
-      return 'Vaccinated ' + months + (months === 1 ? ' month ago' : ' months ago')
+      // v4 / v1-7: how long ago, then the date. Up to 30 days in days
+      // ("Vaccinated 6 days ago (20/11/2026)"); from 31 days in months, in halves rounded down
+      // ("1 month ago", "1.5 months ago", up to 12) – a month being 30.44
+      // days, so 45 days is still 1 month and 48 is 1.5.
+      const vaxDay = new Date(year, month, day)
+      const days = Math.max(0, Math.floor((asAt - vaxDay) / (24 * 60 * 60 * 1000)))
+      const on = ' (' + (m[1] ? pad(day) + '/' : '') + pad(month + 1) + '/' + year + ')'
+      if (days <= 30) return 'Vaccinated ' + (days === 0 ? 'today' : days + (days === 1 ? ' day ago' : ' days ago')) + on
+      const months = Math.min(Math.max(Math.floor(days / 30.44 * 2) / 2, 1), 12)
+      return 'Vaccinated ' + months + (months === 1 ? ' month ago' : ' months ago') + on
     }
     // 8 months on, kept in its month (31 Aug -> 30 Apr, not 1 May).
     const lastDay = new Date(year, month + 9, 0).getDate()
@@ -13006,6 +13066,8 @@ function renderVaxList (req, res, opts) {
   res.render(opts.template, {
     farm: herdData[cph].farm,
     cph: cph,
+    // The task's reference number (VACTB-…), for the slip.
+    taskNumber: VAX_TASK_NUMBERS[cph] || '',
     rows: rows,
     sheets: sheets,
     sheetStarts: sheetStarts,
@@ -13181,7 +13243,8 @@ function vaxRenderSelect (req, res, screen) {
       return list.concat(page.map(function (row) {
         return {
           id: row.officialId,
-          prefix: 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart,
+          // v1-7 (paperNotes set to its options): a space after the 6th digit.
+          prefix: 'UK ' + row.earTagParts.herd + (screen.paperNotes && screen.paperNotes !== true ? ' ' : '') + row.earTagParts.check + row.earTagParts.individualStart,
           last4: row.earTagParts.last4,
           number: row.number,
           page: Math.floor(p / group) + 1,
@@ -13924,10 +13987,10 @@ function vaxRenderCheck (req, res, readOnly, dataOverride) {
         id: id,
         // Its row number on the list (and on the paper chart).
         number: pages.slice(0, p).reduce(function (n, pg) { return n + pg.length }, 0) + rows.indexOf(row) + 1,
-        tag: 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart + row.earTagParts.last4,
+        tag: 'UK ' + row.earTagParts.herd + (base === VAX_V17 ? ' ' : '') + row.earTagParts.check + row.earTagParts.individualStart + row.earTagParts.last4,
         // The tag in two parts, and whether another animal shares its last
         // 4 digits (a bar above and below them, as on the printed list).
-        tagStart: 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart,
+        tagStart: 'UK ' + row.earTagParts.herd + (base === VAX_V17 ? ' ' : '') + row.earTagParts.check + row.earTagParts.individualStart,
         last4: row.earTagParts.last4,
         isDuplicate: !!row.isDuplicate,
         value: value,
@@ -13959,7 +14022,7 @@ function vaxRenderCheck (req, res, readOnly, dataOverride) {
     ? (data['vax-unexpected'] || []).filter(function (a) { return a.tag }).map(function (a) {
         const reason = VAX_V17_UNEXPECTED_REASONS.find(function (r) { return r.value === a.reason })
         return {
-          tag: vaxV17Tag(a.tag).replace(/^UK/, 'UK '),
+          tag: vaxV17FormatTag(vaxV17Tag(a.tag)),
           value: a.vaccinated === 'yes' ? 'Vaccinated' : (reason ? reason.text : 'Not vaccinated'),
           note: a.note || ''
         }
@@ -14085,7 +14148,7 @@ router.get(VAX_EDIT_PATHS.map(function (p) { return p + '/:id' }), function (req
   res.render(vaxEditPages(req).template, {
     farm: herdData[vaxCphOf(data)].farm,
     id: id,
-    tag: 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart + row.earTagParts.last4,
+    tag: 'UK ' + row.earTagParts.herd + (vaxBase(req) === VAX_V17 ? ' ' : '') + row.earTagParts.check + row.earTagParts.individualStart + row.earTagParts.last4,
     vaccinated: vaccinated ? 'yes' : (reason || defaultNotPresented ? 'no' : ''),
     batch: String(batch),
     reason: reason || (defaultNotPresented ? 'not-presented' : ''),
@@ -14120,7 +14183,7 @@ router.post(VAX_EDIT_PATHS.map(function (p) { return p + '/:id/remove' }), funct
   Object.keys(selected).forEach(function (r) { selected[r] = without(selected[r]) })
   data['vax-selected-cattle'] = selected
   req.session.vaxRemoved = {
-    tag: 'UK ' + row.earTagParts.herd + row.earTagParts.check + row.earTagParts.individualStart + row.earTagParts.last4,
+    tag: 'UK ' + row.earTagParts.herd + (vaxBase(req) === VAX_V17 ? ' ' : '') + row.earTagParts.check + row.earTagParts.individualStart + row.earTagParts.last4,
     // Every animal was accounted for before; now one isn't.
     nowPart: wasComplete && !vaxReportComplete(data)
   }
@@ -14169,7 +14232,7 @@ router.post(VAX_EDIT_PATHS.map(function (p) { return p + '/:id' }), function (re
   if (vaxBase(req) === VAX_V17) {
     const text = String(body['edit-note'] || '').trim()
     const notes = (data['vax-notes'] || []).filter(function (n) { return n.id !== id })
-    if (text) notes.push({ id: id, search: 'UK ' + id.slice(2), text: text })
+    if (text) notes.push({ id: id, search: vaxV17FormatTag(id), text: text })
     data['vax-notes'] = notes
     if (notes.length) data['vax-add-note'] = 'yes'
   }
@@ -14423,7 +14486,7 @@ function vaxV17Animal (row) {
   const sex = cell('Sex')
   return {
     id: row.officialId,
-    tag: String(row.officialId).replace(/^UK/, 'UK '),
+    tag: vaxV17FormatTag(row.officialId),
     dob: cell('DOB'),
     sex: sex === 'F' ? 'Female' : (sex === 'M' ? 'Male' : sex),
     breed: cell('Breed'),

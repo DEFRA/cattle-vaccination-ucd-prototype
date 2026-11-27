@@ -184,7 +184,7 @@
         </div>
       </div>
     {% endif %}
-    <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
+    <span class="govuk-caption-l">Report TB vaccination for {{ farm }}</span>
     <h1 class="govuk-heading-l">{{ heading }}</h1>
   </div>
 </div>
@@ -328,7 +328,7 @@
                   <div class="govuk-checkboxes__item">
                     <input class="govuk-checkboxes__input js-cattle" id="cattle-{{ row.officialId }}" name="cattle" type="checkbox" value="{{ row.officialId }}" data-section="{{ sid }}"{% if row.checked %} checked{% endif %}{% if row.locked %} disabled{% if row.takenFor %} aria-describedby="cattle-{{ row.officialId }}-taken"{% endif %}{% endif %}>
                     <label class="govuk-label govuk-checkboxes__label" for="cattle-{{ row.officialId }}">
-                      UK {{ row.earTagParts.herd }}{{ row.earTagParts.check }}{{ row.earTagParts.individualStart }}<span class="app-last4{% if row.isDuplicate %} app-last4--duplicate{% endif %}"{% if row.isDuplicate %} title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
+                      UK {{ row.earTagParts.herd }} {{ row.earTagParts.check }}{{ row.earTagParts.individualStart }}<span class="app-last4{% if row.isDuplicate %} app-last4--duplicate{% endif %}"{% if row.isDuplicate %} title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
                     </label>
                   </div>
                 </div>
@@ -360,7 +360,7 @@
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-thirds">
-    {% include "includes/vax/contact-us-for-help.html" %}
+    {% include "includes/vax/contact-us-for-help-v1-7.html" %}
   </div>
 </div>
 

@@ -17,7 +17,7 @@
 {% set tasks = [
   {
     farm: 'Pinecone Grove Farm',
-    taskNumber: 'bTBV-104523',
+    taskNumber: 'VACTB-104523',
     cph: '12/390/6810',
     postcode: 'YO7 4PG',
     action: 'View work' if pineconeComplete else ('Continue work' if pineconeStarted else 'Start work'),
@@ -31,7 +31,7 @@
   },
   {
     farm: 'Hill farm',
-    taskNumber: 'bTBV-104871',
+    taskNumber: 'VACTB-104871',
     cph: '12/345/6789',
     postcode: 'HG3 5QT',
     action: 'Start work',
@@ -80,7 +80,7 @@
           <dl class="govuk-summary-list">
             <div class="govuk-summary-list__row">
               <dt class="govuk-summary-list__key">Task type</dt>
-              <dd class="govuk-summary-list__value">bTB vaccination</dd>
+              <dd class="govuk-summary-list__value">TB vaccination</dd>
             </div>
             <div class="govuk-summary-list__row">
               <dt class="govuk-summary-list__key">CPH number</dt>
@@ -118,7 +118,7 @@
       </div>
     {% endfor %}
 
-    {% include "includes/vax/contact-us-for-help.html" %}
+    {% include "includes/vax/contact-us-for-help-v1-7.html" %}
   </div>
 </div>
 {% endblock %}

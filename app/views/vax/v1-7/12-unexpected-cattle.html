@@ -39,7 +39,7 @@
       <div class="govuk-form-group{% if errorMessage %} govuk-form-group--error{% endif %}">
         <fieldset class="govuk-fieldset"{% if errorMessage %} aria-describedby="vax-unexpected-answer-error"{% endif %}>
           <legend class="govuk-fieldset__legend govuk-fieldset__legend--l">
-            <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
+            <span class="govuk-caption-l">Report TB vaccination for {{ farm }}</span>
             <h1 class="govuk-fieldset__heading">Were there other cattle on the farm that were not on the list?</h1>
           </legend>
           {% if errorMessage %}
@@ -66,7 +66,7 @@
       </div>
     </form>
 
-    {% include "includes/vax/contact-us-for-help.html" %}
+    {% include "includes/vax/contact-us-for-help-v1-7.html" %}
 
   </div>
 </div>

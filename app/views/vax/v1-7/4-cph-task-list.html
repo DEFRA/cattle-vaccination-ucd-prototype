@@ -3,7 +3,7 @@
 {# v1-7 screen 4, CPH task list – the task opened from My tasks (screen 3).
    Figma "CPH dashboard - 1" (node 658:14175): no list yet. The farm and
    its details come from the route (vaxFarm): Pinecone Grove Farm, task
-   bTBV-104523. Once a report is submitted, "Close work order" shows. #}
+   VACTB-104523. Once a report is submitted, "Close work order" shows. #}
 
 {# dec26 CPH task list, after "Create vaccination list".
    Figma "CPH dashboard - 2" (node 658:14416): one list, ready to download
@@ -19,7 +19,7 @@
    not link anywhere yet. #}
 
 {% block pageTitle %}
-  {{ vaxFarm.name }} – bTB vaccination task number {{ vaxFarm.taskNumber }} – GOV.UK
+  {{ vaxFarm.name }} – TB vaccination task number {{ vaxFarm.taskNumber }} – GOV.UK
 {% endblock %}
 
 {% block header %}
@@ -47,7 +47,7 @@
   <div class="govuk-grid-column-two-thirds">
 
     <span class="govuk-caption-l">{{ vaxFarm.name }}</span>
-    <h1 class="govuk-heading-l">bTB vaccination task number <span class="app-nowrap">{{ vaxFarm.taskNumber }}</span></h1>
+    <h1 class="govuk-heading-l">TB vaccination task number <span class="app-nowrap">{{ vaxFarm.taskNumber }}</span></h1>
 
     <h2 class="govuk-heading-m">CPH information</h2>
     <p class="govuk-body govuk-!-margin-bottom-7">
@@ -158,13 +158,13 @@
     {% if reports | length %}
       <h2 class="govuk-heading-m">Close work order</h2>
       <p class="govuk-body">You can close this task if there is no need to return to the farm to vaccinate the remaining cattle.</p>
-      <p class="govuk-body">If another visit to the farm is needed after this task is closed, an APHA administrator can create a bTB vaccination task.</p>
+      <p class="govuk-body">If another visit to the farm is needed after this task is closed, an APHA administrator can create a TB vaccination task.</p>
       <form action="/vax/v1-7/close-task" method="post" novalidate>
         <button type="submit" class="govuk-button govuk-button--secondary" data-module="govuk-button">Close task</button>
       </form>
     {% endif %}
 
-    {% include "includes/vax/contact-us-for-help.html" %}
+    {% include "includes/vax/contact-us-for-help-v1-7.html" %}
 
   </div>
 </div>

@@ -66,7 +66,7 @@
     {% endif %}
 
     <div data-module="moj-add-another">
-      <span class="govuk-caption-l">Report bTB vaccination for {{ farm }}</span>
+      <span class="govuk-caption-l">Report TB vaccination for {{ farm }}</span>
       <h1 class="govuk-heading-l moj-add-another__heading" tabindex="-1">Add the cattle that were not on the vaccination list</h1>
 
       <form action="/vax/v1-7/13-enter-unexpected-cattle" method="post" novalidate id="animal-form">
@@ -176,7 +176,7 @@
       </form>
     </div>
 
-    {% include "includes/vax/contact-us-for-help.html" %}
+    {% include "includes/vax/contact-us-for-help-v1-7.html" %}
 
   </div>
 </div>

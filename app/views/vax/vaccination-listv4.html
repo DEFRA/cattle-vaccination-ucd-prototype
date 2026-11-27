@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ farm }} - bTB vaccination list</title>
+  <title>{{ farm }} - TB vaccination list</title>
 
   {# Standalone print page: no GOV.UK layout, so nothing but the A4
      sheets reaches the printer. Opened from a link in a new tab, e.g.
@@ -66,6 +66,11 @@
     /* The farm heading and the ear-tag ranges keep their own fixed
        sizes; everything else on the sheet prints at 11pt. */
     .sheet-header__title { font-weight: 700; font-size: 24px; line-height: 1.2; }
+    /* Page 1: title, then the CPH and reference number under it, smaller
+       (stacked, not side by side like the footer). */
+    .sheet-header--stacked { flex-direction: column; align-items: flex-start; gap: 2px; }
+    .sheet-header__meta { display: block; font-size: 12pt; line-height: 1.3; }
+    .sheet-header__sep { margin: 0 10px; color: #505a5f; }
     .sheet-header__cph { font-weight: 700; text-align: left; }
     .sheet-footer {
       display: grid;
@@ -75,7 +80,7 @@
     }
     .sheet-footer__page { justify-self: center; font-size: 12pt; text-align: center; line-height: 1.2; }
     /* Farm and CPH, on its own line above "Page X of Y". */
-    .sheet-footer__farm { display: block; font-size: 11pt; }
+    .sheet-footer__farm { display: block; font-size: 11pt; font-weight: 400; }
     /* Pages 2 onwards: no rule under the header. */
     .sheet--continued .sheet-header { border-bottom: 0; }
     .range {
@@ -227,7 +232,9 @@
        rule that tightens page 1's header). */
     .sheet-header.slip__header { padding-bottom: 28px; margin-bottom: 8px; border-bottom: 1px solid #b1b4b6; }
     .slip__title { margin: 0 0 4px; }
-    .slip__farm { margin: 0; font-weight: 700; font-size: 12pt; }
+    .slip__farm { margin: 0; font-weight: 400; font-size: 12pt; }
+    /* Space between the farm line and the reference number. */
+    .slip__farm + .slip__farm { margin-top: 6px; }
     .slip__intro { margin-top: 10px; font-size: 12pt; line-height: 1.3; }
     .slip__intro p { margin: 0 0 6px; }
     /* Rule above the page number, like the one under the heading. */
@@ -245,7 +252,11 @@
     .slip__signature { margin-top: 10px; }
     .slip-field__box--signature { height: 18mm; }
     .slip-field--full { grid-column: 1 / -1; }
-    .slip-field__label { display: block; margin-bottom: 4px; line-height: 1.2; }
+    .slip-field__label { display: block; margin-bottom: 4px; line-height: 1.2; font-size: 12pt; }
+    /* Hint under a label: smaller and grey, as a GOV.UK hint. */
+    .slip-field__hint { display: block; margin-bottom: 6px; font-size: 11pt; line-height: 1.25; color: #505a5f; white-space: nowrap; }
+    /* The hint runs on past its column; the column itself stays put. */
+    .slip-field { min-width: 0; }
     /* Already known, so printed rather than left to fill in. */
     .slip-field__value { font-weight: 700; font-size: 12pt; line-height: 11mm; }
     .slip-field__box { height: 11mm; border: 1px solid #0b0c0c; }
@@ -286,9 +297,11 @@
          little to spare so it never spills onto a second sheet. */
       /* The slip prints on its own page style with 10mm margins, like a
          letter: 297mm less 20mm, with a little to spare. */
-      .slip { page: slip; min-height: 0; height: 275mm; padding: 0; border: 0; }
+      /* No page margin (so the browser has nowhere to print its date and
+         title), the 10mm margin is padding inside the slip instead. */
+      .slip { page: slip; min-height: 0; height: 296mm; padding: 10mm; border: 0; }
       @page { size: A4 portrait; margin: 5mm 10mm; }
-      @page slip { size: A4 portrait; margin: 10mm; }
+      @page slip { size: A4 portrait; margin: 0; }
     }
   </style>
 </head>
@@ -308,8 +321,11 @@
 
       {# Pages 2 onwards have no header: the farm and CPH are in the footer. #}
       {% if pageNumber == 1 %}
-        <div class="sheet-header">
-          <span class="sheet-header__title">{{ farm }} - CPH: {{ cph }} - bTB vaccination list</span>
+        <div class="sheet-header sheet-header--stacked">
+          {# Title, then the CPH and the task's reference number, smaller. #}
+          <span class="sheet-header__title">TB vaccination for {{ farm }}</span>
+          {# One line, so page 1 still fits its 35 cattle. #}
+          <span class="sheet-header__meta">CPH: {{ cph }}{% if taskNumber %}<span class="sheet-header__sep" aria-hidden="true">|</span>Reference number: {{ taskNumber }}{% endif %}</span>
         </div>
       {% endif %}
 
@@ -347,10 +363,10 @@
             <th scope="col" class="col-number">No.</th>
             <th scope="col" class="col-check"><span class="visually-hidden">Tick</span></th>
             <th scope="col" class="col-ear-tag">Ear tag number</th>
-            <th scope="col" class="col-dob">DOB</th>
+            <th scope="col" class="col-dob">DoB</th>
             <th scope="col" class="col-sex">Sex</th>
             <th scope="col" class="col-breed">Breed</th>
-            <th scope="col" class="col-notes">Notes/vaccine batch</th>
+            <th scope="col" class="col-notes">Notes</th>
           </tr>
         </thead>
         {% for row in sheetRows %}
@@ -361,7 +377,7 @@
               <td class="col-check"><span class="tick-box{% if row.reported %} tick-box--ticked{% endif %}">{% if row.reported %}<span class="visually-hidden">Vaccinated</span>{% endif %}</span></td>
               <td class="col-ear-tag">
                 <span class="ear-tag">
-                  {{ row.earTagParts.prefix }} {{ row.earTagParts.herd }}{{ row.earTagParts.check }}{{ row.earTagParts.individualStart }}<span class="ear-tag__last4{% if row.isDuplicate %} ear-tag__last4--duplicate{% endif %}"
+                  {{ row.earTagParts.prefix }} {{ row.earTagParts.herd }} {{ row.earTagParts.check }}{{ row.earTagParts.individualStart }}<span class="ear-tag__last4{% if row.isDuplicate %} ear-tag__last4--duplicate{% endif %}"
                     {% if row.isDuplicate %}title="Another animal on this farm shares the last 4 digits of this ear tag"{% endif %}>{{ row.earTagParts.last4 }}</span>
                 </span>
               </td>
@@ -378,7 +394,7 @@
         <span class="range range--left">{{ range }}</span>
         <span class="sheet-footer__page">
           {# Page 1 already shows the farm and CPH at the top. #}
-          {% if pageNumber > 1 %}<span class="sheet-footer__farm">{{ farm }} - CPH: {{ cph }}</span>{% endif %}
+          {% if pageNumber > 1 %}<span class="sheet-footer__farm">{{ farm }} - CPH: {{ cph }}</span>{% if taskNumber %}<span class="sheet-footer__farm">Reference number: {{ taskNumber }}</span>{% endif %}{% endif %}
           Page {{ pageNumber }} of {{ totalPages }}
         </span>
         <span class="range">{{ range }}</span>
@@ -394,7 +410,7 @@
         <tr>
           <th scope="col" class="col-check"><span class="visually-hidden">Tick</span></th>
           <th scope="col" class="col-ear-tag">Ear tag number</th>
-          <th scope="col" class="col-dob">DOB</th>
+          <th scope="col" class="col-dob">DoB</th>
           <th scope="col" class="col-sex">Sex</th>
           <th scope="col" class="col-breed">Breed</th>
           <th scope="col" class="col-notes">Notes</th>
@@ -416,7 +432,7 @@
     <div class="sheet-footer">
       <span></span>
       <span class="sheet-footer__page">
-        <span class="sheet-footer__farm">{{ farm }} - CPH: {{ cph }} - Blank page for unexpected cattle</span>
+        <span class="sheet-footer__farm">{{ farm }} - CPH: {{ cph }} - Blank page for unexpected cattle</span>{% if taskNumber %}<span class="sheet-footer__farm">Reference number: {{ taskNumber }}</span>{% endif %}
         Page {{ totalPages }} of {{ totalPages }}
       </span>
       <span></span>
@@ -431,14 +447,20 @@
       <div>
         <h1 class="sheet-header__title slip__title">Bovine TB vaccination</h1>
         <p class="slip__farm">{{ farm }} &mdash; CPH number: {{ cph }}</p>
+        {% if taskNumber %}<p class="slip__farm">Reference number: {{ taskNumber }}</p>{% endif %}
       </div>
     </div>
 
 
-        <h2 class="slip__heading">Cattle details</h2>
+        <h2 class="slip__heading">Cattle information</h2>
     <div class="slip-fields">
       <div class="slip-field">
         <span class="slip-field__label">Number of vaccinated cattle</span>
+
+        
+        <!-- {% if taskNumber %}<span class="slip-field__hint">Taken from the vaccination slip with reference {{ taskNumber }}.</span>{% endif %} -->
+
+
         <div class="slip-field__box"></div>
       </div>
     </div>
@@ -478,7 +500,7 @@
         <div class="slip-field__value">90 days</div>
       </div>
       <div class="slip-field">
-        <span class="slip-field__label">Dairy withhold</span>
+        <span class="slip-field__label">Milk withhold</span>
         <div class="slip-field__value">0 days</div>
       </div>
     </div>
